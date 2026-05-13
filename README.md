@@ -1,6 +1,42 @@
 # Personal Cognitive Assistant CLI — Project Vision & Roadmap
 
-# Project Vision
+## Initial project idea
+
+Implementation: a terminal application with access to an LLM via API key.
+
+The assistant should:
+
+- have a personality — name, gender, character/personality traits
+- understand who you are, accumulate information about you, and use it in responses
+- remember what you said and use it in future replies
+- gradually forget information that is not particularly useful
+- have persistent memory — when the application restarts, it should “recall” past sessions
+- be able to search the internet, open web pages, and read YouTube transcripts
+- safely read/write/edit files
+- handle scheduled tasks: checks, reminders, etc.
+
+Recommended architecture for memory, skills, and identity:
+
+- `SOUL.md` — who I am, how I behave (the agent)
+- `IDENTITY.md` — the agent’s name, gender, vibe/personality (can be merged with SOUL.md)
+- `USER.md` — what the agent knows about the user (name, time zone, language, preferences)
+- `AGENTS.md` — behavior rules, how to work with files, limitations, etc.
+
+Memory:
+
+- `MEMORY.md` — long-term memory, “wisdom” — key facts, decisions, lessons
+- `memory/` — folder with daily notes (memory/2026-04-30.md) as well as topics the agent decided to remember
+
+System:
+
+- `HEARTBEAT.md` — checklist for periodic checks, cron jobs, etc.
+- `TOOLS.md` — cheat sheet for your infrastructure: computer/device info, cameras, how to synthesize voice, ffmpeg paths, etc.
+
+Tests:
+
+Think through a system for validating/testing the entire system.
+
+## Project Vision
 
 Build a local-first personal cognitive assistant as a terminal application in Clojure.
 
@@ -47,31 +83,31 @@ over:
 
 ---
 
-# Core Functional Goals
+## Core Functional Goals
 
 The assistant should eventually:
 
-## Identity & Personality
+### Identity & Personality
 
 - have a consistent identity
 - maintain personality traits and behavioral rules
 - have a name, vibe, communication style, and long-term continuity
 
-## Persistent User Understanding
+### Persistent User Understanding
 
 - accumulate information about the user over time
 - remember conversations, preferences, projects, and habits
 - use remembered context in future responses
 - maintain persistent memory between sessions
 
-## Memory Evolution
+### Memory Evolution
 
 - consolidate information into long-term memory
 - summarize and distill important information
 - forget or decay less useful memories over time
 - avoid unbounded context growth
 
-## Tool Usage
+### Tool Usage
 
 - search the internet
 - retrieve and parse web pages
@@ -79,7 +115,7 @@ The assistant should eventually:
 - safely read/write/edit files
 - execute scheduled tasks and reminders
 
-## Runtime Behavior
+### Runtime Behavior
 
 - support long-running execution
 - support background cognition and maintenance tasks
@@ -88,9 +124,9 @@ The assistant should eventually:
 
 ---
 
-# Technical Direction
+## Technical Direction
 
-## Language & Runtime
+### Language & Runtime
 
 Primary language:
 
@@ -112,9 +148,9 @@ Reasoning:
 
 ---
 
-# Core Technology Stack
+## Core Technology Stack
 
-## UI
+### UI
 
 - charm.clj
 
@@ -130,7 +166,7 @@ not:
 
 ---
 
-## System Architecture
+### System Architecture
 
 - Integrant
 - explicit component boundaries
@@ -138,14 +174,14 @@ not:
 
 ---
 
-## Concurrency & Runtime
+### Concurrency & Runtime
 
 - core.async
 - event-oriented runtime model
 
 ---
 
-## Storage
+### Storage
 
 - Markdown
 - EDN
@@ -160,7 +196,7 @@ Storage should remain:
 
 ---
 
-## Networking & APIs
+### Networking & APIs
 
 - hato or http-kit
 - Anthropic/OpenAI APIs initially
@@ -168,7 +204,7 @@ Storage should remain:
 
 ---
 
-## Observability
+### Observability
 
 - Timbre logging
 - Portal
@@ -177,9 +213,9 @@ Storage should remain:
 
 ---
 
-# Architectural Principles
+## Architectural Principles
 
-## Clear Layer Separation
+### Clear Layer Separation
 
 The system should maintain strong boundaries between:
 
@@ -209,7 +245,7 @@ The runtime should:
 
 ---
 
-## Event-Driven Design
+### Event-Driven Design
 
 The system should operate primarily through events.
 
@@ -233,7 +269,7 @@ This enables:
 
 ---
 
-## Declarative Effects
+### Declarative Effects
 
 Cognition should avoid directly mutating the world.
 
@@ -255,7 +291,7 @@ This improves:
 
 ---
 
-# Memory Philosophy
+## Memory Philosophy
 
 The project does NOT treat memory as:
 
@@ -280,7 +316,7 @@ The architecture should support:
 
 ---
 
-# Storage Layout
+## Storage Layout
 
 Planned persistent storage layout:
 
@@ -316,7 +352,7 @@ assistant-data/
 
 ---
 
-# Development Philosophy
+## Development Philosophy
 
 The project intentionally prioritizes:
 
@@ -346,9 +382,9 @@ rather than attempting to build a fully autonomous agent immediately.
 
 ---
 
-# Incremental Roadmap
+## Incremental Roadmap
 
-# Phase 0 — Foundation & Boilerplate
+### Phase 0 — Foundation & Boilerplate
 
 Goal:
 Establish development ergonomics and architectural skeleton.
@@ -367,7 +403,7 @@ No AI functionality yet.
 
 ---
 
-# Phase 1 — Runtime & State Model
+### Phase 1 — Runtime & State Model
 
 Goal:
 Build the core event-driven runtime.
@@ -385,7 +421,7 @@ Still no sophisticated AI behavior.
 
 ---
 
-# Phase 2 — Persistent Storage & Memory Foundation
+### Phase 2 — Persistent Storage & Memory Foundation
 
 Goal:
 Create durable inspectable storage.
@@ -401,7 +437,7 @@ Deliverables:
 
 ---
 
-# Phase 3 — LLM Integration
+### Phase 3 — LLM Integration
 
 Goal:
 Introduce controlled LLM interaction.
@@ -418,7 +454,7 @@ The LLM should not yet directly execute tools or mutate state.
 
 ---
 
-# Phase 4 — Tool System
+### Phase 4 — Tool System
 
 Goal:
 Create deterministic and observable tool execution.
@@ -436,7 +472,7 @@ Deliverables:
 
 ---
 
-# Phase 5 — Memory Retrieval
+### Phase 5 — Memory Retrieval
 
 Goal:
 Make the assistant context-aware.
@@ -458,7 +494,7 @@ Focus on:
 
 ---
 
-# Phase 6 — Scheduling & Background Cognition
+### Phase 6 — Scheduling & Background Cognition
 
 Goal:
 Introduce time-based behavior.
@@ -476,7 +512,7 @@ Background work should operate through events.
 
 ---
 
-# Phase 7 — Explicit Cognitive Pipeline
+### Phase 7 — Explicit Cognitive Pipeline
 
 Goal:
 Formalize cognition stages.
@@ -499,7 +535,7 @@ Each stage should remain:
 
 ---
 
-# Phase 8 — Personality & Long-Term Evolution
+### Phase 8 — Personality & Long-Term Evolution
 
 Goal:
 Evolve the assistant into a persistent long-term system.
@@ -515,7 +551,7 @@ Deliverables:
 
 ---
 
-# Phase 9 — Optional Advanced Features
+### Phase 9 — Optional Advanced Features
 
 Potential future directions:
 
