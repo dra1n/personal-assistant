@@ -199,7 +199,7 @@ Storage should remain:
 ### Networking & APIs
 
 - hato or http-kit
-- Anthropic/OpenAI APIs initially
+- OpenAI/Anthropic APIs initially
 - local model support later
 
 ---
