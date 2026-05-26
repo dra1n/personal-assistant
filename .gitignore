@@ -1,1 +1,8 @@
 .claude/
+.cpcache/
+.lsp/
+.clj-kondo/
+.calva/
+.portal/
+.nrepl-port
+target/

@@ -9,7 +9,7 @@ Phase 0 is mergeable when all automated checks pass **and** the manual REPL demo
 Run from project root:
 
 ```sh
-clojure -T:test
+clojure -M:test
 ```
 
 All of the following must pass:
