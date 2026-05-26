@@ -15,7 +15,19 @@ See [PROJECT.md](PROJECT.md) for the full vision, architecture decisions, and ro
 
 ## Running
 
-Start the nREPL server (editor-driven workflow):
+Start the app:
+
+```sh
+clojure -M:run
+```
+
+Press `Ctrl+C` to quit.
+
+---
+
+### REPL (editor-driven development)
+
+Start the nREPL server:
 
 ```sh
 clojure -M:dev:nrepl

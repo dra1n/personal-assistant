@@ -17,5 +17,7 @@
                       "--middleware" "[cider.nrepl/cider-middleware]"
                       "--port" "7888"]}
 
+  :run  {:main-opts ["-m" "pa.core"]}
+
   :test {:extra-paths ["test"]
          :main-opts   ["-m" "runner"]}}}
