@@ -1,42 +1,5 @@
 # Personal Cognitive Assistant CLI — Project Vision & Roadmap
 
-## Developer Setup
-
-### Requirements
-
-- **Java 21 LTS or newer** — check with `java -version`
-- **Clojure CLI 1.12.x or newer** — check with `clojure --version`
-- Install Clojure CLI: https://clojure.org/guides/install_clojure
-
-### REPL (nREPL on port 7888)
-
-Start the REPL with the `:dev` alias:
-
-```sh
-clojure -M:dev
-```
-
-Connect your editor:
-- **VS Code / Calva**: `Calva: Connect to a Running REPL Server` → host `localhost`, port `7888`
-- **Emacs / CIDER**: `M-x cider-connect` → host `localhost`, port `7888`
-
-Once connected, `dev/user.clj` is auto-loaded. Use these helpers:
-
-```clojure
-(start)   ; initialize and start all Integrant components
-(stop)    ; halt all components cleanly
-(reset)   ; stop + reload namespaces + start (no JVM restart needed)
-(system)  ; inspect the live system map
-```
-
-### Running Tests
-
-```sh
-clojure -M:test
-```
-
----
-
 ## Initial project idea
 
 Implementation: a terminal application with access to an LLM via API key.
