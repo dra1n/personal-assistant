@@ -25,20 +25,228 @@ Goal: Establish development ergonomics and architectural skeleton. No AI functio
 
 ## Phase 1 — Runtime & State Model
 
-Goal: Build the core event-driven runtime.
+Goal: Build the foundational event-driven cognitive runtime.
 
-- [ ] Define the event schema (EDN map with `:type`, `:id`, `:timestamp`, `:payload`)
-- [ ] Implement event dispatcher — routes events to registered handlers
-- [ ] Define effect descriptor schema (`:effect/type`, `:effect/params`)
-- [ ] Implement effect executor — receives effect descriptors, dispatches side effects
-- [ ] Wire dispatcher and executor through the Integrant system
-- [ ] Implement in-memory state atom with transition functions
-- [ ] Persist events to an append-only EDN log file
-- [ ] Write a replay function: load log → re-run events → reconstruct state
+This phase establishes:
+- runtime orchestration
+- deterministic event processing
+- effect execution
+- coeffect injection
+- observability foundations
+- replay/debugging capabilities
+
+This is runtime engineering, not AI engineering. No sophisticated cognition yet.
+
+Avoid:
+- autonomous loops
+- complex memory retrieval
+- embeddings
+- agent frameworks
+- direct tool execution from handlers
+
+**Core architectural model**
+
+The runtime follows a re-frame-inspired architecture:
+
+```text
+event
+  -> coeffect injection
+  -> event handler
+  -> declarative effects
+  -> runtime effect execution
+```
+
+Handlers should:
+- receive contextual inputs through coeffects
+- return declarative effects
+- avoid direct side effects
+- remain mostly deterministic and testable
+
+The runtime executes effects explicitly.
+
+Conceptual runtime loop:
+
+```text
+dispatch event
+   ↓
+inject coeffects
+   ↓
+run event handler
+   ↓
+obtain effects map
+   ↓
+execute effects
+   ↓
+effects may dispatch more events
+```
+
+**Event model**
+
+Events represent immutable facts — things that already happened. Events should be immutable, serializable, persistable, and traceable.
+
+Examples:
+
+```clojure
+{:event/type :user/message
+ :text "hello"}
+```
+
+```clojure
+{:event/type :scheduler/tick}
+```
+
+```clojure
+{:event/type :memory/stored}
+```
+
+- [ ] Define event schema (EDN map with `:event/type`, `:id`, `:timestamp`; payload as top-level keys)
+- [ ] Implement event dispatcher — routes events to registered handlers by `:event/type`
+- [ ] Wire dispatcher as an Integrant component
+
+**Coeffects**
+
+Handlers should not directly fetch runtime dependencies. Runtime context is injected through coeffects.
+
+```clojure
+{:db ...
+ :now ...
+ :config ...
+ :runtime ...
+ :event ...
+}
+```
+
+Future coeffects may include: retrieved memories, active tasks, identity/personality context, scheduler state.
+
+Handlers become context-aware reducers rather than imperative services.
+
+- [ ] Define coeffect map schema (`{:db :now :config :runtime :event}`)
+- [ ] Implement coeffect injector for each key: `:db` (current state), `:now` (wall clock), `:config`, `:runtime`, `:event` (the triggering event)
+- [ ] Wire coeffect injection into the dispatch pipeline: enrich context before handler runs
+- [ ] Handlers receive coeffect map and return effects map — no direct side effects inside handlers
+
+**Effect system**
+
+Handlers return declarative effects maps. Effects represent intended operations, not immediate execution. The runtime owns effect execution.
+
+Example:
+
+```clojure
+{:state
+ (update db :conversation conj
+         {:role :user
+          :text (:text event)})
+
+ :dispatch
+ {:event/type :conversation/updated}
+
+ :log/info
+ {:message "User message received"}}
+```
+
+Effect vocabulary for this phase:
+
+Runtime effects:
+```clojure
+:state
+:dispatch
+:dispatch-later
+```
+
+Observability effects:
+```clojure
+:log/info
+:trace
+:tap
+```
+
+Persistence effects (`:event/store`) are defined here but implemented in Phase 2. Additional effect types (HTTP, tools, memory persistence, scheduling, embeddings, notifications) are added in later phases.
+
+- [ ] Define effect descriptor schema (map keyed by effect type, values are params)
+- [ ] Implement `:state` effect — applies a transition function to the in-memory state atom
+- [ ] Implement `:dispatch` effect — enqueues a new event onto the event bus
+- [ ] Implement `:dispatch-later` effect — schedules a delayed event dispatch
+- [ ] Implement `:log/info` effect — writes structured log entry via Timbre
+- [ ] Implement `:trace` effect — records a trace entry in the runtime trace log
+- [ ] Implement `:tap` effect — emits a value via `tap>` for Portal inspection
+- [ ] Implement effect executor: receives effects map returned by handler, dispatches each effect type
+- [ ] Wire effect executor as an Integrant component alongside the dispatcher
+
+The runtime should maintain an effect execution registry:
+
+```clojure
+(defmulti execute-effect ...)
+```
+
+Effect execution should remain observable, traceable, replaceable, and testable.
+
+Distinguish between:
+- Pure/internal effects: `:state`, `:dispatch`
+- External/non-deterministic effects: HTTP requests, filesystem access, API calls
+
+This distinction matters for replay, testing, and deterministic debugging.
+
+**Runtime state**
+
+Runtime state should only change through effects. Avoid direct atom mutation, hidden `swap!`, and arbitrary side effects inside handlers. The `:state` effect is the canonical state transition mechanism.
+
+This improves replayability, observability, debugging, and auditability.
+
+Initial runtime state should remain intentionally small — this is runtime operational state, not long-term assistant memory:
+
+```clojure
+{:conversation []
+ :tasks {}
+ :events/recent []
+ :ui {}
+}
+```
+
+- [ ] Define initial runtime state shape (`{:conversation [], :tasks {}, :events/recent [], :ui {}}`)
+- [ ] State transitions only via `:state` effect — no direct `swap!` or `reset!` outside the executor
+
+**Interceptor chain**
+
+The runtime should support interceptor-style processing similar to re-frame.
+
+Potential interceptor responsibilities: tracing, logging, metrics, validation, timing, safety checks, effect auditing.
+
+```text
+event
+ -> tracing interceptor
+ -> coeffect injection
+ -> handler
+ -> effect validation
+ -> effect tracing
+ -> effect execution
+```
+
+- [ ] Design interceptor chain: tracing → coeffect injection → handler → effect validation → effect execution
+- [ ] Implement interceptor protocol and chain runner; all dispatch flows through the chain
+
+**Replayability foundations**
+
+The architecture should support reconstructing runtime behavior from initial state + event history. This enables deterministic debugging, event replay, cognition inspection, and runtime tracing. Replayability is a core architectural goal.
+
+- [ ] Accumulate dispatched events in `:events/recent` runtime state
+- [ ] Write replay function: reconstruct state from initial state + in-memory event sequence (no persistence yet — that is Phase 2)
 - [ ] Expose runtime state via `tap>` for Portal inspection
-- [ ] Write unit tests for dispatch → state transitions
+
+**UI boundary**
+
+The UI must remain a thin runtime client. The UI dispatches events and subscribes to runtime state. The UI must not directly mutate state, execute tools, or call cognition logic. This separation is a core architectural constraint.
+
+- [ ] Enforce UI boundary: charm.clj only dispatches events and reads runtime state — no direct state mutation, no cognition calls
+
+**Tests**
+
+- [ ] Write unit tests for dispatch → coeffect injection → handler → state transition
 - [ ] Write property-based tests for event schema validation (test.check)
-- [ ] Write replay test: persist fixture events to log, replay, assert reconstructed state matches expected
+- [ ] Write replay test: fixture event sequence → replay → assert reconstructed state matches expected
+
+**Deliverables**
+
+By the end of Phase 1, the system should support: runtime state model, event dispatching, coeffect injection, effect execution, declarative state transitions, structured tracing, replay/debugging foundations, observable runtime behavior, and thin UI integration. No advanced AI behavior required yet.
 
 ---
 
@@ -47,6 +255,9 @@ Goal: Build the core event-driven runtime.
 Goal: Create durable, inspectable storage.
 
 - [ ] Create `assistant-data/` directory layout (identity/, memory/, cognition/, tasks/, system/)
+- [ ] Persist events to an append-only EDN log file (`assistant-data/events/events.edn`)
+- [ ] Update replay function to load log from disk → re-run events → reconstruct state
+- [ ] Write replay test: persist fixture events to disk log, replay, assert reconstructed state matches expected
 - [ ] Write identity loader: parse `soul.md`, `identity.md`, `user.md` into EDN maps at startup
 - [ ] Define memory record schema (`:id`, `:type`, `:content`, `:created-at`, `:tags`)
 - [ ] Implement Markdown memory writer: serialize memory records to `memory/daily/YYYY-MM-DD.md`
