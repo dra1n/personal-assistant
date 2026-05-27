@@ -405,19 +405,396 @@ No AI functionality yet.
 
 ### Phase 1 — Runtime & State Model
 
-Goal:
-Build the core event-driven runtime.
+#### Goal
 
-Deliverables:
+Build the foundational event-driven cognitive runtime.
 
-- runtime state model
-- event processing pipeline
-- effect system
-- state transitions
-- event persistence
-- replay/debugging foundations
+This phase establishes:
 
-Still no sophisticated AI behavior.
+* runtime orchestration
+* deterministic event processing
+* effect execution
+* coeffect injection
+* observability foundations
+* replay/debugging capabilities
+
+This is primarily:
+
+* runtime engineering
+  not:
+* AI engineering
+
+No sophisticated cognition yet.
+
+Avoid:
+
+* autonomous loops
+* complex memory retrieval
+* embeddings
+* agent frameworks
+* direct tool execution from handlers
+
+---
+
+#### Core Architectural Model
+
+The runtime should follow a re-frame-inspired architecture:
+
+```text
+event
+  -> coeffect injection
+  -> event handler
+  -> declarative effects
+  -> runtime effect execution
+```
+
+Handlers should:
+
+* receive contextual inputs through coeffects
+* return declarative effects
+* avoid direct side effects
+* remain mostly deterministic and testable
+
+The runtime executes effects explicitly.
+
+---
+
+#### Runtime Flow
+
+Conceptual runtime loop:
+
+```text
+dispatch event
+   ↓
+inject coeffects
+   ↓
+run event handler
+   ↓
+obtain effects map
+   ↓
+execute effects
+   ↓
+effects may dispatch more events
+```
+
+---
+
+#### Event Model
+
+Events represent:
+
+* immutable facts
+* things that already happened
+
+Examples:
+
+```clojure
+{:event/type :user/message
+ :text "hello"}
+```
+
+```clojure
+{:event/type :scheduler/tick}
+```
+
+```clojure
+{:event/type :memory/stored}
+```
+
+Events should:
+
+* be immutable
+* serializable
+* persistable
+* traceable
+
+---
+
+#### Coeffects
+
+Handlers should not directly fetch runtime dependencies.
+
+Instead, runtime context should be injected through coeffects.
+
+Possible coeffects:
+
+```clojure
+{:db ...
+ :now ...
+ :config ...
+ :runtime ...
+ :event ...
+}
+```
+
+Future coeffects may include:
+
+* retrieved memories
+* active tasks
+* identity/personality context
+* scheduler state
+
+Handlers become:
+
+* context-aware reducers
+  rather than:
+* imperative services
+
+---
+
+#### Effect System
+
+Handlers return declarative effects maps.
+
+Example:
+
+```clojure
+{:state
+ (update db :conversation conj
+         {:role :user
+          :text (:text event)})
+
+ :dispatch
+ {:event/type :conversation/updated}
+
+ :log/info
+ {:message "User message received"}}
+```
+
+Effects represent:
+
+* intended operations
+  not:
+* immediate execution
+
+The runtime owns effect execution.
+
+---
+
+#### State Management
+
+Runtime state should only change through effects.
+
+Avoid:
+
+* direct atom mutation
+* hidden swap!
+* arbitrary side effects inside handlers
+
+The `:state` effect becomes the canonical state transition mechanism.
+
+This improves:
+
+* replayability
+* observability
+* debugging
+* auditability
+
+---
+
+#### Initial Effect Vocabulary
+
+##### Runtime Effects
+
+```clojure
+:state
+:dispatch
+:dispatch-later
+```
+
+##### Observability Effects
+
+```clojure
+:log/info
+:trace
+:tap
+```
+
+##### Persistence Effects
+
+```clojure
+:event/store
+```
+
+Additional effect types will be added in later phases:
+
+* HTTP
+* tools
+* memory persistence
+* scheduling
+* embeddings
+* notifications
+
+---
+
+#### Effect Execution Layer
+
+The runtime should maintain an effect execution registry.
+
+Example conceptual model:
+
+```clojure
+(defmulti execute-effect ...)
+```
+
+Effect execution should remain:
+
+* observable
+* traceable
+* replaceable
+* testable
+
+The runtime should distinguish between:
+
+##### Pure/Internal Effects
+
+Examples:
+
+* `:state`
+* `:dispatch`
+
+and:
+
+##### External/Non-Deterministic Effects
+
+Examples:
+
+* HTTP requests
+* filesystem access
+* API calls
+
+This distinction becomes important for:
+
+* replay
+* testing
+* deterministic debugging
+
+---
+
+#### Event Persistence
+
+Important events should be persisted.
+
+Initial persistence goals:
+
+* replayability
+* debugging
+* cognition tracing
+* crash investigation
+
+SQLite may initially store:
+
+* event history
+* runtime traces
+* task execution state
+
+---
+
+#### Replayability
+
+The architecture should support reconstructing runtime behavior from:
+
+* initial state
+* event history
+
+This enables:
+
+* deterministic debugging
+* event replay
+* cognition inspection
+* runtime tracing
+
+Replayability is a core architectural goal.
+
+---
+
+#### Interceptors & Middleware
+
+The runtime should eventually support interceptor-style processing similar to re-frame.
+
+Potential interceptor responsibilities:
+
+* tracing
+* logging
+* metrics
+* validation
+* timing
+* safety checks
+* effect auditing
+
+Conceptually:
+
+```text
+event
+ -> tracing interceptor
+ -> coeffect injection
+ -> handler
+ -> effect validation
+ -> effect tracing
+ -> effect execution
+```
+
+---
+
+#### Runtime State Model
+
+Initial runtime state should remain intentionally small.
+
+Example:
+
+```clojure
+{:conversation []
+ :tasks {}
+ :events/recent []
+ :ui {}
+}
+```
+
+This is:
+
+* runtime operational state
+  not:
+* long-term assistant memory
+
+Long-term memory is introduced in later phases.
+
+---
+
+#### UI Boundary
+
+The UI must remain a thin runtime client.
+
+The UI:
+
+* dispatches events
+* subscribes to runtime state
+
+The UI must not:
+
+* directly mutate state
+* execute tools
+* call cognition logic
+
+This separation is a core architectural constraint.
+
+---
+
+#### Deliverables
+
+By the end of Phase 1, the system should support:
+
+* runtime state model
+* event dispatching
+* coeffect injection
+* effect execution
+* declarative state transitions
+* event persistence
+* structured tracing
+* replay/debugging foundations
+* observable runtime behavior
+* thin UI integration
+
+No advanced AI behavior is required yet.
 
 ---
 
