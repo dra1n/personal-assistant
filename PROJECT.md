@@ -671,25 +671,6 @@ This distinction becomes important for:
 
 ---
 
-#### Event Persistence
-
-Important events should be persisted.
-
-Initial persistence goals:
-
-* replayability
-* debugging
-* cognition tracing
-* crash investigation
-
-SQLite may initially store:
-
-* event history
-* runtime traces
-* task execution state
-
----
-
 #### Replayability
 
 The architecture should support reconstructing runtime behavior from:
@@ -788,7 +769,6 @@ By the end of Phase 1, the system should support:
 * coeffect injection
 * effect execution
 * declarative state transitions
-* event persistence
 * structured tracing
 * replay/debugging foundations
 * observable runtime behavior
@@ -808,6 +788,7 @@ Deliverables:
 - assistant-data structure
 - markdown memory storage
 - SQLite indexing
+- event persistence
 - memory protocols/interfaces
 - identity loading
 - structured persistence
