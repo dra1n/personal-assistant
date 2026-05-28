@@ -26,7 +26,7 @@
   [event-type]
   (get @registry event-type))
 
-(defn registered-types
+(defn ^:export registered-types
   "Return the set of all registered event types."
   []
   (set (keys @registry)))
