@@ -4,7 +4,7 @@
             [pa.config :as config]
             [pa.logging]
             [pa.observability]
-            [pa.runtime]
+            [pa.runtime.dispatcher]
             [pa.ui]))
 
 (defn- start-test-system []
@@ -18,7 +18,7 @@
     (let [sys (start-test-system)]
       (is (map? sys))
       (is (contains? sys :pa.logging/timbre))
-      (is (contains? sys :pa.runtime/event-bus))
+      (is (contains? sys :pa.runtime/dispatcher))
       (ig/halt! sys))))
 
 (deftest system-halts
@@ -27,10 +27,9 @@
       (is (nil? (ig/halt! sys))))))
 
 (deftest event-bus-lifecycle
-  (testing "event bus channel is open after init and closed after halt"
-    (let [sys   (start-test-system)
-          bus   (:pa.runtime/event-bus sys)
-          ch    (:channel bus)]
+  (testing "dispatcher channel is open after init"
+    (let [sys (start-test-system)
+          ch  (get-in sys [:pa.runtime/dispatcher :channel])]
       (is (some? ch))
       (ig/halt! sys))))
 

@@ -3,7 +3,7 @@
             [pa.config :as config]
             [pa.logging]
             [pa.observability]
-            [pa.runtime]
+            [pa.runtime.dispatcher]
             [pa.ui]))
 
 (defonce ^:private state (atom nil))
