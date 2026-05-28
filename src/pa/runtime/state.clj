@@ -22,3 +22,6 @@
   "Return a snapshot of the current runtime state. Used by the coeffect injector."
   []
   @db)
+
+;; Append-only trace log. Each entry is a map written by the :trace effect.
+(def trace-log (atom []))

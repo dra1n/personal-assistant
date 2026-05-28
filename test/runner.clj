@@ -3,7 +3,8 @@
             pa.system-test
             pa.runtime.events-test
             pa.runtime.dispatcher-test
-            pa.runtime.coeffects-test))
+            pa.runtime.coeffects-test
+            pa.runtime.executor-test))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (test/run-all-tests #"pa\..*-test")]

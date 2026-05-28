@@ -3,6 +3,7 @@
             [integrant.core :as ig]
             [pa.runtime.coeffects :as coeffects]
             [pa.runtime.events :as events]
+            [pa.runtime.executor :as executor]
             [pa.runtime.registry :as registry]
             [taoensso.timbre :as log]))
 
@@ -22,7 +23,10 @@
     (if handler
       (do
         (log/debug "dispatching" (:event/type event) (:event/id event))
-        (handler (coeffects/inject-coeffects event system-context)))
+        (let [coeffects (coeffects/inject-coeffects event system-context)
+              effects   (handler coeffects)]
+          (when (map? effects)
+            (executor/execute-effects! effects (:runtime system-context)))))
       (log/debug "no handler registered for" (:event/type event)))))
 
 (defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config]}]

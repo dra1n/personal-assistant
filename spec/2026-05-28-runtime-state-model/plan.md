@@ -117,19 +117,19 @@ Distinguish pure/internal effects from external/non-deterministic ones — this 
 
 Effect execution must remain observable, traceable, replaceable, and testable.
 
-- [ ] Define effect descriptor schema: map keyed by effect type, values are params; document each type inline
-- [ ] Implement `execute-effect` multimethod skeleton — default method logs unknown effect type as a warning and no-ops
-- [ ] Annotate the registry with the pure/internal vs. external/non-deterministic distinction (comment or metadata)
-- [ ] Implement `:state` effect — applies a transition function to the in-memory state atom
-- [ ] Implement `:dispatch` effect — enqueues a new event onto the core.async event bus channel
-- [ ] Implement `:dispatch-later` effect — schedules a delayed dispatch using a `core.async` timeout channel
-- [ ] Implement `:log/info` effect — writes a structured log entry via Timbre
-- [ ] Implement `:trace` effect — records a trace entry map in the runtime trace log (atom or channel)
-- [ ] Implement `:tap` effect — emits a value via `tap>` for Portal inspection
-- [ ] Add `:event/store` to the registry as a defined-but-not-implemented stub (no-op with a log warning); this makes Phase 2 a drop-in
-- [ ] Implement effect executor: iterates the effects map returned by a handler, calls `execute-effect` for each key
-- [ ] Wire effect executor as an Integrant component alongside the dispatcher
-- [ ] **Tests:** unit test each effect method in isolation (`:state` transitions atom correctly, `:dispatch` enqueues, `:dispatch-later` fires after delay, `:log/info` calls Timbre, `:tap` emits, `:trace` records); test unknown effect type no-ops and logs warning; test `:event/store` stub no-ops
+- [x] Define effect descriptor schema: map keyed by effect type, values are params; document each type inline
+- [x] Implement `execute-effect` multimethod skeleton — default method logs unknown effect type as a warning and no-ops
+- [x] Annotate the registry with the pure/internal vs. external/non-deterministic distinction (comment or metadata)
+- [x] Implement `:db` effect — resets runtime state atom to the new value (renamed from `:state` for symmetry with `:db` coeffect)
+- [x] Implement `:dispatch` effect — enqueues a new event onto the core.async event bus channel
+- [x] Implement `:dispatch-later` effect — schedules a delayed dispatch using a `core.async` timeout channel
+- [x] Implement `:log/info` effect — writes a structured log entry via Timbre
+- [x] Implement `:trace` effect — records a trace entry map in the runtime trace log (atom or channel)
+- [x] Implement `:tap` effect — emits a value via `tap>` for Portal inspection
+- [x] Add `:event/store` to the registry as a defined-but-not-implemented stub (no-op with a log warning); this makes Phase 2 a drop-in
+- [x] Implement effect executor: iterates the effects map returned by a handler, calls `execute-effect` for each key
+- [x] Wire effect executor into the dispatcher (no separate Integrant component needed — executor is stateless)
+- [x] **Tests:** unit test each effect method in isolation (`:db` transitions atom correctly, `:dispatch` enqueues, `:dispatch-later` fires after delay, `:log/info` calls Timbre, `:tap` emits, `:trace` records); test unknown effect type no-ops and logs warning; test `:event/store` stub no-ops
 
 ### Group 4 — Runtime state
 
