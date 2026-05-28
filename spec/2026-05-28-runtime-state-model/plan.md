@@ -38,11 +38,11 @@ Example events:
 {:event/type :memory/stored}
 ```
 
-- [ ] Define event schema: EDN map with `:event/type` (namespaced keyword), `:id` (uuid), `:timestamp` (inst), and top-level payload keys
-- [ ] Write a `make-event` constructor that stamps `:id` and `:timestamp` automatically
-- [ ] Implement event dispatcher: a registry (atom of `{event-type → handler-fn}`) plus a `dispatch!` entry point that routes by `:event/type`
-- [ ] Wire dispatcher as an Integrant component (start: initialize registry; halt: drain and close)
-- [ ] **Tests:** unit tests for `make-event` shape (all required keys present, correct types); unit tests for dispatch routing (correct handler called, unknown `:event/type` no-ops without throwing)
+- [x] Define event schema: EDN map with `:event/type` (namespaced keyword), `:id` (uuid), `:timestamp` (inst), and top-level payload keys
+- [x] Write a `make-event` constructor that stamps `:id` and `:timestamp` automatically
+- [x] Implement event dispatcher: a registry (atom of `{event-type → handler-fn}`) plus a `dispatch!` entry point that routes by `:event/type`
+- [x] Wire dispatcher as an Integrant component (start: initialize registry; halt: drain and close)
+- [x] **Tests:** unit tests for `make-event` shape (all required keys present, correct types); unit tests for dispatch routing (correct handler called, unknown `:event/type` no-ops without throwing)
 
 ### Group 2 — Coeffects
 
@@ -60,12 +60,12 @@ Coeffect map shape:
 
 Future coeffects (later phases): retrieved memories, active tasks, identity/personality context, scheduler state.
 
-- [ ] Define coeffect map schema (`{:db :now :config :runtime :event}`)
-- [ ] Implement injector for each key: `:db` (deref state atom), `:now` (wall clock), `:config` (system config map), `:runtime` (Integrant system ref), `:event` (the triggering event)
-- [ ] Expose `inject-coeffects` as a composable function: takes the raw event + system context, returns the enriched coeffect map
-- [ ] Wire coeffect injection into the dispatch pipeline: enrich context before handler runs (this wiring happens in the interceptor chain in Group 5; document the connection point here)
-- [ ] Enforce handler contract: handlers receive coeffect map and return effects map — no direct side effects inside handlers; document this as a code convention and verify with a linting/grep step
-- [ ] **Tests:** unit tests for each injector with fixture inputs; assert coeffect map contains all five keys with correct values
+- [x] Define coeffect map schema (`{:db :now :config :runtime :event}`)
+- [x] Implement injector for each key: `:db` (deref state atom), `:now` (wall clock), `:config` (system config map), `:runtime` (Integrant system ref), `:event` (the triggering event)
+- [x] Expose `inject-coeffects` as a composable function: takes the raw event + system context, returns the enriched coeffect map
+- [x] Wire coeffect injection into the dispatch pipeline: enrich context before handler runs (this wiring happens in the interceptor chain in Group 5; document the connection point here)
+- [x] Enforce handler contract: handlers receive coeffect map and return effects map — no direct side effects inside handlers; document this as a code convention and verify with a linting/grep step
+- [x] **Tests:** unit tests for each injector with fixture inputs; assert coeffect map contains all five keys with correct values
 
 ### Group 3 — Effect system
 

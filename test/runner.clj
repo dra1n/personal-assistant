@@ -2,7 +2,8 @@
   (:require [clojure.test :as test]
             pa.system-test
             pa.runtime.events-test
-            pa.runtime.dispatcher-test))
+            pa.runtime.dispatcher-test
+            pa.runtime.coeffects-test))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (test/run-all-tests #"pa\..*-test")]

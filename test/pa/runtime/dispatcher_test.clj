@@ -20,7 +20,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- start-dispatcher []
-  (ig/init-key :pa.runtime/dispatcher {}))
+  (ig/init-key :pa.runtime/dispatcher {:config {:env :test}}))
 
 (defn- stop-dispatcher [component]
   (ig/halt-key! :pa.runtime/dispatcher component))
@@ -39,30 +39,30 @@
         (finally (stop-dispatcher d))))))
 
 (deftest dispatch-routes-to-registered-handler
-  (testing "dispatch! calls the registered handler for the event type"
+  (testing "handler receives coeffect map; event payload accessible via :event key"
     (let [d        (start-dispatcher)
           received (atom nil)
           _        (registry/reg-handler :test/ping
-                     (fn [event] (reset! received event)))]
+                     (fn [coeffects] (reset! received coeffects)))]
       (try
         ((:dispatch! d) {:event/type :test/ping :payload 42})
         (Thread/sleep 50)
         (is (some? @received))
-        (is (= :test/ping (:event/type @received)))
-        (is (= 42 (:payload @received)))
+        (is (= :test/ping (get-in @received [:event :event/type])))
+        (is (= 42 (get-in @received [:event :payload])))
         (finally (stop-dispatcher d))))))
 
 (deftest dispatch-stamps-id-and-timestamp
-  (testing "dispatch! stamps :event/id and :event/timestamp onto the event"
+  (testing "dispatched event has :event/id and :event/timestamp stamped"
     (let [d        (start-dispatcher)
           received (atom nil)
           _        (registry/reg-handler :test/stamp
-                     (fn [event] (reset! received event)))]
+                     (fn [coeffects] (reset! received coeffects)))]
       (try
         ((:dispatch! d) {:event/type :test/stamp})
         (Thread/sleep 50)
-        (is (uuid? (:event/id @received)))
-        (is (inst? (:event/timestamp @received)))
+        (is (uuid? (get-in @received [:event :event/id])))
+        (is (inst? (get-in @received [:event :event/timestamp])))
         (finally (stop-dispatcher d))))))
 
 (deftest dispatch-unknown-event-type-no-ops
