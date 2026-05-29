@@ -10,16 +10,16 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 Goal: Establish development ergonomics and architectural skeleton. No AI functionality.
 
-- [ ] Create `deps.edn` with initial dependencies (Integrant, Timbre, core.async, Portal)
-- [ ] Define namespace layout (`pa.core`, `pa.system`, `pa.runtime`, etc.)
-- [ ] Wire Integrant system map with placeholder components
-- [ ] Add Timbre logging with basic console appender
-- [ ] Set up Portal integration and `tap>` plumbing in dev namespace
-- [ ] Add `dev/user.clj` with REPL helpers (`start`, `stop`, `reset`)
-- [ ] Add charm.clj dependency; render a static "hello" terminal frame
-- [ ] Create a minimal event bus (core.async channel + dispatcher stub)
-- [ ] Confirm system starts, stops cleanly, and REPL workflow is ergonomic
-- [ ] Write smoke tests: system starts, all Integrant components initialize and halt without error
+- [x] Create `deps.edn` with initial dependencies (Integrant, Timbre, core.async, Portal)
+- [x] Define namespace layout (`pa.core`, `pa.system`, `pa.runtime`, etc.)
+- [x] Wire Integrant system map with placeholder components
+- [x] Add Timbre logging with basic console appender
+- [x] Set up Portal integration and `tap>` plumbing in dev namespace
+- [x] Add `dev/user.clj` with REPL helpers (`start`, `stop`, `reset`)
+- [x] Add charm.clj dependency; render a static "hello" terminal frame
+- [x] Create a minimal event bus (core.async channel + dispatcher stub)
+- [x] Confirm system starts, stops cleanly, and REPL workflow is ergonomic
+- [x] Write smoke tests: system starts, all Integrant components initialize and halt without error
 
 ---
 
@@ -99,9 +99,9 @@ Examples:
 {:event/type :memory/stored}
 ```
 
-- [ ] Define event schema (EDN map with `:event/type`, `:id`, `:timestamp`; payload as top-level keys)
-- [ ] Implement event dispatcher — routes events to registered handlers by `:event/type`
-- [ ] Wire dispatcher as an Integrant component
+- [x] Define event schema (EDN map with `:event/type`, `:id`, `:timestamp`; payload as top-level keys)
+- [x] Implement event dispatcher — routes events to registered handlers by `:event/type`
+- [x] Wire dispatcher as an Integrant component
 
 **Coeffects**
 
@@ -120,10 +120,10 @@ Future coeffects may include: retrieved memories, active tasks, identity/persona
 
 Handlers become context-aware reducers rather than imperative services.
 
-- [ ] Define coeffect map schema (`{:db :now :config :runtime :event}`)
-- [ ] Implement coeffect injector for each key: `:db` (current state), `:now` (wall clock), `:config`, `:runtime`, `:event` (the triggering event)
-- [ ] Wire coeffect injection into the dispatch pipeline: enrich context before handler runs
-- [ ] Handlers receive coeffect map and return effects map — no direct side effects inside handlers
+- [x] Define coeffect map schema (`{:db :now :config :runtime :event}`)
+- [x] Implement coeffect injector for each key: `:db` (current state), `:now` (wall clock), `:config`, `:runtime`, `:event` (the triggering event)
+- [x] Wire coeffect injection into the dispatch pipeline: enrich context before handler runs
+- [x] Handlers receive coeffect map and return effects map — no direct side effects inside handlers
 
 **Effect system**
 
@@ -162,15 +162,15 @@ Observability effects:
 
 Persistence effects (`:event/store`) are defined here but implemented in Phase 2. Additional effect types (HTTP, tools, memory persistence, scheduling, embeddings, notifications) are added in later phases.
 
-- [ ] Define effect descriptor schema (map keyed by effect type, values are params)
-- [ ] Implement `:state` effect — applies a transition function to the in-memory state atom
-- [ ] Implement `:dispatch` effect — enqueues a new event onto the event bus
-- [ ] Implement `:dispatch-later` effect — schedules a delayed event dispatch
-- [ ] Implement `:log/info` effect — writes structured log entry via Timbre
-- [ ] Implement `:trace` effect — records a trace entry in the runtime trace log
-- [ ] Implement `:tap` effect — emits a value via `tap>` for Portal inspection
-- [ ] Implement effect executor: receives effects map returned by handler, dispatches each effect type
-- [ ] Wire effect executor as an Integrant component alongside the dispatcher
+- [x] Define effect descriptor schema (map keyed by effect type, values are params)
+- [x] Implement `:db` effect — resets the in-memory state atom to the new value
+- [x] Implement `:dispatch` effect — enqueues a new event onto the event bus
+- [x] Implement `:dispatch-later` effect — schedules a delayed event dispatch
+- [x] Implement `:log/info` effect — writes structured log entry via Timbre
+- [x] Implement `:trace` effect — records a trace entry in the runtime trace log
+- [x] Implement `:tap` effect — emits a value via `tap>` for Portal inspection
+- [x] Implement effect executor: receives effects map returned by handler, dispatches each effect type
+- [x] Wire effect executor into the dispatcher (stateless — no separate Integrant component needed)
 
 The runtime should maintain an effect execution registry:
 
@@ -202,8 +202,8 @@ Initial runtime state should remain intentionally small — this is runtime oper
 }
 ```
 
-- [ ] Define initial runtime state shape (`{:conversation [], :tasks {}, :events/recent [], :ui {}}`)
-- [ ] State transitions only via `:state` effect — no direct `swap!` or `reset!` outside the executor
+- [x] Define initial runtime state shape (`{:conversation [], :tasks {}, :events/recent [], :ui {}}`)
+- [x] State transitions only via `:db` effect — no direct `swap!` or `reset!` outside the executor
 
 **Interceptor chain**
 
@@ -221,28 +221,30 @@ event
  -> effect execution
 ```
 
-- [ ] Design interceptor chain: tracing → coeffect injection → handler → effect validation → effect execution
-- [ ] Implement interceptor protocol and chain runner; all dispatch flows through the chain
+- [x] Design interceptor chain: tracing → coeffect injection → handler → effect validation → effect tracing → effect execution
+- [x] Implement interceptor protocol and chain runner; all dispatch flows through the chain
+- [x] Support per-handler interceptors: reg-handler accepts an optional interceptor vector for event-type-specific coeffect injection
 
 **Replayability foundations**
 
 The architecture should support reconstructing runtime behavior from initial state + event history. This enables deterministic debugging, event replay, cognition inspection, and runtime tracing. Replayability is a core architectural goal.
 
-- [ ] Accumulate dispatched events in `:events/recent` runtime state
-- [ ] Write replay function: reconstruct state from initial state + in-memory event sequence (no persistence yet — that is Phase 2)
-- [ ] Expose runtime state via `tap>` for Portal inspection
+- [x] Accumulate dispatched events in `:events/recent` runtime state
+- [x] Write replay function: reconstruct state from initial state + in-memory event sequence (no persistence yet — that is Phase 2)
+- [x] Expose runtime state via `tap>` after every `:db` transition (via `db-tap-interceptor`)
 
 **UI boundary**
 
 The UI must remain a thin runtime client. The UI dispatches events and subscribes to runtime state. The UI must not directly mutate state, execute tools, or call cognition logic. This separation is a core architectural constraint.
 
-- [ ] Enforce UI boundary: charm.clj only dispatches events and reads runtime state — no direct state mutation, no cognition calls
+- [x] Enforce UI boundary: pa.ui.* dispatches events and reads runtime state only via pa.runtime.queries — no direct state mutation, no cognition calls
+- [x] Subscribe mechanism: tap> → core.async channel → recurring charm command delivers :runtime/db-updated into the loop
+- [x] Query layer: pa.runtime.queries provides pure selector fns; all consumers use these instead of reaching into db structure directly
 
 **Tests**
 
-- [ ] Write unit tests for dispatch → coeffect injection → handler → state transition
-- [ ] Write property-based tests for event schema validation (test.check)
-- [ ] Write replay test: fixture event sequence → replay → assert reconstructed state matches expected
+- [x] Write unit tests for dispatch → coeffect injection → handler → state transition
+- [x] Write replay test: fixture event sequence → replay → assert reconstructed state matches expected
 
 **Deliverables**
 
