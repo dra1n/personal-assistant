@@ -6,8 +6,10 @@
 ;; This is the single source of truth for operational runtime state.
 ;; It is intentionally small — this is not long-term memory.
 ;;
-;; MUTATION RULE: only pa.runtime.executor (Group 3) may call swap! or reset!
-;; on db. All other code reads via current-db.
+;; MUTATION RULE: two permitted mutation sites only —
+;;   1. pa.runtime.executor/execute-effect :db  — applies handler state transitions
+;;   2. pa.runtime.dispatcher/process-event!    — appends to :events/recent before handler runs
+;; All other code reads via current-db. No swap!/reset! elsewhere.
 ;; ---------------------------------------------------------------------------
 
 (def initial-db

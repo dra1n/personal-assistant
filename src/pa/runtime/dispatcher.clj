@@ -5,6 +5,7 @@
             [pa.runtime.events :as events]
             [pa.runtime.executor :as executor]
             [pa.runtime.registry :as registry]
+            [pa.runtime.state :as state]
             [taoensso.timbre :as log]))
 
 ;; ---------------------------------------------------------------------------
@@ -19,6 +20,8 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- process-event! [event system-context]
+  ;; Permitted mutation site 2: accumulate event into :events/recent before handler runs.
+  (swap! state/db update :events/recent conj event)
   (let [handler (registry/get-handler (:event/type event))]
     (if handler
       (do

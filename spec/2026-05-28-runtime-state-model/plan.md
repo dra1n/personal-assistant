@@ -143,10 +143,10 @@ Initial state (intentionally small — this is operational state, not long-term 
  :ui            {}}
 ```
 
-- [ ] Define the initial runtime state map with the shape above
-- [ ] Enforce state transition discipline: no `swap!` or `reset!` outside `pa.runtime.executor`; add a comment marking the permitted location
-- [ ] Accumulate each dispatched event into `:events/recent` as part of the dispatch pipeline (before handler runs, not inside handlers)
-- [ ] **Tests:** assert state only changes via `:state` effect; assert `:events/recent` grows by one entry per dispatched event; assert initial state shape matches spec
+- [x] Define the initial runtime state map with the shape above
+- [x] Enforce state transition discipline: two permitted mutation sites documented — `:db` effect executor and `:events/recent` accumulation in dispatcher; all other code reads via `current-db`
+- [x] Accumulate each dispatched event into `:events/recent` as part of the dispatch pipeline (before handler runs, not inside handlers)
+- [x] **Tests:** assert state only changes via `:db` effect; assert `:events/recent` grows by one entry per dispatched event; assert initial state shape matches spec
 
 ### Group 5 — Interceptor chain
 
