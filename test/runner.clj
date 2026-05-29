@@ -6,6 +6,7 @@
             pa.runtime.coeffects-test
             pa.runtime.executor-test
             pa.runtime.interceptors-test
+            pa.runtime.replay-test
             pa.runtime.state-test))
 
 (defn -main [& _]

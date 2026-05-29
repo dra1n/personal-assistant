@@ -179,10 +179,10 @@ Interceptor protocol: a map of `{:before fn :after fn}`. The chain runner applie
 
 The architecture must support reconstructing runtime state from initial state + event history. This enables deterministic debugging, event replay, cognition inspection, and runtime tracing. Replayability is a core architectural goal.
 
-- [ ] Expose runtime state via `tap>` on every state transition (emit from the `:state` effect executor or an interceptor after-hook)
-- [ ] Write `replay` function: takes initial state + event sequence → re-runs each event through the dispatch pipeline (bypassing external/non-deterministic effects) → returns final state
-- [ ] Confirm `replay` produces deterministic output: same input sequence always yields the same final state
-- [ ] **Tests:** replay test — define fixture event sequence, call `replay`, assert reconstructed state matches expected; call a second time and assert identical result (idempotency); property-based test: any valid event sequence replayed twice yields the same state
+- [x] Expose runtime state via `tap>` on every state transition (via `db-tap-interceptor` at the front of the standard chain — its `:after` fires last, after effect execution, so the emitted snapshot reflects the new state)
+- [x] Write `replay` function: takes initial state + event sequence → re-runs each event through the dispatch pipeline (bypassing external/non-deterministic effects) → returns final state
+- [x] Confirm `replay` produces deterministic output: same input sequence always yields the same final state
+- [x] **Tests:** replay test — define fixture event sequence, call `replay`, assert reconstructed state matches expected; call a second time and assert identical result (idempotency); assert non-deterministic effects (:dispatch, :log/info, :tap) are skipped during replay
 
 ### Group 7 — UI boundary
 

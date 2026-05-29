@@ -148,17 +148,33 @@
              ctx)})
 
 ;; ---------------------------------------------------------------------------
+;; DB tap interceptor
+;;
+;; Emits the post-transition db snapshot via tap> after all effects have
+;; executed. Sits at the front of the chain so its :after runs last.
+;; Skipped during replay (replay builds its own partial chain).
+;; ---------------------------------------------------------------------------
+
+(def db-tap-interceptor
+  {:before nil
+   :after  (fn [ctx]
+             (when (:effects ctx)
+               (tap> {:db/transition (state/current-db)}))
+             ctx)})
+
+;; ---------------------------------------------------------------------------
 ;; Standard chain
 ;;
-;; Order: tracing → coeffect injection → handler → (after fns in reverse):
-;;   effect execution ← effect tracing ← effect validation ← (coeffect) ← tracing
+;; Order: db-tap → tracing → coeffect injection → handler → (after fns in reverse):
+;;   effect execution ← effect tracing ← effect validation ← (coeffect) ← tracing ← db-tap
 ;;
-;; The after fns of the rightmost interceptors run first, so effect execution
-;; fires before effect tracing, which fires before effect validation, etc.
+;; db-tap is outermost so its :after fires last — after effects have executed
+;; and state/db reflects the new value.
 ;; ---------------------------------------------------------------------------
 
 (def standard-chain
-  [tracing-interceptor
+  [db-tap-interceptor
+   tracing-interceptor
    coeffect-interceptor
    handler-interceptor
    effect-validation-interceptor
