@@ -254,26 +254,587 @@ By the end of Phase 1, the system should support: runtime state model, event dis
 
 ## Phase 2 — Persistent Storage & Memory Foundation
 
-> **Namespace refactor note (from Phase 1):** `pa.runtime.state` and `pa.runtime.queries` are currently co-located with the dispatch pipeline in `pa.runtime.*`. As Phase 2 adds event persistence, memory records, and richer state shape, consider splitting into a `pa.db` or `pa.model` namespace family (`pa.db.state`, `pa.db.queries`) with a clean one-way dependency: `pa.runtime.*` → `pa.db.*`. Wait until Phase 2 concerns are concrete before committing to the split.
+> **Namespace refactor note (from Phase 1):**
+> As persistence concerns become clearer, consider splitting runtime orchestration from persistence/model concerns.
+>
+> Potential direction:
+>
+> ```text
+> pa.runtime.*  -> orchestration/event/effect pipeline
+> pa.storage.*  -> filesystem persistence
+> pa.db.*       -> SQLite indexing/query layer
+> pa.memory.*   -> semantic memory domain
+> ```
+>
+> The dependency direction should remain one-way:
+>
+> ```text
+> runtime -> storage/db/memory
+> ```
+>
+> Avoid allowing persistence layers to depend on runtime orchestration.
 
-Goal: Create durable, inspectable storage.
+---
 
-- [ ] Create `assistant-data/` directory layout (identity/, memory/, cognition/, tasks/, system/)
-- [ ] Persist events to an append-only EDN log file (`assistant-data/events/events.edn`)
-- [ ] Update replay function to load log from disk → re-run events → reconstruct state
-- [ ] Write replay test: persist fixture events to disk log, replay, assert reconstructed state matches expected
-- [ ] Write identity loader: parse `soul.md`, `identity.md`, `user.md` into EDN maps at startup
-- [ ] Define memory record schema (`:id`, `:type`, `:content`, `:created-at`, `:tags`)
-- [ ] Implement Markdown memory writer: serialize memory records to `memory/daily/YYYY-MM-DD.md`
-- [ ] Implement Markdown memory reader: parse daily files back into memory record maps
-- [ ] Initialize SQLite schema: `memories` table (id, type, content, created_at, tags)
-- [ ] Implement SQLite index sync: write memory records to both Markdown and SQLite
-- [ ] Write basic memory query: fetch recent N records by type or tag
-- [ ] Wire memory system as an Integrant component
-- [ ] Confirm identity loads and memory round-trips cleanly at REPL
-- [ ] Write round-trip tests: memory record → Markdown writer → Markdown reader → assert equal
-- [ ] Write integration tests: memory record → SQLite write → query → assert returned record matches
-- [ ] Write tests for identity loader with fixture Markdown files
+### Goal
+
+Establish a durable, inspectable, recoverable storage architecture.
+
+This phase defines:
+
+* canonical memory ownership
+* operational persistence
+* replay foundations
+* indexing/query infrastructure
+* startup/bootstrap semantics
+* synchronization boundaries
+
+The system should clearly distinguish between:
+
+* semantic memory
+* operational runtime persistence
+* query/index infrastructure
+
+---
+
+### Storage Architecture
+
+The project uses three distinct persistence layers.
+
+---
+
+#### 1. Semantic Layer (Canonical Cognition)
+
+Purpose:
+
+* human-readable assistant cognition
+* inspectable/editable long-term memory
+
+Storage:
+
+* Markdown
+* EDN where appropriate
+
+Examples:
+
+* memories
+* reflections
+* identity
+* plans
+* summaries
+
+This layer is:
+
+* canonical
+* durable
+* human-oriented
+
+---
+
+#### 2. Operational Runtime Layer
+
+Purpose:
+
+* runtime history
+* replay/debugging
+* event sourcing
+* crash recovery
+
+Storage:
+
+* append-only EDN event log
+
+Examples:
+
+* dispatched events
+* state transitions
+* scheduler activity
+* runtime traces
+
+This layer is:
+
+* append-only
+* replayable
+* operational
+
+---
+
+#### 3. Query/Index Layer
+
+Purpose:
+
+* fast retrieval
+* filtering
+* search
+* indexing
+* operational querying
+
+Storage:
+
+* SQLite
+
+Examples:
+
+* memory indexes
+* tags
+* summaries
+* retrieval metadata
+* task operational state
+
+SQLite is:
+
+* rebuildable
+* disposable infrastructure
+* NOT canonical cognition storage
+
+---
+
+### Canonical Ownership Rules
+
+| Data Type             | Canonical Source          |
+| --------------------- | ------------------------- |
+| identity              | Markdown                  |
+| semantic memory       | Markdown                  |
+| runtime events        | append-only EDN log       |
+| runtime state         | reconstructed from replay |
+| retrieval metadata    | SQLite                    |
+| indexes/search tables | SQLite                    |
+
+---
+
+### Important Architectural Rule
+
+Markdown owns semantic content.
+
+SQLite owns:
+
+* indexes
+* retrieval metadata
+* operational query acceleration
+
+SQLite must always be rebuildable from canonical artifacts.
+
+The system should tolerate:
+
+* SQLite corruption/deletion
+  without:
+* semantic memory loss
+
+---
+
+### assistant-data/ Layout
+
+Create:
+
+```text
+assistant-data/
+  identity/
+    soul.md
+    identity.md
+    user.md
+    agents.md
+
+  memory/
+    daily/
+    semantic/
+    episodic/
+    summaries/
+
+  cognition/
+    reflections/
+    plans/
+
+  tasks/
+    active/
+    completed/
+
+  events/
+    events.edn
+
+  system/
+    heartbeat.md
+    tools.md
+
+  sqlite/
+    assistant.db
+```
+
+---
+
+### Startup & Bootstrap Semantics
+
+The runtime must support clean initialization on a new machine.
+
+---
+
+### First Startup Responsibilities
+
+If `assistant-data/` does not exist:
+
+#### Create directory structure
+
+Initialize all required folders.
+
+---
+
+#### Create identity templates
+
+Generate default:
+
+* `soul.md`
+* `identity.md`
+* `user.md`
+* `agents.md`
+
+using minimal starter templates.
+
+---
+
+#### Initialize SQLite schema
+
+Create:
+
+* `memories`
+* `tasks`
+* optional future index tables
+
+---
+
+#### Initialize event log
+
+Create empty:
+
+```text
+assistant-data/events/events.edn
+```
+
+---
+
+#### Start with empty semantic memory
+
+No initial memories required.
+
+---
+
+### Recovery Semantics
+
+The system must support rebuilding operational infrastructure from canonical artifacts.
+
+Examples:
+
+#### SQLite deleted/corrupted
+
+System should support:
+
+```clojure
+(rebuild-memory-index!)
+```
+
+which:
+
+* scans Markdown memory files
+* rebuilds SQLite indexes
+
+---
+
+#### Runtime crash
+
+Runtime state should reconstruct from:
+
+* event replay
+* persisted operational events
+
+---
+
+### Event Persistence
+
+Persist important runtime events to:
+
+```text
+assistant-data/events/events.edn
+```
+
+The event log should remain:
+
+* append-only
+* serializable
+* replayable
+
+Events should reconstruct runtime state via replay.
+
+SQLite should NOT be required for replay.
+
+---
+
+### Replay Pipeline
+
+Replay flow:
+
+```text
+events.edn
+   -> load events
+   -> dispatch through runtime
+   -> reconstruct state
+```
+
+Replayability is a core architectural goal.
+
+---
+
+### Identity Loading
+
+Implement identity loaders for:
+
+* `soul.md`
+* `identity.md`
+* `user.md`
+* `agents.md`
+
+The loader should:
+
+* parse markdown
+* produce normalized EDN maps
+* inject identity context into runtime startup state
+
+Identity files are canonical and human-editable.
+
+---
+
+### Memory Domain Model
+
+Define explicit semantic memory record schema.
+
+Initial shape:
+
+```clojure
+{:memory/id ...
+ :memory/type ...
+ :memory/path ...
+ :memory/title ...
+ :memory/summary ...
+ :memory/tags ...
+ :memory/created-at ...}
+```
+
+Important:
+
+* markdown file stores canonical semantic content
+* SQLite stores retrieval/index metadata
+
+Avoid treating memory as:
+
+* raw chat transcript blobs
+
+---
+
+### Memory Persistence Flow
+
+Memory persistence should follow this lifecycle:
+
+```text
+memory record created
+    ↓
+Markdown writer persists canonical artifact
+    ↓
+:event/memory-stored emitted
+    ↓
+SQLite indexer updates retrieval metadata
+```
+
+Synchronization should be:
+
+* event-driven
+* asynchronous-friendly
+* rebuildable
+
+---
+
+### Markdown Memory Writer
+
+Implement:
+
+* semantic memory serialization
+* daily note writing
+* append/update semantics
+
+Example target:
+
+```text
+assistant-data/memory/daily/YYYY-MM-DD.md
+```
+
+Markdown artifacts should remain:
+
+* readable
+* manually editable
+* portable
+
+---
+
+### Markdown Memory Reader
+
+Implement:
+
+* parsing daily memory files
+* reconstructing memory records
+* extracting metadata/tags
+
+This enables:
+
+* reindexing
+* replay
+* migration
+* recovery
+
+---
+
+### SQLite Schema
+
+Initial SQLite schema should remain intentionally small.
+
+Suggested initial `memories` table:
+
+```text
+id
+path
+type
+title
+summary
+tags
+created_at
+```
+
+Avoid:
+
+* giant schemas
+* premature normalization
+* storing full cognition payloads
+
+---
+
+### SQLite Synchronization
+
+Implement index synchronization:
+
+```text
+Markdown memory
+   -> metadata extraction
+   -> SQLite index update
+```
+
+SQLite acts as:
+
+* retrieval accelerator
+  not:
+* canonical semantic storage
+
+---
+
+### Initial Queries
+
+Implement basic retrieval queries:
+
+* recent memories
+* filter by type
+* filter by tags
+
+Initially retrieval can remain simple.
+
+Sophisticated semantic retrieval comes later.
+
+---
+
+### Integrant Components
+
+Introduce dedicated persistence components.
+
+Potential structure:
+
+```clojure
+:storage/fs
+:storage/events
+:db/sqlite
+:memory/store
+:memory/indexer
+```
+
+The runtime should depend on these services explicitly.
+
+---
+
+### Testing Goals
+
+#### Replay Tests
+
+Persist fixture events to disk log.
+
+Replay runtime.
+
+Assert reconstructed state matches expected state.
+
+---
+
+#### Memory Round-Trip Tests
+
+```text
+memory record
+   -> markdown writer
+   -> markdown reader
+   -> reconstructed record
+```
+
+Assert semantic equivalence.
+
+---
+
+#### SQLite Integration Tests
+
+```text
+memory record
+   -> sqlite index write
+   -> query
+   -> reconstructed metadata
+```
+
+Assert retrieval correctness.
+
+---
+
+#### Identity Loader Tests
+
+Load fixture markdown identity files.
+
+Assert normalized EDN structure matches expected output.
+
+---
+
+### REPL Verification Goals
+
+At REPL, confirm:
+
+* identity loads correctly
+* replay reconstructs runtime state
+* memory writes round-trip cleanly
+* SQLite indexes rebuild correctly
+* deleting SQLite and rebuilding succeeds
+
+---
+
+### Deliverables
+
+By the end of Phase 2, the system should support:
+
+* durable assistant-data layout
+* append-only operational event persistence
+* replayable runtime reconstruction
+* canonical Markdown semantic memory
+* SQLite retrieval/index infrastructure
+* rebuildable indexes
+* identity loading
+* event-driven synchronization
+* inspectable storage artifacts
+* recovery/bootstrap workflows
+* tested persistence round-trips
 
 ---
 
