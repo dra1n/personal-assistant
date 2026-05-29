@@ -15,14 +15,28 @@
 (def ^:private registry (atom {}))
 
 (defn reg-handler
-  "Register handler-fn to handle events of event-type.
-  Overwrites any existing registration for that type."
-  [event-type handler-fn]
-  {:pre [(qualified-keyword? event-type) (fn? handler-fn)]}
-  (swap! registry assoc event-type handler-fn))
+  "Register a handler for event-type.
+
+  2-arity: (reg-handler event-type handler-fn)
+    Registers handler-fn with no extra interceptors.
+
+  3-arity: (reg-handler event-type interceptors handler-fn)
+    Registers handler-fn with a vector of per-handler interceptors that run
+    after base coeffect injection and before the handler fn itself. Use this
+    to inject event-type-specific coeffects from any module without touching
+    the base coeffect injector.
+
+  Overwrites any existing registration for event-type."
+  ([event-type handler-fn]
+   (reg-handler event-type [] handler-fn))
+  ([event-type interceptors handler-fn]
+   {:pre [(qualified-keyword? event-type)
+          (vector? interceptors)
+          (fn? handler-fn)]}
+   (swap! registry assoc event-type {:interceptors interceptors :fn handler-fn})))
 
 (defn get-handler
-  "Return the handler-fn registered for event-type, or nil."
+  "Return the registry entry for event-type as {:interceptors [...] :fn fn}, or nil."
   [event-type]
   (get @registry event-type))
 

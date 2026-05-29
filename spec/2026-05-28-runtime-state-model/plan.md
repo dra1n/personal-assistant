@@ -165,15 +165,15 @@ event
 
 Interceptor protocol: a map of `{:before fn :after fn}`. The chain runner applies `:before` fns in order, then `:after` fns in reverse (re-frame style).
 
-- [ ] Design interceptor protocol: `{:before fn :after fn}` map (or record); document the context map shape that flows through the chain
-- [ ] Implement chain runner: takes a chain vector and a context map, applies `:before` fns in order then `:after` fns in reverse, returns the final context map
-- [ ] Implement the tracing interceptor: records event entry and exit times into the trace log
-- [ ] Implement the coeffect injection interceptor: calls `inject-coeffects` and merges result into context (this replaces the manual wiring noted in Group 2)
-- [ ] Implement the effect validation interceptor: asserts the effects map returned by handler has only known effect types; logs unknown keys before execution
-- [ ] Implement the effect tracing interceptor: records which effects were executed and their params
-- [ ] Wire the standard chain: tracing → coeffect injection → handler invocation → effect validation → effect tracing → effect execution
-- [ ] Ensure all dispatch flows through the chain — dispatcher calls chain runner, not handler directly
-- [ ] **Tests:** unit test chain runner with fixture interceptors (assert `:before` order, `:after` reverse order); assert a throwing interceptor short-circuits without corrupting state; integration test: dispatch an event end-to-end through the chain and assert state updated correctly
+- [x] Design interceptor protocol: `{:before fn :after fn}` map (or record); document the context map shape that flows through the chain
+- [x] Implement chain runner: takes a chain vector and a context map, applies `:before` fns in order then `:after` fns in reverse, returns the final context map
+- [x] Implement the tracing interceptor: records event entry and exit times into the trace log
+- [x] Implement the coeffect injection interceptor: calls `inject-coeffects` and merges result into context (this replaces the manual wiring noted in Group 2)
+- [x] Implement the effect validation interceptor: asserts the effects map returned by handler has only known effect types; logs unknown keys before execution
+- [x] Implement the effect tracing interceptor: records which effects were executed and their params
+- [x] Wire the standard chain: tracing → coeffect injection → handler invocation → effect validation → effect tracing → effect execution
+- [x] Ensure all dispatch flows through the chain — dispatcher calls chain runner, not handler directly
+- [x] **Tests:** unit test chain runner with fixture interceptors (assert `:before` order, `:after` reverse order); assert a throwing interceptor short-circuits without corrupting state; integration test: dispatch an event end-to-end through the chain and assert state updated correctly
 
 ### Group 6 — Replayability foundations
 
