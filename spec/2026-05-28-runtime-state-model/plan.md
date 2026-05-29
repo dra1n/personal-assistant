@@ -186,12 +186,27 @@ The architecture must support reconstructing runtime state from initial state + 
 
 ### Group 7 — UI boundary
 
-The UI must remain a thin runtime client. The UI dispatches events and subscribes to runtime state. It must not directly mutate state, execute tools, or call cognition logic. This separation is a core architectural constraint.
+Two distinct kinds of state exist in this system and must never be conflated:
 
-- [ ] Audit charm.clj: remove any direct state mutation, atom derefs outside a designated read path, or cognition calls
-- [ ] Expose a clean read API for the UI: a `subscribe` fn or a deref wrapper that returns the current state snapshot
-- [ ] Confirm charm.clj only calls `dispatch!` (write) and the read API (read) — no other runtime coupling
-- [ ] **Tests:** grep check — no `swap!` or `reset!` in `pa.ui.*` or charm.clj namespaces; integration smoke test: dispatch a `:user/message` event from the UI code path and assert it appears in `:events/recent` and state
+- **UI state** — the Elm-style model managed by charm's init/update/view loop: input buffer, scroll position, focused panel. Evolves only through charm messages handled in `update`. Never touches `state/db`.
+- **Runtime state** — durable operational state in `state/db`, owned by the runtime. The UI reads it directly and mutates it only indirectly — by dispatching events.
+
+`ui.clj` is a thin runtime client: it dispatches events (write path) and reads runtime state only through the query layer (read path). charm.clj is a third-party library and is not audited.
+
+**Subscribe mechanism:** charm.clj does not expose its internal message channel — messages can only enter the loop via commands. Commands are async functions that run outside the loop and return a message back into it. The subscribe pattern therefore is:
+
+1. At `init` time, create a `core.async` channel (`db-ch`) and register a tap sink that puts each `{:db/transition snapshot}` emitted by `db-tap-interceptor` onto it
+2. Return a `watch-db` command from `init` (and re-schedule it from `update` on every `:runtime/db-updated` message) — the command parks on `db-ch` and returns `{:type :runtime/db-updated :db snapshot}` when a snapshot arrives
+3. The `update` fn handles `:runtime/db-updated` by merging `:db` into the charm model and scheduling `watch-db` again
+
+The charm model holds `{:db <latest-runtime-snapshot> :input "" :scroll 0 ...}`. The `view` fn reads from `(:db model)` via queries — no polling, no direct atom derefs in view code.
+
+**Query layer:** a `pa.runtime.queries` namespace of pure selector functions `(fn [db] ...)`. The view calls `(queries/conversation db)` rather than `(get-in model [:db :conversation])`. State shape changes are contained to one namespace; any future consumer (REPL tooling, replay, webhooks) uses the same functions.
+
+- [x] Define `pa.runtime.queries` namespace: pure selector functions for each top-level key (`conversation`, `tasks`, `recent-events`, `ui-prefs`); no knowledge of how values are stored
+- [x] Implement the subscribe mechanism in `ui.clj`: tap sink → `db-ch` (sliding-buffer 1) → `watch-db-cmd` parks on channel and returns `{:type :runtime/db-updated :db snapshot}`; `update` merges snapshot and reschedules the command
+- [x] Audit `pa.ui.*`: no `swap!` or `reset!` on `state/db`; view reads runtime state only via `pa.runtime.queries`; only write path is `dispatch!`
+- [x] **Tests:** unit test each query fn with fixture db maps; grep check — no `swap!`/`reset!` in `pa.ui.*`
 
 ---
 

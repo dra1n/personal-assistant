@@ -5,7 +5,7 @@
             [pa.logging]
             [pa.observability]
             [pa.runtime.dispatcher]
-            [pa.ui]))
+            [pa.ui.core]))
 
 (defn- start-test-system []
   (let [cfg (-> (config/system-config)

@@ -252,6 +252,8 @@ By the end of Phase 1, the system should support: runtime state model, event dis
 
 ## Phase 2 — Persistent Storage & Memory Foundation
 
+> **Namespace refactor note (from Phase 1):** `pa.runtime.state` and `pa.runtime.queries` are currently co-located with the dispatch pipeline in `pa.runtime.*`. As Phase 2 adds event persistence, memory records, and richer state shape, consider splitting into a `pa.db` or `pa.model` namespace family (`pa.db.state`, `pa.db.queries`) with a clean one-way dependency: `pa.runtime.*` → `pa.db.*`. Wait until Phase 2 concerns are concrete before committing to the split.
+
 Goal: Create durable, inspectable storage.
 
 - [ ] Create `assistant-data/` directory layout (identity/, memory/, cognition/, tasks/, system/)

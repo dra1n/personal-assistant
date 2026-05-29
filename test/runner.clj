@@ -7,6 +7,7 @@
             pa.runtime.executor-test
             pa.runtime.interceptors-test
             pa.runtime.replay-test
+            pa.runtime.queries-test
             pa.runtime.state-test))
 
 (defn -main [& _]
