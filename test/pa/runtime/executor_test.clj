@@ -1,6 +1,5 @@
 (ns pa.runtime.executor-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [clojure.core.async :as async]
             [pa.runtime.executor :as executor]
             [pa.runtime.state :as state]))
 
@@ -109,11 +108,18 @@
       (is (= :test-tap-value @received)))))
 
 ;; ---------------------------------------------------------------------------
-;; :event/store stub
+;; :event/store effect
 ;; ---------------------------------------------------------------------------
 
-(deftest event-store-stub-does-not-throw
-  (testing ":event/store stub no-ops without throwing"
+(deftest event-store-calls-store-event-fn
+  (testing ":event/store calls :store-event! in ctx with the event"
+    (let [stored (atom nil)
+          ctx    (assoc (make-ctx) :store-event! #(reset! stored %))]
+      (executor/execute-effect :event/store {:event/type :test/ping} ctx)
+      (is (= :test/ping (:event/type @stored))))))
+
+(deftest event-store-without-store-fn-does-not-throw
+  (testing ":event/store warns and does not throw when :store-event! is absent"
     (is (nil? (executor/execute-effect :event/store {:event/type :test/ping} (make-ctx))))))
 
 ;; ---------------------------------------------------------------------------
@@ -132,10 +138,10 @@
   (testing "execute-effects! calls execute-effect for each key in the effects map"
     (let [new-db (assoc state/initial-db :tasks {:t1 :pending})]
       (executor/execute-effects!
-        {:db       new-db
-         :dispatch {:event/type :test/ping}
-         :trace    {:msg "batch test"}}
-        (make-ctx))
+       {:db       new-db
+        :dispatch {:event/type :test/ping}
+        :trace    {:msg "batch test"}}
+       (make-ctx))
       (is (= new-db @state/db))
       (is (= 1 (count @dispatched)))
       (is (= 1 (count @state/trace-log))))))

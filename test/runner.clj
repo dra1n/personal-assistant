@@ -7,8 +7,10 @@
             pa.runtime.executor-test
             pa.runtime.interceptors-test
             pa.runtime.replay-test
+            pa.runtime.replay-from-disk-test
             pa.runtime.queries-test
-            pa.runtime.state-test))
+            pa.runtime.state-test
+            pa.storage.events-test))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (test/run-all-tests #"pa\..*-test")]

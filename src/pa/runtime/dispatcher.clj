@@ -22,12 +22,13 @@
   (swap! state/db update :events/recent conj event)
   (interceptors/run-standard-chain event system-context))
 
-(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config]}]
+(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events]}]
   (let [ch (async/chan 256)
         dispatch! (fn [event-map]
                     (async/put! ch (events/make-event event-map)))
         system-context {:config  config
-                        :runtime {:dispatch! dispatch!}}]
+                        :runtime {:dispatch!     dispatch!
+                                  :store-event!  (:append-event! events)}}]
     (async/go-loop []
       (when-let [event (async/<! ch)]
         (process-event! event system-context)

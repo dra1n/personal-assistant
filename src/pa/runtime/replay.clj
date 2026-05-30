@@ -1,6 +1,7 @@
 (ns pa.runtime.replay
   (:require [pa.runtime.interceptors :as interceptors]
-            [pa.runtime.state :as state]))
+            [pa.runtime.state :as state]
+            [pa.storage.events :as storage.events]))
 
 ;; ---------------------------------------------------------------------------
 ;; Replay
@@ -77,3 +78,13 @@
        (let [effects (replay-event event sys-ctx replay-db)]
          (apply-pure-effects effects replay-db)))
      @replay-db)))
+
+(defn replay-from-disk
+  "Load events from the given events.edn path and replay them.
+  Delegates to replay — same semantics, same opts."
+  ([path]
+   (replay-from-disk path state/initial-db {}))
+  ([path initial-db]
+   (replay-from-disk path initial-db {}))
+  ([path initial-db opts]
+   (replay initial-db (storage.events/load-events path) opts)))

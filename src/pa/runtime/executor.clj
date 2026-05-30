@@ -73,10 +73,15 @@
 (defmethod execute-effect :tap [_ value _ctx]
   (tap> value))
 
-;; --- :event/store (stub) -----------------------------------------------
+;; --- :event/store -------------------------------------------------------
+;;
+;; params: the event map to persist.
+;; ctx must contain :store-event! fn supplied by :storage/events component.
 
-(defmethod execute-effect :event/store [_ _params _ctx]
-  (log/warn ":event/store is not yet implemented — Phase 2"))
+(defmethod execute-effect :event/store [_ event {:keys [store-event!]}]
+  (if store-event!
+    (store-event! event)
+    (log/warn ":event/store called but no :store-event! in ctx — is :storage/events wired?")))
 
 ;; --- default -----------------------------------------------------------
 

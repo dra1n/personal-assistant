@@ -4,6 +4,7 @@
             [pa.logging]
             [pa.observability]
             [pa.runtime.dispatcher]
+            [pa.storage.events]
             [pa.storage.fs]
             [pa.ui.core]))
 

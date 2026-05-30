@@ -47,7 +47,7 @@
 
 ### Group B — Event persistence & replay
 
-- [ ] Implement event log writer (`pa.storage.events`): append serialized EDN event to `~/.config/personal-assistant/events/events.edn`
+- [x] Implement event log writer (`pa.storage.events`): append serialized EDN event to `~/.config/personal-assistant/events/events.edn`
 
   Events are immutable EDN maps with `:event/type` and payload as top-level keys, e.g.:
   ```clojure
@@ -56,8 +56,8 @@
   {:event/type :memory/stored}
   ```
 
-- [ ] Implement event log reader: load and parse all events from `events.edn` → sequence of event maps
-- [ ] Extend Phase 1 replay function to load events from disk (via `pa.storage.events`) rather than from in-memory sequence
+- [x] Implement event log reader: load and parse all events from `events.edn` → sequence of event maps
+- [x] Extend Phase 1 replay function to load events from disk (via `pa.storage.events`) rather than from in-memory sequence
 
   Replay flow:
   ```text
@@ -67,9 +67,9 @@
      -> reconstruct state
   ```
 
-- [ ] Wire `:event/store` effect (defined in Phase 1) to the event log writer — this is the only path for persisting events
-- [ ] Wire `pa.storage.events` as an Integrant component
-- [ ] Write replay test: write fixture events to `events.edn`, replay via runtime, assert reconstructed state matches expected state
+- [x] Wire `:event/store` effect (defined in Phase 1) to the event log writer — this is the only path for persisting events
+- [x] Wire `pa.storage.events` as an Integrant component
+- [x] Write replay test: write fixture events to `events.edn`, replay via runtime, assert reconstructed state matches expected state
 
 ### Group C — Identity loading
 
