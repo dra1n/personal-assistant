@@ -4,6 +4,7 @@
             [pa.logging]
             [pa.observability]
             [pa.runtime.dispatcher]
+            [pa.storage.fs]
             [pa.ui.core]))
 
 (defonce ^:private state (atom nil))

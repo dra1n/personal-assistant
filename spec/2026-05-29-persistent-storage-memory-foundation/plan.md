@@ -4,7 +4,7 @@
 
 ### Group A — Directory layout & bootstrap
 
-- [ ] Create `~/.config/personal-assistant/` directory structure:
+- [x] Create `~/.config/personal-assistant/` directory structure:
 
   ```text
   ~/.config/personal-assistant/
@@ -39,11 +39,11 @@
       assistant.db
   ```
 
-- [ ] Implement first-startup detection: if `~/.config/personal-assistant/` does not exist, run bootstrap sequence
-- [ ] Generate default identity template files: `soul.md`, `identity.md`, `user.md`, `agents.md` with minimal structured stubs
-- [ ] Create empty `~/.config/personal-assistant/events/events.edn` on first startup
-- [ ] Wire bootstrap as an Integrant component (`pa.storage.fs`) that runs at system start
-- [ ] Write fresh-boot test: point `PA_HOME` at a temp directory, start system, assert directory structure and template files created correctly
+- [x] Implement first-startup detection: if `~/.config/personal-assistant/` does not exist, run bootstrap sequence
+- [x] Generate default identity template files: `soul.md`, `identity.md`, `user.md`, `agents.md` with minimal structured stubs
+- [x] Create empty `~/.config/personal-assistant/events/events.edn` on first startup
+- [x] Wire bootstrap as an Integrant component (`pa.storage.fs`) that runs at system start
+- [x] Write fresh-boot test: point `PA_HOME` at a temp directory, start system, assert directory structure and template files created correctly
 
 ### Group B — Event persistence & replay
 
