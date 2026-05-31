@@ -1,13 +1,13 @@
-(ns pa.runtime.queries-test
+(ns pa.state.queries-test
   (:require [clojure.test :refer [deftest is testing]]
-            [pa.runtime.queries :as queries]
-            [pa.runtime.state :as state]))
+            [pa.state.db :as db]
+            [pa.state.queries :as queries]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixture db maps
 ;; ---------------------------------------------------------------------------
 
-(def ^:private base-db state/initial-db)
+(def ^:private base-db db/initial-db)
 
 (def ^:private populated-db
   {:conversation  [{:role :user :text "hello"} {:role :assistant :text "hi"}]

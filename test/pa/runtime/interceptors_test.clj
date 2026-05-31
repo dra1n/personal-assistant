@@ -4,7 +4,7 @@
             [pa.runtime.dispatcher]
             [pa.runtime.interceptors :as interceptors]
             [pa.runtime.registry :as registry]
-            [pa.runtime.state :as state]))
+            [pa.state.db :as db]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixtures
@@ -12,8 +12,8 @@
 
 (use-fixtures :each
   (fn [f]
-    (reset! state/db state/initial-db)
-    (reset! state/trace-log [])
+    (reset! db/db db/initial-db)
+    (reset! db/trace-log [])
     (let [before (registry/snapshot)]
       (f)
       (registry/restore! before))))
@@ -80,7 +80,7 @@
                  {:before (fn [ctx] (assoc ctx :should-not-run true)) :after nil}]]
       (is (thrown? clojure.lang.ExceptionInfo
                    (interceptors/run-chain chain {})))
-      (is (= state/initial-db @state/db)))))
+      (is (= db/initial-db @db/db)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Standard chain — end-to-end integration
@@ -94,7 +94,7 @@
                    (fn [{:keys [db]}]
                      {:db (assoc db :greeted true)}))]
       (interceptors/run-standard-chain event sc)
-      (is (true? (:greeted @state/db))))))
+      (is (true? (:greeted @db/db))))))
 
 (deftest standard-chain-injects-coeffects
   (testing "handler receives all five coeffect keys"
@@ -114,12 +114,12 @@
       (is (= event (:event @received))))))
 
 (deftest standard-chain-traces-event
-  (testing "tracing interceptor appends an entry to state/trace-log"
+  (testing "tracing interceptor appends an entry to db/trace-log"
     (let [sc    (make-system-context)
           event {:event/type :test/traced :event/id (random-uuid) :event/timestamp (java.time.Instant/now)}
           _     (registry/reg-handler :test/traced (fn [_] nil))]
       (interceptors/run-standard-chain event sc)
-      (let [entries (filter #(= :test/traced (:trace/event-type %)) @state/trace-log)]
+      (let [entries (filter #(= :test/traced (:trace/event-type %)) @db/trace-log)]
         (is (seq entries))
         (is (inst? (:trace/entered-at (first entries))))
         (is (inst? (:trace/exited-at (first entries))))
@@ -217,6 +217,6 @@
       (try
         ((:dispatch! d) {:event/type :test/chain-smoke})
         (Thread/sleep 50)
-        (is (true? (:smoke-passed @state/db)))
-        (is (= 1 (count (:events/recent @state/db))))
+        (is (true? (:smoke-passed @db/db)))
+        (is (= 1 (count (:events/recent @db/db))))
         (finally (stop-dispatcher d))))))

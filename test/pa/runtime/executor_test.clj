@@ -1,8 +1,7 @@
 (ns pa.runtime.executor-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [clojure.core.async :as async]
             [pa.runtime.executor :as executor]
-            [pa.runtime.state :as state]))
+            [pa.state.db :as db]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixtures: reset db and trace-log before each test
@@ -10,8 +9,8 @@
 
 (use-fixtures :each
   (fn [f]
-    (reset! state/db state/initial-db)
-    (reset! state/trace-log [])
+    (reset! db/db db/initial-db)
+    (reset! db/trace-log [])
     (f)))
 
 ;; ---------------------------------------------------------------------------
@@ -25,8 +24,8 @@
 
 (use-fixtures :each
   (fn [f]
-    (reset! state/db state/initial-db)
-    (reset! state/trace-log [])
+    (reset! db/db db/initial-db)
+    (reset! db/trace-log [])
     (reset! dispatched [])
     (f)))
 
@@ -36,14 +35,14 @@
 
 (deftest db-effect-resets-state
   (testing ":db effect replaces runtime state with the new value"
-    (let [new-db (assoc state/initial-db :conversation [{:role :user :text "hi"}])]
+    (let [new-db (assoc db/initial-db :conversation [{:role :user :text "hi"}])]
       (executor/execute-effect :db new-db (make-ctx))
-      (is (= new-db @state/db)))))
+      (is (= new-db @db/db)))))
 
 (deftest db-effect-is-only-mutation-site
-  (testing "state/db is only modified via :db effect in executor"
-    (executor/execute-effect :db (assoc state/initial-db :ui {:focused true}) (make-ctx))
-    (is (= {:focused true} (:ui @state/db)))))
+  (testing "db/db is only modified via :db effect in executor"
+    (executor/execute-effect :db (assoc db/initial-db :ui {:focused true}) (make-ctx))
+    (is (= {:focused true} (:ui @db/db)))))
 
 ;; ---------------------------------------------------------------------------
 ;; :dispatch effect
@@ -84,15 +83,15 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest trace-effect-appends-to-trace-log
-  (testing ":trace effect appends an entry to state/trace-log"
+  (testing ":trace effect appends an entry to db/trace-log"
     (executor/execute-effect :trace {:event/type :test/ping :phase 1} (make-ctx))
-    (is (= 1 (count @state/trace-log)))
-    (is (= :test/ping (:event/type (first @state/trace-log))))))
+    (is (= 1 (count @db/trace-log)))
+    (is (= :test/ping (:event/type (first @db/trace-log))))))
 
 (deftest trace-effect-stamps-timestamp
   (testing ":trace stamps :timestamp if not present"
     (executor/execute-effect :trace {:msg "hello"} (make-ctx))
-    (is (inst? (:timestamp (first @state/trace-log))))))
+    (is (inst? (:timestamp (first @db/trace-log))))))
 
 ;; ---------------------------------------------------------------------------
 ;; :tap effect
@@ -109,11 +108,18 @@
       (is (= :test-tap-value @received)))))
 
 ;; ---------------------------------------------------------------------------
-;; :event/store stub
+;; :event/store effect
 ;; ---------------------------------------------------------------------------
 
-(deftest event-store-stub-does-not-throw
-  (testing ":event/store stub no-ops without throwing"
+(deftest event-store-calls-store-event-fn
+  (testing ":event/store calls :store-event! in ctx with the event"
+    (let [stored (atom nil)
+          ctx    (assoc (make-ctx) :store-event! #(reset! stored %))]
+      (executor/execute-effect :event/store {:event/type :test/ping} ctx)
+      (is (= :test/ping (:event/type @stored))))))
+
+(deftest event-store-without-store-fn-does-not-throw
+  (testing ":event/store warns and does not throw when :store-event! is absent"
     (is (nil? (executor/execute-effect :event/store {:event/type :test/ping} (make-ctx))))))
 
 ;; ---------------------------------------------------------------------------
@@ -130,12 +136,12 @@
 
 (deftest execute-effects-iterates-map
   (testing "execute-effects! calls execute-effect for each key in the effects map"
-    (let [new-db (assoc state/initial-db :tasks {:t1 :pending})]
+    (let [new-db (assoc db/initial-db :tasks {:t1 :pending})]
       (executor/execute-effects!
-        {:db       new-db
-         :dispatch {:event/type :test/ping}
-         :trace    {:msg "batch test"}}
-        (make-ctx))
-      (is (= new-db @state/db))
+       {:db       new-db
+        :dispatch {:event/type :test/ping}
+        :trace    {:msg "batch test"}}
+       (make-ctx))
+      (is (= new-db @db/db))
       (is (= 1 (count @dispatched)))
-      (is (= 1 (count @state/trace-log))))))
+      (is (= 1 (count @db/trace-log))))))

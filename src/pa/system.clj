@@ -4,6 +4,13 @@
             [pa.logging]
             [pa.observability]
             [pa.runtime.dispatcher]
+            [pa.runtime.handlers]
+            [pa.storage.events]
+            [pa.storage.fs]
+            [pa.storage.identity]
+            [pa.storage.memory-store]
+            [pa.db.sqlite]
+            [pa.memory.indexer]
             [pa.ui.core]))
 
 (defonce ^:private state (atom nil))

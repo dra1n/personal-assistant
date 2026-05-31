@@ -1,5 +1,5 @@
 (ns pa.runtime.coeffects
-  (:require [pa.runtime.state :as state])
+  (:require [pa.state.db :as db])
   (:import [java.time Instant]))
 
 ;; ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@
   "Build and return the coeffect map for event, enriched with system-context.
   system-context must contain :config and :runtime keys."
   [event system-context]
-  {:db      (state/current-db)
+  {:db      (db/current-db)
    :now     (Instant/now)
    :config  (:config system-context)
    :runtime (:runtime system-context)
