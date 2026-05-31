@@ -32,3 +32,8 @@
   "Return the identity context map loaded at startup."
   [db]
   (:identity db))
+
+(defn memories
+  "Return the in-session memory records vector."
+  [db]
+  (:memories db))

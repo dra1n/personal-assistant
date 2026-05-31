@@ -25,3 +25,6 @@
 
 (defn remove-task [db id]
   (update db :tasks dissoc id))
+
+(defn add-memory [db record]
+  (update db :memories (fnil conj []) record))

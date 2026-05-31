@@ -11,7 +11,9 @@
             pa.state.queries-test
             pa.state.db-test
             pa.storage.events-test
-            pa.storage.identity-test))
+            pa.storage.identity-test
+            pa.memory.records-test
+            pa.storage.memory-test))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (test/run-all-tests #"pa\..*-test")]

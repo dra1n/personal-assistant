@@ -83,6 +83,19 @@
     (store-event! event)
     (log/warn ":event/store called but no :store-event! in ctx — is :storage/events wired?")))
 
+;; --- :memory/write ------------------------------------------------------
+;;
+;; params: a memory record map (pa.memory.records/make output).
+;; ctx must contain :write-memory! fn supplied by :memory/store component.
+;; On success the handler receives a :memory/stored dispatch carrying the
+;; persisted record (with :memory/path stamped by the writer).
+
+(defmethod execute-effect :memory/write [_ record {:keys [write-memory! dispatch!]}]
+  (if write-memory!
+    (let [persisted (write-memory! record)]
+      (dispatch! {:event/type :memory/stored :record persisted}))
+    (log/warn ":memory/write called but no :write-memory! in ctx — is :memory/store wired?")))
+
 ;; --- default -----------------------------------------------------------
 
 (defmethod execute-effect :default [effect-type _params _ctx]

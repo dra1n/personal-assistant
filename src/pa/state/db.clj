@@ -15,6 +15,7 @@
 (def initial-db
   {:conversation  []
    :tasks         {}
+   :memories      []
    :events/recent []
    :ui            {}
    :identity      {}})

@@ -8,6 +8,7 @@
             [pa.storage.events]
             [pa.storage.fs]
             [pa.storage.identity]
+            [pa.storage.memory-store]
             [pa.ui.core]))
 
 (defonce ^:private state (atom nil))

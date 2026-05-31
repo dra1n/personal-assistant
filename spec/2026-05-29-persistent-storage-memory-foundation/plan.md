@@ -81,7 +81,7 @@
 
 ### Group D — Memory domain model & Markdown persistence
 
-- [ ] Define memory record schema:
+- [x] Define memory record schema:
 
   ```clojure
   {:memory/id       ...   ; UUID
@@ -95,11 +95,11 @@
 
   Markdown file stores canonical semantic content; SQLite stores retrieval/index metadata only.
 
-- [ ] Implement `pa.memory.records/make`: constructor that generates `:memory/id` (UUID) and `:memory/created-at` (timestamp)
-- [ ] Implement `pa.storage.memory/write-daily`: serialize memory record to `~/.config/personal-assistant/memory/daily/YYYY-MM-DD.md` (append semantics — multiple records per file)
-- [ ] Implement `pa.storage.memory/read-daily`: parse a daily memory file → sequence of memory record maps
-- [ ] Implement `pa.storage.memory/read-all-daily`: scan `memory/daily/` directory → all memory records across all daily files
-- [ ] Emit `:event/memory-stored` after successful Markdown write
+- [x] Implement `pa.memory.records/make`: constructor that generates `:memory/id` (UUID) and `:memory/created-at` (timestamp)
+- [x] Implement `pa.storage.memory/write-daily`: serialize memory record to `~/.config/personal-assistant/memory/daily/YYYY-MM-DD.md` (append semantics — multiple records per file)
+- [x] Implement `pa.storage.memory/read-daily`: parse a daily memory file → sequence of memory record maps
+- [x] Implement `pa.storage.memory/read-all-daily`: scan `memory/daily/` directory → all memory records across all daily files
+- [x] Emit `:event/memory-stored` after successful Markdown write via `:memory/write` effect and `:memory/store` Integrant component
 
   Memory persistence lifecycle:
   ```text
@@ -112,7 +112,7 @@
   SQLite indexer updates retrieval metadata
   ```
 
-- [ ] Write memory round-trip test: create memory record → write to Markdown → read back → assert semantic equivalence
+- [x] Write memory round-trip test: create memory record → write to Markdown → read back → assert semantic equivalence
 
 ### Group E — SQLite schema, sync, queries & Integrant wiring
 
