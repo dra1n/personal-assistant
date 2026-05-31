@@ -3,7 +3,7 @@
             [integrant.core :as ig]
             [pa.runtime.events :as events]
             [pa.runtime.interceptors :as interceptors]
-            [pa.runtime.state :as state]
+            [pa.state.db :as db]
             [taoensso.timbre :as log]))
 
 ;; ---------------------------------------------------------------------------
@@ -19,10 +19,10 @@
 
 (defn- process-event! [event system-context]
   ;; Permitted mutation site 2: accumulate event into :events/recent before handler runs.
-  (swap! state/db update :events/recent conj event)
+  (swap! db/db update :events/recent conj event)
   (interceptors/run-standard-chain event system-context))
 
-(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events]}]
+(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity]}]
   (let [ch (async/chan 256)
         dispatch! (fn [event-map]
                     (async/put! ch (events/make-event event-map)))
@@ -33,6 +33,9 @@
       (when-let [event (async/<! ch)]
         (process-event! event system-context)
         (recur)))
+    (when identity
+      (dispatch! {:event/type :system/identity-loaded
+                  :identity   (:identity identity)}))
     (log/info "dispatcher started")
     {:channel   ch
      :dispatch! dispatch!}))

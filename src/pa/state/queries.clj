@@ -1,4 +1,4 @@
-(ns pa.runtime.queries)
+(ns pa.state.queries)
 
 ;; ---------------------------------------------------------------------------
 ;; Runtime state query layer
@@ -27,3 +27,8 @@
   "Return the UI preferences map."
   [db]
   (:ui db))
+
+(defn identity-context
+  "Return the identity context map loaded at startup."
+  [db]
+  (:identity db))

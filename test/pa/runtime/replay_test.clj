@@ -3,7 +3,7 @@
             [pa.runtime.events :as events]
             [pa.runtime.registry :as registry]
             [pa.runtime.replay :as replay]
-            [pa.runtime.state :as state]))
+            [pa.state.db :as db]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixtures
@@ -11,8 +11,8 @@
 
 (use-fixtures :each
   (fn [f]
-    (reset! state/db state/initial-db)
-    (reset! state/trace-log [])
+    (reset! db/db db/initial-db)
+    (reset! db/trace-log [])
     (let [before (registry/snapshot)]
       (f)
       (registry/restore! before))))
@@ -35,18 +35,18 @@
         {:db (update db :conversation conj {:text (:text event)})}))
     (let [evts   [(make-event :test/add-message {:text "hello"})
                   (make-event :test/add-message {:text "world"})]
-          result (replay/replay state/initial-db evts)]
+          result (replay/replay db/initial-db evts)]
       (is (= [{:text "hello"} {:text "world"}]
              (:conversation result))))))
 
 (deftest replay-does-not-mutate-live-state
-  (testing "replay leaves state/db untouched"
+  (testing "replay leaves db/db untouched"
     (registry/reg-handler :test/set-flag
       (fn [{:keys [db]}]
         {:db (assoc db :replayed true)}))
     (let [evts [(make-event :test/set-flag {})]]
-      (replay/replay state/initial-db evts)
-      (is (nil? (:replayed @state/db))))))
+      (replay/replay db/initial-db evts)
+      (is (nil? (:replayed @db/db))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Determinism
@@ -60,8 +60,8 @@
     (let [evts   [(make-event :test/counter {})
                   (make-event :test/counter {})
                   (make-event :test/counter {})]
-          first  (replay/replay state/initial-db evts)
-          second (replay/replay state/initial-db evts)]
+          first  (replay/replay db/initial-db evts)
+          second (replay/replay db/initial-db evts)]
       (is (= first second))
       (is (= 3 (get-in first [:ui :count]))))))
 
@@ -81,7 +81,7 @@
           (swap! dispatched inc)
           {:db db}))
       (let [evts [(make-event :test/with-dispatch {})]]
-        (replay/replay state/initial-db evts)
+        (replay/replay db/initial-db evts)
         (is (= 0 @dispatched))))))
 
 (deftest replay-skips-log-and-tap-effects
@@ -94,7 +94,7 @@
            :log/info {:message "should not log in replay"}
            :tap      :should-not-tap}))
       (let [evts [(make-event :test/with-side-effects {})]]
-        (replay/replay state/initial-db evts)
+        (replay/replay db/initial-db evts)
         (Thread/sleep 50)
         (remove-tap (fn [_]))
         (is (empty? @tapped))))))
@@ -111,7 +111,7 @@
     (let [evts   [(make-event :test/append {:key :a})
                   (make-event :test/append {:key :b})
                   (make-event :test/append {:key :c})]
-          result (replay/replay state/initial-db evts)]
+          result (replay/replay db/initial-db evts)]
       (is (= {:a true :b true :c true} (:tasks result))))))
 
 ;; ---------------------------------------------------------------------------
@@ -119,9 +119,9 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest replay-accepts-custom-initial-state
-  (testing "replay starts from the provided initial-db, not state/initial-db"
+  (testing "replay starts from the provided initial-db, not db/initial-db"
     (registry/reg-handler :test/noop (fn [{:keys [db]}] {:db db}))
-    (let [custom-db (assoc state/initial-db :conversation [{:text "seed"}])
+    (let [custom-db (assoc db/initial-db :conversation [{:text "seed"}])
           evts      [(make-event :test/noop {})]
           result    (replay/replay custom-db evts)]
       (is (= [{:text "seed"}] (:conversation result))))))

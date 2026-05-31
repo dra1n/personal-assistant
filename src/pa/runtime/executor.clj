@@ -1,6 +1,6 @@
 (ns pa.runtime.executor
   (:require [clojure.core.async :as async]
-            [pa.runtime.state :as state]
+            [pa.state.db :as db]
             [taoensso.timbre :as log]))
 
 ;; ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@
 ;;   Persistence effects (stub — implemented in Phase 2):
 ;;     :event/store — no-op; defined so Phase 2 is a drop-in
 ;;
-;; MUTATION RULE: :db is the only permitted site for swap!/reset! on state/db.
+;; MUTATION RULE: :db is the only permitted site for swap!/reset! on db/db.
 ;; ---------------------------------------------------------------------------
 
 (defmulti execute-effect
@@ -37,7 +37,7 @@
 ;; --- :db ---------------------------------------------------------------
 
 (defmethod execute-effect :db [_ new-db _ctx]
-  (reset! state/db new-db))
+  (reset! db/db new-db))
 
 ;; --- :dispatch ---------------------------------------------------------
 
@@ -66,7 +66,7 @@
 
 (defmethod execute-effect :trace [_ params _ctx]
   (let [entry (merge {:timestamp (java.time.Instant/now)} params)]
-    (swap! state/trace-log conj entry)))
+    (swap! db/trace-log conj entry)))
 
 ;; --- :tap --------------------------------------------------------------
 

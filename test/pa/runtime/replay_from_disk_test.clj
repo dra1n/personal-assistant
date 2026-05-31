@@ -4,7 +4,7 @@
             [pa.runtime.events :as events]
             [pa.runtime.registry :as registry]
             [pa.runtime.replay :as replay]
-            [pa.runtime.state :as state]
+            [pa.state.db :as db]
             [pa.storage.events :as storage.events]))
 
 ;; ---------------------------------------------------------------------------
@@ -24,8 +24,8 @@
 (use-fixtures :each
   with-tmp-events-file
   (fn [f]
-    (reset! state/db state/initial-db)
-    (reset! state/trace-log [])
+    (reset! db/db db/initial-db)
+    (reset! db/trace-log [])
     (let [before (registry/snapshot)]
       (f)
       (registry/restore! before))))
@@ -57,16 +57,16 @@
 (deftest replay-from-disk-empty-file-returns-initial-db
   (testing "an empty events file replays to the unmodified initial db"
     (let [result (replay/replay-from-disk *events-path*)]
-      (is (= state/initial-db result)))))
+      (is (= db/initial-db result)))))
 
 (deftest replay-from-disk-does-not-mutate-live-state
-  (testing "replaying from disk leaves state/db untouched"
+  (testing "replaying from disk leaves db/db untouched"
     (registry/reg-handler :test/set-flag
       (fn [{:keys [db]}]
         {:db (assoc db :replayed true)}))
     (write-fixture-event! :test/set-flag {})
     (replay/replay-from-disk *events-path*)
-    (is (nil? (:replayed @state/db)))))
+    (is (nil? (:replayed @db/db)))))
 
 (deftest replay-from-disk-threads-state-across-events
   (testing "each event on disk sees the state produced by the previous event"
@@ -83,6 +83,6 @@
   (testing "replay-from-disk starts from the provided initial-db"
     (registry/reg-handler :test/noop (fn [{:keys [db]}] {:db db}))
     (write-fixture-event! :test/noop {})
-    (let [seed-db (assoc state/initial-db :conversation [{:text "seed"}])
+    (let [seed-db (assoc db/initial-db :conversation [{:text "seed"}])
           result  (replay/replay-from-disk *events-path* seed-db)]
       (is (= [{:text "seed"}] (:conversation result))))))

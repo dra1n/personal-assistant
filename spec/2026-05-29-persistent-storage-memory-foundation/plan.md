@@ -73,11 +73,11 @@
 
 ### Group C — Identity loading
 
-- [ ] Define structured format for identity files: YAML front-matter block for machine-parseable fields, Markdown prose below
-- [ ] Implement `pa.storage.identity/load-file`: parse a single identity Markdown file → normalized EDN map
-- [ ] Implement `pa.storage.identity/load-all`: load `soul.md`, `identity.md`, `user.md`, `agents.md` → merged identity context map
-- [ ] Inject identity context into runtime startup state (add `:identity` key to initial db map at system start)
-- [ ] Write identity loader tests: fixture identity Markdown files → assert normalized EDN structure matches expected output
+- [x] Define structured format for identity files: YAML front-matter block for machine-parseable fields, Markdown prose below
+- [x] Implement `pa.storage.identity/load-identity-file`: parse a single identity Markdown file → normalized EDN map
+- [x] Implement `pa.storage.identity/load-all`: load `soul.md`, `identity.md`, `user.md`, `agents.md` → merged identity context map
+- [x] Inject identity context into runtime startup state (add `:identity` key to initial db map at system start)
+- [x] Write identity loader tests: fixture identity Markdown files → assert normalized EDN structure matches expected output
 
 ### Group D — Memory domain model & Markdown persistence
 

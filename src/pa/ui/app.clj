@@ -1,8 +1,8 @@
 (ns pa.ui.app
   (:require [charm.message :as msg]
             [charm.program :as charm]
-            [pa.runtime.queries :as queries]
-            [pa.runtime.state :as state]
+            [pa.state.db :as db]
+            [pa.state.queries :as queries]
             [pa.ui.subscribe :as subscribe]))
 
 ;; ---------------------------------------------------------------------------
@@ -12,14 +12,14 @@
 ;;  :db-ch <core.async channel — owned by pa.ui.core, passed in at init>}
 ;;
 ;; UI-local state (input buffer, scroll, etc.) lives here alongside :db.
-;; Runtime state is read only through pa.runtime.queries.
+;; Runtime state is read only through pa.state.queries.
 ;; ---------------------------------------------------------------------------
 
 (defn init
   "Return a charm init fn. Returns the initial model plus the first watch-db command."
   [{:keys [db-ch watch-cmd]}]
   (fn []
-    [{:db    (state/current-db)
+    [{:db    (db/current-db)
       :db-ch db-ch}
      watch-cmd]))
 

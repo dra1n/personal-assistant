@@ -1,6 +1,7 @@
 ---
 version: 1
-role: 
-purpose: 
+role: ""
+purpose: ""
 ---
 
+<!-- Describe the assistant's role and purpose in prose below. -->

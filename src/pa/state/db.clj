@@ -1,4 +1,4 @@
-(ns pa.runtime.state)
+(ns pa.state.db)
 
 ;; ---------------------------------------------------------------------------
 ;; Runtime state atom
@@ -16,7 +16,8 @@
   {:conversation  []
    :tasks         {}
    :events/recent []
-   :ui            {}})
+   :ui            {}
+   :identity      {}})
 
 (def db (atom initial-db))
 
@@ -25,5 +26,8 @@
   []
   @db)
 
+;; ---------------------------------------------------------------------------
 ;; Append-only trace log. Each entry is a map written by the :trace effect.
+;; ---------------------------------------------------------------------------
+
 (def trace-log (atom []))

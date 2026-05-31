@@ -1,6 +1,6 @@
 (ns pa.runtime.replay
   (:require [pa.runtime.interceptors :as interceptors]
-            [pa.runtime.state :as state]
+            [pa.state.db :as db]
             [pa.storage.events :as storage.events]))
 
 ;; ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@
 ;;   :db       — state transition (applied)
 ;;   everything else — skipped (external/non-deterministic: logs, dispatch, HTTP, etc.)
 ;;
-;; replay does not touch the live state/db atom. It works on a local atom
+;; replay does not touch the live db/db atom. It works on a local atom
 ;; so multiple calls with the same inputs always produce the same output.
 ;;
 ;; system-context is built with a no-op :dispatch! so any :dispatch effects
@@ -35,7 +35,7 @@
   "Run a single event through the interceptor chain in replay mode.
   Returns the effects map produced by the handler (or nil)."
   [event system-context replay-db-atom]
-  ;; Temporarily point state/db reads (inside inject-coeffects) at the replay atom.
+  ;; Temporarily point db/db reads (inside inject-coeffects) at the replay atom.
   ;; We do this by binding a dynamic override in the coeffect injector contract:
   ;; inject-coeffects calls state/current-db which reads the live atom.
   ;; To keep the live atom untouched we intercept :db in the returned effects
@@ -60,7 +60,7 @@
 
 (defn replay
   "Reconstruct runtime state from initial-db by replaying events in order.
-  Returns the final state map. Does not mutate the live state/db atom.
+  Returns the final state map. Does not mutate the live db/db atom.
 
   opts:
     :config — system config map passed to coeffects (defaults to {})
@@ -68,7 +68,7 @@
   Pure/internal effects applied: :db
   All other effects (dispatch, logs, tap, etc.) are skipped."
   ([events]
-   (replay state/initial-db events {}))
+   (replay db/initial-db events {}))
   ([initial-db events]
    (replay initial-db events {}))
   ([initial-db events {:keys [config] :or {config {}}}]
@@ -83,7 +83,7 @@
   "Load events from the given events.edn path and replay them.
   Delegates to replay — same semantics, same opts."
   ([path]
-   (replay-from-disk path state/initial-db {}))
+   (replay-from-disk path db/initial-db {}))
   ([path initial-db]
    (replay-from-disk path initial-db {}))
   ([path initial-db opts]

@@ -2,7 +2,7 @@
   (:require [pa.runtime.coeffects :as coeffects]
             [pa.runtime.executor :as executor]
             [pa.runtime.registry :as registry]
-            [pa.runtime.state :as state]
+            [pa.state.db :as db]
             [taoensso.timbre :as log])
   (:import [java.time Instant]))
 
@@ -47,7 +47,7 @@
                                  (.toEpochMilli entered)))
                    event-type (get-in ctx [:event :event/type])]
                (log/debug "event processed" {:event/type event-type :elapsed-ms elapsed})
-               (swap! state/trace-log conj
+               (swap! db/trace-log conj
                       {:trace/event-type event-type
                        :trace/entered-at entered
                        :trace/exited-at  exited
@@ -127,7 +127,7 @@
   {:before nil
    :after  (fn [ctx]
              (when-let [effects (:effects ctx)]
-               (swap! state/trace-log conj
+               (swap! db/trace-log conj
                       {:trace/effects        (keys effects)
                        :trace/event-type     (get-in ctx [:event :event/type])
                        :trace/timestamp      (Instant/now)}))
@@ -159,7 +159,7 @@
   {:before nil
    :after  (fn [ctx]
              (when (:effects ctx)
-               (tap> {:db/transition (state/current-db)}))
+               (tap> {:db/transition (db/current-db)}))
              ctx)})
 
 ;; ---------------------------------------------------------------------------
