@@ -16,5 +16,6 @@
 
 (registry/reg-handler :memory/stored
   (fn [{:keys [db event]}]
-    {:db    (tr/add-memory db (:record event))
-     :trace {:event/type :memory/stored :id (get-in event [:record :memory/id])}}))
+    {:db           (tr/add-memory db (:record event))
+     :memory/index (:record event)
+     :trace        {:event/type :memory/stored :id (get-in event [:record :memory/id])}}))

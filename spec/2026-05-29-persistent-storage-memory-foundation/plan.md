@@ -116,8 +116,8 @@
 
 ### Group E — SQLite schema, sync, queries & Integrant wiring
 
-- [ ] Add SQLite dependency to `deps.edn` (`next.jdbc` + SQLite JDBC driver)
-- [ ] Implement `pa.db.schema/init!`: create `memories` table if not exists
+- [x] Add SQLite dependency to `deps.edn` (`next.jdbc` + SQLite JDBC driver)
+- [x] Implement `pa.db.schema/init!`: create `memories` table if not exists
 
   Initial schema (intentionally minimal — no full cognition payloads, no premature normalization):
   ```text
@@ -130,14 +130,14 @@
   created_at
   ```
 
-- [ ] Wire `pa.db.sqlite` as an Integrant component: initializes schema on start
-- [ ] Implement `pa.db.memory/index!`: insert or update memory record metadata in SQLite from a memory record map
-- [ ] Implement `pa.memory.indexer` component: subscribes to `:event/memory-stored` → calls `pa.db.memory/index!`
-- [ ] Implement `pa.db.memory/recent`: query N most recent memory records
-- [ ] Implement `pa.db.memory/by-type`: filter records by `:memory/type`
-- [ ] Implement `pa.db.memory/by-tags`: filter records by tag intersection
-- [ ] Implement `(rebuild-memory-index!)` in `pa.memory.indexer`: clear SQLite memories table → scan `pa.storage.memory/read-all-daily` → re-index all records
-- [ ] Wire `pa.memory.store` as an Integrant component: coordinates write → emit event → SQLite index lifecycle
+- [x] Wire `pa.db.sqlite` as an Integrant component: initializes schema on start
+- [x] Implement `pa.db.memory/index!`: insert or update memory record metadata in SQLite from a memory record map
+- [x] Implement `pa.memory.indexer` component: provides `:index-memory!` fn to executor context; `:memory/stored` handler emits `:memory/index` effect which calls it
+- [x] Implement `pa.db.memory/recent`: query N most recent memory records
+- [x] Implement `pa.db.memory/by-type`: filter records by `:memory/type`
+- [x] Implement `pa.db.memory/by-tags`: filter records by tag intersection
+- [x] Implement `(rebuild-memory-index!)` in `pa.memory.indexer`: clear SQLite memories table → scan `pa.storage.memory/read-all-daily` → re-index all records
+- [x] Wire `:db/sqlite` and `:memory/indexer` as Integrant components; `:memory/index` effect injected into dispatcher system-context
 
   Full Integrant component set introduced in this phase:
   ```clojure
@@ -148,9 +148,9 @@
   :memory/indexer
   ```
 
-- [ ] Write SQLite integration tests: memory record → SQLite write → query → assert returned metadata matches
-- [ ] Write rebuild test: populate SQLite, delete and recreate schema, call `rebuild-memory-index!`, assert records restored correctly
-- [ ] REPL smoke test: confirm full cycle — identity loads, replay reconstructs state, memory write round-trips, SQLite rebuilds from scratch after deletion
+- [x] Write SQLite integration tests: memory record → SQLite write → query → assert returned metadata matches
+- [x] Write rebuild test: populate SQLite, delete and recreate schema, call `rebuild-memory-index!`, assert records restored correctly
+- [x] REPL smoke test: confirm full cycle — identity loads, replay reconstructs state, memory write round-trips, SQLite rebuilds from scratch after deletion
 
 ## Notes
 

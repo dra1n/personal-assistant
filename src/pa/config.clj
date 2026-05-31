@@ -8,8 +8,11 @@
    :storage/identity         {:fs (ig/ref :storage/fs)}
    :storage/events           {:fs (ig/ref :storage/fs)}
    :memory/store             {:fs (ig/ref :storage/fs)}
+   :db/sqlite                {:fs (ig/ref :storage/fs)}
+   :memory/indexer           {:db (ig/ref :db/sqlite) :fs (ig/ref :storage/fs)}
    :pa.runtime/dispatcher    {:config   {:env :production}
                               :events   (ig/ref :storage/events)
                               :identity (ig/ref :storage/identity)
-                              :memory   (ig/ref :memory/store)}
+                              :memory   (ig/ref :memory/store)
+                              :indexer  (ig/ref :memory/indexer)}
    :pa.ui/terminal           {}})

@@ -13,7 +13,8 @@
             pa.storage.events-test
             pa.storage.identity-test
             pa.memory.records-test
-            pa.storage.memory-test))
+            pa.storage.memory-test
+            pa.db.memory-test))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (test/run-all-tests #"pa\..*-test")]

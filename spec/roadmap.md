@@ -920,6 +920,7 @@ Goal: Introduce time-based behavior and background work.
 
 Goal: Formalize and make inspectable all cognition stages.
 
+- [ ] Define slash command registry: map of `/command-name → handler-fn`; wire UI input parser to dispatch commands as events before entering the cognition pipeline (e.g. `/rebuild-memory-index` → `:memory/rebuild-index` event → calls `(:rebuild! indexer)`)
 - [ ] Define pipeline stage protocol: each stage takes context map → returns updated context map
 - [ ] Implement `interpret` stage: classify user intent, extract entities
 - [ ] Implement `retrieve` stage: call memory retrieval (Phase 5) and attach results to context

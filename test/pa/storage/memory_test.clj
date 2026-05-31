@@ -109,3 +109,11 @@
 (deftest read-all-daily-empty-dir-returns-empty
   (testing "read-all-daily returns [] when no daily files exist"
     (is (= [] (memory/read-all-daily *tmp-root*)))))
+
+(deftest read-all-daily-sorts-across-months-and-years
+  (testing "read-all-daily returns records in chronological order across months and years"
+    (memory/write-daily *tmp-root* (make-record {:memory/title "Dec"})  (LocalDate/of 2025 12 31))
+    (memory/write-daily *tmp-root* (make-record {:memory/title "Jan"})  (LocalDate/of 2026 1 1))
+    (memory/write-daily *tmp-root* (make-record {:memory/title "Feb"})  (LocalDate/of 2026 2 1))
+    (memory/write-daily *tmp-root* (make-record {:memory/title "Nov"})  (LocalDate/of 2026 11 1))
+    (is (= ["Dec" "Jan" "Feb" "Nov"] (mapv :memory/title (memory/read-all-daily *tmp-root*))))))

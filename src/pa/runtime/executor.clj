@@ -96,6 +96,16 @@
       (dispatch! {:event/type :memory/stored :record persisted}))
     (log/warn ":memory/write called but no :write-memory! in ctx — is :memory/store wired?")))
 
+;; --- :memory/index ------------------------------------------------------
+;;
+;; params: a persisted memory record map (with :memory/path stamped).
+;; ctx must contain :index-memory! fn supplied by :memory/indexer component.
+
+(defmethod execute-effect :memory/index [_ record {:keys [index-memory!]}]
+  (if index-memory!
+    (index-memory! record)
+    (log/warn ":memory/index called but no :index-memory! in ctx — is :memory/indexer wired?")))
+
 ;; --- default -----------------------------------------------------------
 
 (defmethod execute-effect :default [effect-type _params _ctx]
