@@ -11,10 +11,13 @@
    :db/sqlite                {:fs (ig/ref :storage/fs)}
    :memory/indexer           {:db (ig/ref :db/sqlite) :fs (ig/ref :storage/fs)}
    :llm/provider             {:provider :openai}
+   :ui/deltas                {}
    :pa.runtime/dispatcher    {:config   {:env :production}
                               :events   (ig/ref :storage/events)
                               :identity (ig/ref :storage/identity)
                               :memory   (ig/ref :memory/store)
                               :indexer  (ig/ref :memory/indexer)
-                              :llm      (ig/ref :llm/provider)}
-   :pa.ui/terminal           {:dispatcher (ig/ref :pa.runtime/dispatcher)}})
+                              :llm      (ig/ref :llm/provider)
+                              :deltas   (ig/ref :ui/deltas)}
+   :pa.ui/terminal           {:dispatcher (ig/ref :pa.runtime/dispatcher)
+                              :deltas     (ig/ref :ui/deltas)}})

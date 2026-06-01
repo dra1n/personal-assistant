@@ -22,16 +22,21 @@
   (swap! db/db update :events/recent conj event)
   (interceptors/run-standard-chain event system-context))
 
-(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity memory indexer llm]}]
+(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity memory indexer llm deltas]}]
   (let [ch (async/chan 256)
         dispatch! (fn [event-map]
                     (async/put! ch (events/make-event event-map)))
+        ;; Non-blocking push of an LLM delta onto the UI side-channel. Deltas
+        ;; are best-effort live display; the authoritative full text is
+        ;; accumulated by the :llm/invoke effect, so dropping is harmless.
+        emit-delta! (fn [delta] (when deltas (async/offer! deltas delta)))
         system-context {:config  config
                         :runtime {:dispatch!      dispatch!
                                   :store-event!   (:append-event! events)
                                   :write-memory!  (:write-memory! memory)
                                   :index-memory!  (:index-memory! indexer)
-                                  :llm-provider   llm}}]
+                                  :llm-provider   llm
+                                  :emit-delta!    emit-delta!}}]
     (async/go-loop []
       (when-let [event (async/<! ch)]
         (process-event! event system-context)

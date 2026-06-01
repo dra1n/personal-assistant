@@ -9,10 +9,24 @@
             [taoensso.timbre :as log]))
 
 ;; ---------------------------------------------------------------------------
+;; Delta channel — the LLM streaming side-channel, shared by the dispatcher
+;; (producer, via emit-delta!) and the terminal UI (consumer). Owned by its
+;; own component so both can depend on it without a dependency cycle.
+;; Dropping buffer: live display is best-effort; the full response text is
+;; accumulated by the :llm/invoke effect, not reconstructed from this channel.
+;; ---------------------------------------------------------------------------
+
+(defmethod ig/init-key :ui/deltas [_ _]
+  (async/chan (async/dropping-buffer 4096)))
+
+(defmethod ig/halt-key! :ui/deltas [_ ch]
+  (some-> ch async/close!))
+
+;; ---------------------------------------------------------------------------
 ;; Integrant component — assembles subscribe + app, manages lifecycle
 ;; ---------------------------------------------------------------------------
 
-(defmethod ig/init-key :pa.ui/terminal [_ {:keys [dispatcher]}]
+(defmethod ig/init-key :pa.ui/terminal [_ {:keys [dispatcher deltas]}]
   (let [{:keys [db-ch tap-sink watch-cmd]}          (subscribe/make-subscription)
         {:keys [log-ch log-appender watch-log-cmd]} (subscribe/make-log-subscription)
         _                        (add-tap tap-sink)
@@ -23,11 +37,13 @@
         _                        (logging/set-console! false)
         _                        (log/merge-config! {:appenders {:panel log-appender}})
         {:keys [quit! result]}   (charm/run-async
-                                  {:init   (app/init {:db-ch         db-ch
-                                                      :watch-cmd     watch-cmd
-                                                      :dispatch!     (:dispatch! dispatcher)
-                                                      :log-ch        log-ch
-                                                      :watch-log-cmd watch-log-cmd})
+                                  {:init   (app/init {:db-ch           db-ch
+                                                      :watch-cmd       watch-cmd
+                                                      :dispatch!       (:dispatch! dispatcher)
+                                                      :log-ch          log-ch
+                                                      :watch-log-cmd   watch-log-cmd
+                                                      :delta-ch        deltas
+                                                      :watch-delta-cmd (subscribe/watch-delta-cmd deltas)})
                                    :update app/update-model
                                    :view   view/view
                                    :alt-screen  false

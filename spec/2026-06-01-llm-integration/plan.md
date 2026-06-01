@@ -37,20 +37,20 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [x] Make the conversation and log panel both bordered, focusable regions: `:focus` (`:conversation`/`:logs`) routes the scroll keys, **Tab** switches it, the focused region gets a thick border (vs rounded), and the log panel has its own viewport (tails live unless focused-and-scrolled-up). Borders stay uncoloured (charm box-edge bug).
 
 ### Group D — Effect & streaming wiring
-- [ ] Add the delta side-channel: extend `pa.ui.subscribe/make-subscription` to also create `delta-ch` (and its sink); own its lifecycle in `pa.ui.core` (create at init, close on halt) alongside `db-ch`.
-- [ ] Expose `emit-delta!` as a dispatcher ctx capability (wired through `pa.config`/dispatcher, same as the existing capabilities).
-- [ ] Register a `:user/message` handler: append to `:conversation` (persist via `:event/store`), assemble the prompt (Group B), and return an `:llm/invoke` effect carrying the messages vector.
-- [ ] Implement the `:llm/invoke` `execute-effect` method: run the provider `stream` on a background thread, call `emit-delta!` per delta, accumulate full text, and on completion `dispatch!` a single `:assistant/response` event with the full text.
-- [ ] Register an `:assistant/response` handler: append the assistant entry to `:conversation` (persist via `:event/store`).
-- [ ] In `pa.ui.app`, consume `:llm/delta` messages from `delta-ch` into a UI-local `:streaming` buffer and render it live; on the next `:assistant/response`-driven `:runtime/db-updated`, clear `:streaming` and show the committed conversation.
-- [ ] Confirm (assertion/REPL note) that no memory-write or tool effect is emitted anywhere in this path.
+- [x] Add the delta side-channel. _(Deviation: the channel can't live in `make-subscription` — the dispatcher needs `emit-delta!` and initialises before the UI, which would cycle. Instead a shared `:ui/deltas` Integrant component owns the dropping-buffer channel; both the dispatcher and `:pa.ui/terminal` depend on it. `pa.ui.subscribe/watch-delta-cmd` drains it into the charm loop.)_
+- [x] Expose `emit-delta!` as a dispatcher ctx capability (non-blocking `offer!` onto the shared `:ui/deltas` channel).
+- [x] Register a `:user/message` handler: append to `:conversation`, persist via `:event/store`, assemble the prompt (Group B), and return an `:llm/invoke` effect carrying the messages vector.
+- [x] Implement the `:llm/invoke` `execute-effect` method: run the provider `stream` on a `future`, call `emit-delta!` per delta, accumulate full text, and on completion `dispatch!` a single `:assistant/response` event (errors dispatch an error response).
+- [x] Register an `:assistant/response` handler: append the assistant entry to `:conversation` (persist via `:event/store`).
+- [x] In `pa.ui.app`, consume `:llm/delta` messages into a UI-local `:streaming` buffer rendered as a live trailing assistant turn; clear it on the next `:runtime/db-updated` (the committed turn).
+- [x] Confirm (assertion) that no memory-write or tool effect is emitted on the conversation path (`:user/message` handler test asserts neither `:memory/write` nor `:tool/invoke` is present).
 
 ### Group E — Tests
 - [x] Prompt assembly: fixture identity + fixture memory records → assert exact messages vector (`pa.llm.prompt` unit test). _(Plus front-matter/prose rendering, memory-snippet injection seam, conversation metadata stripping, empty handling.)_
 - [x] Provider protocol: a stub/mock provider implementing the protocol → assert `invoke`/`stream` contract (delta callback called per chunk, full text returned). _(Done via the OpenAI provider + a fake `pa.http/HttpClient`; Anthropic stub conformance also asserted.)_
 - [x] Streaming handler: fixture SSE chunk strings → assert the sequence of deltas parsed and `[DONE]` termination. _(`parse-sse-line` + `stream` accumulation tests.)_
 - [x] Terminal input capture: simulate key presses + Enter → assert a `:user/message` event is dispatched with buffer contents and the buffer is cleared. _(Plus space/backspace/chord handling, blank-input no-op, and db-update preserving the buffer.)_
-- [ ] (Optional, deterministic) conversation-turn integration: drive `:user/message` through the runtime with the stub provider → assert `:user/message` and `:assistant/response` events are stored and `:conversation` reflects both.
+- [x] Conversation-turn integration: covered by `pa.runtime.conversation-test` — the `:user/message` handler assembles + emits `:llm/invoke`; the `:llm/invoke` effect streams via a stub provider and dispatches `:assistant/response`; the `:assistant/response` handler commits; and a replay of `[:user/message :assistant/response]` reconstructs `:conversation` with no provider call.
 
 ## Notes
 

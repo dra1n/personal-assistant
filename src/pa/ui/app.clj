@@ -33,11 +33,12 @@
 ;; --- viewport refresh (pre-render content into the scroll viewports) --------
 
 (defn- refresh-conversation
-  "Rebuild the conversation viewport from db + size, pinned to the latest turn."
-  [{:keys [db width viewport] :as model}]
+  "Rebuild the conversation viewport from db + size (plus any in-progress
+  streamed response), pinned to the latest turn."
+  [{:keys [db width streaming viewport] :as model}]
   (assoc model :viewport
          (-> (or viewport (vp/viewport ""))
-             (vp/viewport-set-content (view/conversation-content db (or width 80)))
+             (vp/viewport-set-content (view/conversation-content db (or width 80) streaming))
              (vp/viewport-set-dimensions 0 (view/viewport-height model))
              (vp/scroll-to-bottom))))
 
@@ -62,23 +63,25 @@
 
 (defn init
   "Return a charm init fn. Returns the initial model plus the startup commands."
-  [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd]}]
+  [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd delta-ch watch-delta-cmd]}]
   (fn []
     [(-> {:db           (db/current-db)
           :db-ch        db-ch
           :dispatch!    dispatch!
           :log-ch       log-ch
+          :delta-ch     delta-ch
           :logs         []
           :logs-open?   false
           :focus        :input
           :input        ""
+          :streaming    ""
           :width        80
           :height       24
           :viewport     (vp/viewport "")
           :log-viewport (vp/viewport "")}
          refresh-conversation
          refresh-logs)
-     (charm/batch watch-cmd watch-log-cmd)]))
+     (charm/batch watch-cmd watch-log-cmd watch-delta-cmd)]))
 
 ;; ---------------------------------------------------------------------------
 ;; Update
@@ -120,13 +123,20 @@
     (and (msg/key-press? message) (msg/key-match? message "ctrl+c"))
     [model charm/quit-cmd]
 
+    ;; A committed conversation snapshot — clear the in-progress stream (the
+    ;; assistant turn, if any, is now part of the conversation).
     (= :runtime/db-updated (:type message))
-    [(refresh-conversation (assoc model :db (:db message)))
+    [(refresh-conversation (assoc model :db (:db message) :streaming ""))
      (subscribe/watch-db-cmd (:db-ch model))]
 
     (= :log/appended (:type message))
     [(refresh-logs (append-log model (:entry message)))
      (subscribe/watch-log-cmd (:log-ch model))]
+
+    ;; A streamed response fragment — grow the live buffer and re-render.
+    (= :llm/delta (:type message))
+    [(refresh-conversation (update model :streaming str (:delta message)))
+     (subscribe/watch-delta-cmd (:delta-ch model))]
 
     (= :window-size (:type message))
     [(-> model

@@ -18,6 +18,7 @@
             pa.llm.openai-test
             pa.llm.anthropic-test
             pa.llm.prompt-test
+            pa.runtime.conversation-test
             pa.ui.app-test
             pa.ui.view-test))
 

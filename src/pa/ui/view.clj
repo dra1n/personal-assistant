@@ -47,8 +47,12 @@
                 (style/styled (name (or role :system)) :faint true))]
     (str label "\n" (wrap-text (str content) (max 1 width)))))
 
-(defn conversation-content [db width]
-  (let [turns (queries/conversation db)]
+(defn conversation-content
+  "Render the committed conversation, plus the in-progress streamed response
+  (if any) as a trailing live assistant turn."
+  [db width streaming]
+  (let [turns (cond-> (vec (queries/conversation db))
+                (not (str/blank? streaming)) (conj {:role :assistant :content streaming}))]
     (if (seq turns)
       (str/join "\n\n" (map #(render-turn % width) turns))
       (style/styled "Type a message and press Enter." :faint true))))
@@ -101,7 +105,7 @@
 (defn- conversation-view [model]
   (if-let [vp* (:viewport model)]
     (vp/viewport-view vp*)
-    (conversation-content (:db model) (or (:width model) 80))))
+    (conversation-content (:db model) (or (:width model) 80) (:streaming model))))
 
 (defn- cursor []
   (style/styled " " :reverse true))

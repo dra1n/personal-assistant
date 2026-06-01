@@ -68,6 +68,26 @@
       (is (= {:conversation [:x]} (:db m))))))
 
 ;; ---------------------------------------------------------------------------
+;; Streaming
+;; ---------------------------------------------------------------------------
+
+(deftest llm-delta-grows-the-streaming-buffer
+  (testing ":llm/delta accumulates into :streaming and reschedules the watch"
+    (let [m0     {:streaming "" :delta-ch nil :db {} :width 40}
+          [m1 c] (app/update-model m0 {:type :llm/delta :delta "Hel"})
+          [m2 _] (app/update-model m1 {:type :llm/delta :delta "lo"})]
+      (is (= "Hello" (:streaming m2)))
+      (is (some? c) "watch-delta-cmd rescheduled"))))
+
+(deftest db-update-clears-the-streaming-buffer
+  (testing "a committed snapshot clears the in-progress stream"
+    (let [[m _] (app/update-model
+                 {:streaming "partial reply" :db-ch nil :db {} :width 40}
+                 {:type :runtime/db-updated
+                  :db {:conversation [{:role :assistant :content "partial reply"}]}})]
+      (is (= "" (:streaming m))))))
+
+;; ---------------------------------------------------------------------------
 ;; Conversation viewport
 ;; ---------------------------------------------------------------------------
 

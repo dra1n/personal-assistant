@@ -82,6 +82,25 @@
                                :msg     (force msg_)
                                :instant instant}))})
 
+;; ---------------------------------------------------------------------------
+;; LLM delta subscription
+;;
+;; The delta channel itself is owned by the :ui/deltas component (shared with
+;; the dispatcher); here we only provide the charm command that drains it.
+;;
+;; Message emitted into the charm loop:
+;;   {:type :llm/delta :delta "<text fragment>"}
+;; ---------------------------------------------------------------------------
+
+(defn watch-delta-cmd
+  "Return a charm command that parks on delta-ch and emits a :llm/delta
+  message when a streamed text fragment arrives."
+  [delta-ch]
+  (charm/cmd
+    (fn []
+      (when-let [delta (async/<!! delta-ch)]
+        {:type :llm/delta :delta delta}))))
+
 (defn make-log-subscription
   "Create the log-panel subscription. Returns:
     :log-ch        — core.async channel (dropping-buffer)

@@ -1,5 +1,6 @@
 (ns pa.runtime.executor
   (:require [clojure.core.async :as async]
+            [pa.llm.provider :as provider]
             [pa.state.db :as db]
             [taoensso.timbre :as log]))
 
@@ -105,6 +106,29 @@
   (if index-memory!
     (index-memory! record)
     (log/warn ":memory/index called but no :index-memory! in ctx — is :memory/indexer wired?")))
+
+;; --- :llm/invoke --------------------------------------------------------
+;;
+;; params: {:messages [{:role :content} ...], :opts {...}?}
+;; ctx must contain :llm-provider, :emit-delta!, and :dispatch!.
+;;
+;; Streams on a background thread so the dispatcher loop is never blocked.
+;; Each delta is pushed to the UI via emit-delta! (best-effort live display);
+;; the full accumulated text is dispatched as a single :assistant/response
+;; event on completion (the authoritative, persisted result).
+
+(defmethod execute-effect :llm/invoke [_ {:keys [messages opts]} {:keys [llm-provider emit-delta! dispatch!]}]
+  (if llm-provider
+    (future
+      (try
+        (let [text (provider/stream llm-provider messages (or opts {})
+                                    (fn [delta] (when emit-delta! (emit-delta! delta))))]
+          (dispatch! {:event/type :assistant/response :content text}))
+        (catch Throwable e
+          (log/error e "LLM stream failed")
+          (dispatch! {:event/type :assistant/response
+                      :content (str "⚠ LLM error: " (.getMessage e))}))))
+    (log/warn ":llm/invoke called but no :llm-provider in ctx — is :llm/provider wired?")))
 
 ;; --- default -----------------------------------------------------------
 
