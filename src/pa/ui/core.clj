@@ -13,8 +13,8 @@
 ;; ---------------------------------------------------------------------------
 
 (defmethod ig/init-key :pa.ui/terminal [_ {:keys [dispatcher]}]
-  (let [{:keys [db-ch tap-sink watch-cmd] :as sub}     (subscribe/make-subscription)
-        {:keys [log-ch log-appender watch-log-cmd]}    (subscribe/make-log-subscription)
+  (let [{:keys [db-ch tap-sink watch-cmd]}          (subscribe/make-subscription)
+        {:keys [log-ch log-appender watch-log-cmd]} (subscribe/make-log-subscription)
         _                        (add-tap tap-sink)
         ;; Route logs into the in-app panel; silence the stdout appender,
         ;; which would otherwise scribble over the charm-rendered frame.
@@ -23,10 +23,11 @@
         _                        (logging/set-console! false)
         _                        (log/merge-config! {:appenders {:panel log-appender}})
         {:keys [quit! result]}   (charm/run-async
-                                  {:init   (app/init (assoc sub
-                                                            :dispatch!     (:dispatch! dispatcher)
-                                                            :log-ch        log-ch
-                                                            :watch-log-cmd watch-log-cmd))
+                                  {:init   (app/init {:db-ch         db-ch
+                                                      :watch-cmd     watch-cmd
+                                                      :dispatch!     (:dispatch! dispatcher)
+                                                      :log-ch        log-ch
+                                                      :watch-log-cmd watch-log-cmd})
                                    :update app/update-model
                                    :view   view/view
                                    :alt-screen  false
