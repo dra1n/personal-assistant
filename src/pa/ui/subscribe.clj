@@ -71,11 +71,12 @@
 
 (defn make-log-appender
   "A Timbre appender map that offers compact entries onto log-ch. Non-blocking
-  (dropping buffer), and limited to :info and above to keep the panel readable."
+  (dropping buffer). Captures :debug and above so the panel is a live tail of
+  runtime activity (the durable file appender records everything regardless)."
   [log-ch]
   {:enabled?  true
    :async?    false
-   :min-level :info
+   :min-level :debug
    :fn (fn [{:keys [level msg_ instant]}]
          (async/offer! log-ch {:level   level
                                :msg     (force msg_)
