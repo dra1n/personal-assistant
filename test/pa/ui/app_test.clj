@@ -145,18 +145,18 @@
       (is (= :logs (:focus m1)) "opening focuses the log panel")
       (is (< (get-in m1 [:viewport :height]) h0) "expanded panel shrinks the conversation")
       (is (false? (:logs-open? m2)))
-      (is (= :conversation (:focus m2)) "closing returns focus to chat")
+      (is (= :input (:focus m2)) "closing returns focus to the input")
       (is (= h0 (get-in m2 [:viewport :height])) "collapsing restores the height"))))
 
 (deftest tab-switches-scroll-focus-only-when-panel-open
-  (testing "Tab is a no-op while collapsed, toggles focus while expanded"
+  (testing "Tab is a no-op while collapsed, toggles input/logs while expanded"
     (let [m0     (model-with-turns 20)
           [m1 _] (app/update-model m0 (msg/key-press :tab))]
-      (is (= :conversation (:focus m1)) "no focus change while the panel is collapsed"))
+      (is (= :input (:focus m1)) "no focus change while the panel is collapsed"))
     (let [open   (first (app/update-model (model-with-turns 20) (msg/key-press "l" :ctrl true)))
           [m1 _] (app/update-model open (msg/key-press :tab))
           [m2 _] (app/update-model m1 (msg/key-press :tab))]
-      (is (= :conversation (:focus m1)) "Tab moves focus off the logs")
+      (is (= :input (:focus m1)) "Tab moves focus off the logs to the input")
       (is (= :logs (:focus m2)) "Tab toggles back"))))
 
 (deftest scroll-keys-drive-the-focused-region
