@@ -8,7 +8,9 @@
         de.timokramer/charm.clj    {:mvn/version "0.2.71"}
         clj-commons/clj-yaml       {:mvn/version "0.7.107"}
         com.github.seancorfield/next.jdbc {:mvn/version "1.3.939"}
-        org.xerial/sqlite-jdbc     {:mvn/version "3.47.1.0"}}
+        org.xerial/sqlite-jdbc     {:mvn/version "3.47.1.0"}
+        hato/hato                  {:mvn/version "1.0.0"}
+        org.clojure/data.json      {:mvn/version "2.5.1"}}
 
  :aliases
  {:dev   {:extra-paths ["dev"]

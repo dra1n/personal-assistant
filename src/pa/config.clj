@@ -10,9 +10,11 @@
    :memory/store             {:fs (ig/ref :storage/fs)}
    :db/sqlite                {:fs (ig/ref :storage/fs)}
    :memory/indexer           {:db (ig/ref :db/sqlite) :fs (ig/ref :storage/fs)}
+   :llm/provider             {:provider :openai}
    :pa.runtime/dispatcher    {:config   {:env :production}
                               :events   (ig/ref :storage/events)
                               :identity (ig/ref :storage/identity)
                               :memory   (ig/ref :memory/store)
-                              :indexer  (ig/ref :memory/indexer)}
+                              :indexer  (ig/ref :memory/indexer)
+                              :llm      (ig/ref :llm/provider)}
    :pa.ui/terminal           {}})

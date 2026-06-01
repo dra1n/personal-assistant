@@ -12,6 +12,7 @@
             [pa.storage.memory-store]
             [pa.db.sqlite]
             [pa.memory.indexer]
+            [pa.llm.component]
             [pa.ui.core]))
 
 (defn- start-test-system []

@@ -22,7 +22,7 @@
   (swap! db/db update :events/recent conj event)
   (interceptors/run-standard-chain event system-context))
 
-(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity memory indexer]}]
+(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity memory indexer llm]}]
   (let [ch (async/chan 256)
         dispatch! (fn [event-map]
                     (async/put! ch (events/make-event event-map)))
@@ -30,7 +30,8 @@
                         :runtime {:dispatch!      dispatch!
                                   :store-event!   (:append-event! events)
                                   :write-memory!  (:write-memory! memory)
-                                  :index-memory!  (:index-memory! indexer)}}]
+                                  :index-memory!  (:index-memory! indexer)
+                                  :llm-provider   llm}}]
     (async/go-loop []
       (when-let [event (async/<! ch)]
         (process-event! event system-context)

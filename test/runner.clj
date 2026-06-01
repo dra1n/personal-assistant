@@ -14,7 +14,9 @@
             pa.storage.identity-test
             pa.memory.records-test
             pa.storage.memory-test
-            pa.db.memory-test))
+            pa.db.memory-test
+            pa.llm.openai-test
+            pa.llm.anthropic-test))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (test/run-all-tests #"pa\..*-test")]
