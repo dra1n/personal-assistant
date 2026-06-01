@@ -11,24 +11,31 @@
 ;; ---------------------------------------------------------------------------
 ;; Charm model
 ;;
-;; {:db         <latest runtime state snapshot>
-;;  :db-ch      <core.async channel — owned by pa.ui.core, passed in at init>
-;;  :dispatch!  <runtime dispatch fn — UI's only way to push events inward>
-;;  :input      <UI-local input buffer string>
-;;  :viewport   <charm viewport holding the scrollable conversation>
-;;  :logs       <bounded vector of recent log entries {:level :msg :instant}>
-;;  :logs-open? <whether the log panel is expanded>
-;;  :log-ch     <core.async channel feeding :log/appended messages>
-;;  :width      <terminal width, tracked from :window-size>
-;;  :height     <terminal height>}
+;; {:db           <latest runtime state snapshot>
+;;  :db-ch        <core.async channel — owned by pa.ui.core>
+;;  :dispatch!    <runtime dispatch fn — UI's only way to push events inward>
+;;  :input        <UI-local input buffer string>
+;;  :viewport     <charm viewport: the scrollable conversation>
+;;  :log-viewport <charm viewport: the scrollable log panel>
+;;  :logs         <bounded vector of recent log entries {:level :msg :instant}>
+;;  :logs-open?   <whether the log panel is expanded>
+;;  :focus        <:conversation | :logs — which region the scroll keys drive>
+;;  :log-ch       <core.async channel feeding :log/appended messages>
+;;  :width :height <terminal dimensions, tracked from :window-size>}
 ;;
-;; Runtime state is read only through pa.state.queries; the UI never mutates
-;; it directly. User input becomes a :user/message event via :dispatch!.
+;; "Focus" is *scroll* focus only — typing and Enter always target the input.
+;; Runtime state is read only via pa.state.queries; the UI never mutates it.
 ;; ---------------------------------------------------------------------------
 
 (def ^:private accent style/cyan)
 (def ^:private log-buffer-size 200)   ; ring-buffer cap for in-memory log entries
-(def ^:private log-content-lines 8)   ; visible log lines when the panel is expanded
+(def ^:private log-content-lines 8)   ; log rows visible inside the expanded panel
+
+(defn- inner-width
+  "Content width inside a full-width bordered box (terminal width minus the
+  two border columns)."
+  [{:keys [width]}]
+  (max 10 (- (or width 80) 2)))
 
 ;; --- conversation rendering -------------------------------------------------
 
@@ -56,7 +63,7 @@
                 :user      (style/styled "you"       :fg accent :bold true)
                 :assistant (style/styled "assistant" :fg style/green :bold true)
                 (style/styled (name (or role :system)) :faint true))]
-    (str label "\n" (wrap-text (str content) (max 1 (or width 80))))))
+    (str label "\n" (wrap-text (str content) (max 1 width)))))
 
 (defn- conversation-content [db width]
   (let [turns (queries/conversation db)]
@@ -64,29 +71,63 @@
       (str/join "\n\n" (map #(render-turn % width) turns))
       (style/styled "Type a message and press Enter." :faint true))))
 
-;; --- layout / viewport ------------------------------------------------------
+;; --- log rendering ----------------------------------------------------------
+
+(defn- log-entry-line [{:keys [level msg]} width]
+  (let [oneline (str (format "%-5s " (str/upper-case (name (or level :info))))
+                     (str/replace (str msg) #"\s*\n\s*" " "))
+        text    (style/truncate oneline width :tail "…")]
+    (case level
+      (:error :fatal) (style/render (style/style :fg style/red :bold true) text)
+      :warn           (style/render (style/style :fg style/yellow) text)
+      :debug          (style/render (style/style :faint true) text)
+      text)))
+
+(defn- logs-content [logs width]
+  (if (seq logs)
+    (str/join "\n" (map #(log-entry-line % width) logs))
+    (style/styled "(no log entries yet)" :faint true)))
+
+;; --- layout -----------------------------------------------------------------
 
 (defn- panel-lines
-  "Vertical lines the log panel occupies: a one-line summary when collapsed,
-  a header plus the content rows when expanded."
+  "Vertical lines the log panel occupies: one summary line when collapsed; a
+  title line plus the bordered content box when expanded."
   [logs-open?]
-  (if logs-open? (inc log-content-lines) 1))
+  (if logs-open? (+ 1 log-content-lines 2) 1))
 
 (defn- viewport-height
-  "Lines available to the conversation viewport: terminal height minus the
-  fixed chrome (header + blanks + input box + hint) and the log panel."
+  "Lines available to the conversation viewport's content: terminal height
+  minus fixed chrome (header + 2 blanks + conversation border + input box +
+  hint = 9) and the log panel."
   [{:keys [height logs-open?]}]
-  (max 3 (- (or height 24) (+ 7 (panel-lines logs-open?)))))
+  (max 3 (- (or height 24) (+ 9 (panel-lines logs-open?)))))
 
-(defn- refresh-viewport
-  "Rebuild the viewport's content and dimensions from the model's db + size,
-  pinned to the bottom (latest turn visible)."
-  [{:keys [db width viewport] :as model}]
+;; --- viewport refresh -------------------------------------------------------
+
+(defn- refresh-conversation
+  "Rebuild the conversation viewport from db + size, pinned to the latest turn."
+  [{:keys [db viewport] :as model}]
   (assoc model :viewport
          (-> (or viewport (vp/viewport ""))
-             (vp/viewport-set-content (conversation-content db width))
+             (vp/viewport-set-content (conversation-content db (inner-width model)))
              (vp/viewport-set-dimensions 0 (viewport-height model))
              (vp/scroll-to-bottom))))
+
+(defn- refresh-logs
+  "Rebuild the log viewport from the ring buffer. Tails (scroll to bottom)
+  unless the panel is focused and the user has scrolled up — then the current
+  position is preserved so logs can be read without being yanked away."
+  [{:keys [logs log-viewport focus] :as model}]
+  (let [at-bottom? (or (nil? log-viewport) (vp/viewport-at-bottom? log-viewport))
+        prev-off   (:y-offset log-viewport)
+        vp0        (-> (or log-viewport (vp/viewport ""))
+                       (vp/viewport-set-content (logs-content logs (inner-width model)))
+                       (vp/viewport-set-dimensions 0 log-content-lines))]
+    (assoc model :log-viewport
+           (if (and (= focus :logs) (not at-bottom?))
+             (vp/viewport-scroll-to vp0 (or prev-off 0))
+             (vp/scroll-to-bottom vp0)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Init
@@ -96,16 +137,20 @@
   "Return a charm init fn. Returns the initial model plus the startup commands."
   [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd]}]
   (fn []
-    [(refresh-viewport {:db         (db/current-db)
-                        :db-ch      db-ch
-                        :dispatch!  dispatch!
-                        :log-ch     log-ch
-                        :logs       []
-                        :logs-open? false
-                        :input      ""
-                        :width      80
-                        :height     24
-                        :viewport   (vp/viewport "" :height (viewport-height {:height 24}))})
+    [(-> {:db           (db/current-db)
+          :db-ch        db-ch
+          :dispatch!    dispatch!
+          :log-ch       log-ch
+          :logs         []
+          :logs-open?   false
+          :focus        :conversation
+          :input        ""
+          :width        80
+          :height       24
+          :viewport     (vp/viewport "")
+          :log-viewport (vp/viewport "")}
+         refresh-conversation
+         refresh-logs)
      (charm/batch watch-cmd watch-log-cmd)]))
 
 ;; ---------------------------------------------------------------------------
@@ -124,11 +169,14 @@
 (defn- backspace [s]
   (if (seq s) (subs s 0 (dec (count s))) s))
 
-(defn- scroll [model f]
-  (cond-> model (:viewport model) (update :viewport f)))
-
 (defn- append-log [model entry]
   (update model :logs #(vec (take-last log-buffer-size (conj (or % []) entry)))))
+
+(defn- scroll-focused
+  "Apply scroll fn `f` to whichever viewport currently has scroll focus."
+  [model f]
+  (let [k (if (= (:focus model) :logs) :log-viewport :viewport)]
+    (cond-> model (k model) (update k f))))
 
 (defn update-model [model message]
   (cond
@@ -136,25 +184,40 @@
     [model charm/quit-cmd]
 
     (= :runtime/db-updated (:type message))
-    [(refresh-viewport (assoc model :db (:db message)))
+    [(refresh-conversation (assoc model :db (:db message)))
      (subscribe/watch-db-cmd (:db-ch model))]
 
     (= :log/appended (:type message))
-    [(append-log model (:entry message))
+    [(refresh-logs (append-log model (:entry message)))
      (subscribe/watch-log-cmd (:log-ch model))]
 
     (= :window-size (:type message))
-    [(refresh-viewport (assoc model :width (:width message) :height (:height message))) nil]
+    [(-> model
+         (assoc :width (:width message) :height (:height message))
+         refresh-conversation
+         refresh-logs)
+     nil]
 
-    ;; Toggle the log panel (recompute viewport height for the new chrome).
+    ;; Toggle the log panel; opening focuses it, closing returns focus to chat.
     (and (msg/key-press? message) (msg/key-match? message "ctrl+l"))
-    [(refresh-viewport (update model :logs-open? not)) nil]
+    (let [opening? (not (:logs-open? model))]
+      [(-> model
+           (assoc :logs-open? opening? :focus (if opening? :logs :conversation))
+           refresh-conversation
+           refresh-logs)
+       nil])
 
-    ;; Conversation scrolling — dedicated keys that never conflict with typing.
-    (msg/key-match? message :page-up)    [(scroll model vp/scroll-page-up) nil]
-    (msg/key-match? message :page-down)  [(scroll model vp/scroll-page-down) nil]
-    (msg/key-match? message "ctrl+u")    [(scroll model vp/scroll-half-page-up) nil]
-    (msg/key-match? message "ctrl+d")    [(scroll model vp/scroll-half-page-down) nil]
+    ;; Tab switches scroll focus between the two regions (only when both show).
+    (msg/key-match? message :tab)
+    (if (:logs-open? model)
+      [(refresh-logs (update model :focus #(if (= % :logs) :conversation :logs))) nil]
+      [model nil])
+
+    ;; Scroll keys drive the focused region.
+    (msg/key-match? message :page-up)    [(scroll-focused model vp/scroll-page-up) nil]
+    (msg/key-match? message :page-down)  [(scroll-focused model vp/scroll-page-down) nil]
+    (msg/key-match? message "ctrl+u")    [(scroll-focused model vp/scroll-half-page-up) nil]
+    (msg/key-match? message "ctrl+d")    [(scroll-focused model vp/scroll-half-page-down) nil]
 
     ;; Enter — commit the buffer as a user message (ignored when blank).
     (msg/key-match? message :enter)
@@ -190,10 +253,21 @@
 (defn- header []
   (style/styled "  personal assistant  " :bold true :fg style/black :bg accent))
 
+;; A focused region gets a thick border; otherwise a rounded one. Borders are
+;; never coloured — charm downgrades box-drawing edges to ASCII when a border
+;; :fg/:bg is set.
+(defn- box [content focused? width]
+  (style/render
+   (style/style :border (if focused? style/thick-border style/rounded-border)
+                :width  width)
+   content))
+
 (defn- conversation-view [model]
-  (if-let [vp* (:viewport model)]
-    (vp/viewport-view vp*)
-    (conversation-content (:db model) (:width model))))
+  (let [iw      (inner-width model)
+        content (if-let [vp* (:viewport model)]
+                  (vp/viewport-view vp*)
+                  (conversation-content (:db model) iw))]
+    (box content (= :conversation (:focus model)) iw)))
 
 (defn- cursor []
   (style/styled " " :reverse true))
@@ -207,9 +281,6 @@
     (str "…" (subs s (- (count s) (dec avail))))))
 
 (defn- input-view [{:keys [input width]}]
-  ;; NOTE: charm's apply-text-style downgrades box-drawing edges (─ │) to
-  ;; ASCII (- |) whenever a border :fg/:bg is set, so the border is left
-  ;; uncoloured; the accent lives on the prompt glyph instead.
   (let [inner (max 20 (- (or width 80) 4))
         avail (max 1 (- inner 5))                 ; room for input text + cursor
         body  (if (str/blank? input)
@@ -222,32 +293,19 @@
      (str (style/styled "›" :fg accent :bold true) " " body))))
 
 (defn- hint []
-  (style/styled "Enter to send · PgUp/PgDn to scroll · ^L logs · Ctrl+C to quit" :faint true))
+  (style/styled "Enter send · Tab focus · PgUp/PgDn scroll · ^L logs · ^C quit" :faint true))
 
-;; --- log panel --------------------------------------------------------------
-
-(defn- log-entry-line [{:keys [level msg]} width]
-  (let [oneline (str (format "%-5s " (str/upper-case (name (or level :info))))
-                     (str/replace (str msg) #"\s*\n\s*" " "))
-        text    (style/truncate oneline width :tail "…")]
-    (case level
-      :error (style/render (style/style :fg style/red :bold true) text)
-      :fatal (style/render (style/style :fg style/red :bold true) text)
-      :warn  (style/render (style/style :fg style/yellow) text)
-      :debug (style/render (style/style :faint true) text)
-      text)))
-
-(defn- log-panel [{:keys [logs logs-open? width]}]
-  (let [w    (max 10 (or width 80))
-        logs (or logs [])]
+(defn- log-panel [{:keys [logs logs-open? log-viewport focus] :as model}]
+  (let [iw (inner-width model)]
     (if logs-open?
-      (let [shown (vec (take-last log-content-lines logs))
-            rows  (concat (map #(log-entry-line % w) shown)
-                          (repeat (- log-content-lines (count shown)) ""))]
-        (str/join "\n" (cons (style/styled "▾ logs · ^L to collapse" :faint true) rows)))
+      (let [focused? (= focus :logs)
+            title    (style/styled (str "▾ logs (" (count logs) ") · Tab focus · ^L collapse")
+                                   :faint (not focused?) :bold focused? :fg (when focused? accent))
+            content  (if log-viewport (vp/viewport-view log-viewport) (logs-content logs iw))]
+        (str title "\n" (box content focused? iw)))
       (let [n     (count logs)
             warns (count (filter #(#{:warn :error :fatal} (:level %)) logs))]
-        (style/styled (str "▸ logs (" n (when (pos? warns) (str ", " warns " warn/err")) ") · ^L to expand")
+        (style/styled (str "▸ logs (" n (when (pos? warns) (str ", " warns " warn/err")) ") · ^L expand")
                       :faint true)))))
 
 (defn view [model]

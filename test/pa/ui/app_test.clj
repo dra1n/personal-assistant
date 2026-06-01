@@ -6,11 +6,11 @@
             [pa.ui.app :as app]))
 
 (defn- model-with-turns
-  "An initialised model sized to a small terminal with `n` turns of content,
-  so the conversation overflows the viewport."
+  "An initialised model sized to a terminal with `n` turns of content, so the
+  conversation overflows the viewport."
   [n]
   (let [[m0 _] ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity}))
-        [m1 _] (app/update-model m0 {:type :window-size :width 40 :height 12})
+        [m1 _] (app/update-model m0 {:type :window-size :width 40 :height 30})
         turns  (vec (for [i (range n) role [:user :assistant]]
                       {:role role :content (str (name role) " " i)}))
         [m2 _] (app/update-model m1 {:type :runtime/db-updated :db {:conversation turns}})]
@@ -86,7 +86,7 @@
   (testing "empty input shows the placeholder and the key hint"
     (let [out (app/view {:input "" :width 40 :db {:conversation []}})]
       (is (str/includes? out "Ask me anything"))
-      (is (str/includes? out "Enter to send")))))
+      (is (str/includes? out "Enter send")))))
 
 ;; ---------------------------------------------------------------------------
 ;; Conversation viewport
@@ -135,13 +135,46 @@
       (is (= "m249" (:msg (last (:logs m)))) "newest retained")
       (is (= "m50" (:msg (first (:logs m)))) "oldest dropped"))))
 
-(deftest ctrl-l-toggles-log-panel
-  (testing "Ctrl+L flips the panel open/closed and the conversation viewport resizes"
+(deftest ctrl-l-toggles-log-panel-and-focus
+  (testing "Ctrl+L flips the panel, resizes the conversation, and moves focus"
     (let [m0       (model-with-turns 20)
           h0       (get-in m0 [:viewport :height])
           [m1 _]   (app/update-model m0 (msg/key-press "l" :ctrl true))
           [m2 _]   (app/update-model m1 (msg/key-press "l" :ctrl true))]
       (is (true? (:logs-open? m1)))
+      (is (= :logs (:focus m1)) "opening focuses the log panel")
       (is (< (get-in m1 [:viewport :height]) h0) "expanded panel shrinks the conversation")
       (is (false? (:logs-open? m2)))
+      (is (= :conversation (:focus m2)) "closing returns focus to chat")
       (is (= h0 (get-in m2 [:viewport :height])) "collapsing restores the height"))))
+
+(deftest tab-switches-scroll-focus-only-when-panel-open
+  (testing "Tab is a no-op while collapsed, toggles focus while expanded"
+    (let [m0     (model-with-turns 20)
+          [m1 _] (app/update-model m0 (msg/key-press :tab))]
+      (is (= :conversation (:focus m1)) "no focus change while the panel is collapsed"))
+    (let [open   (first (app/update-model (model-with-turns 20) (msg/key-press "l" :ctrl true)))
+          [m1 _] (app/update-model open (msg/key-press :tab))
+          [m2 _] (app/update-model m1 (msg/key-press :tab))]
+      (is (= :conversation (:focus m1)) "Tab moves focus off the logs")
+      (is (= :logs (:focus m2)) "Tab toggles back"))))
+
+(deftest scroll-keys-drive-the-focused-region
+  (testing "PgUp scrolls the conversation when focused, the log panel when focused"
+    (let [m         (model-with-turns 20)
+          ;; many log lines so the log viewport is scrollable
+          m         (reduce (fn [model i]
+                              (first (app/update-model model
+                                                       {:type :log/appended
+                                                        :entry {:level :debug :msg (str "line " i)}})))
+                            m (range 40))
+          [conv _]  (app/update-model m (msg/key-press :page-up))]
+      (is (< (get-in conv [:viewport :y-offset]) (get-in m [:viewport :y-offset]))
+          "conversation focused: PgUp scrolls the conversation")
+      (is (= (get-in m [:log-viewport :y-offset]) (get-in conv [:log-viewport :y-offset]))
+          "log viewport untouched")
+      (let [open      (first (app/update-model m (msg/key-press "l" :ctrl true)))   ; focus :logs
+            [logs _]  (app/update-model open (msg/key-press :page-up))]
+        (is (= :logs (:focus open)))
+        (is (< (get-in logs [:log-viewport :y-offset]) (get-in open [:log-viewport :y-offset]))
+            "logs focused: PgUp scrolls the log viewport")))))
