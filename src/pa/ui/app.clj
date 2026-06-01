@@ -217,6 +217,8 @@
       [model nil])
 
     ;; Scroll keys drive the focused region.
+    (msg/key-match? message :up)         [(scroll-focused model vp/scroll-up) nil]
+    (msg/key-match? message :down)       [(scroll-focused model vp/scroll-down) nil]
     (msg/key-match? message :page-up)    [(scroll-focused model vp/scroll-page-up) nil]
     (msg/key-match? message :page-down)  [(scroll-focused model vp/scroll-page-down) nil]
     (msg/key-match? message "ctrl+u")    [(scroll-focused model vp/scroll-half-page-up) nil]
@@ -291,7 +293,7 @@
      (str (style/styled "›" :fg accent :bold true) " " body))))
 
 (defn- hint []
-  (style/styled "Enter send · Tab focus · PgUp/PgDn scroll · ^L logs · ^C quit" :faint true))
+  (style/styled "Enter send · Tab focus · ↑/↓ PgUp/PgDn scroll · ^L logs · ^C quit" :faint true))
 
 (defn- log-panel [{:keys [logs logs-open? log-viewport focus] :as model}]
   (let [iw (inner-width model)]

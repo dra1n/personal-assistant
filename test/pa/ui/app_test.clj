@@ -178,3 +178,19 @@
         (is (= :logs (:focus open)))
         (is (< (get-in logs [:log-viewport :y-offset]) (get-in open [:log-viewport :y-offset]))
             "logs focused: PgUp scrolls the log viewport")))))
+
+(deftest arrow-keys-scroll-the-focused-region-by-line
+  (testing "Down then Up move the focused viewport one line at a time"
+    (let [m         (model-with-turns 20)
+          [up _]    (app/update-model m (msg/key-press :up))]
+      (is (= (dec (get-in m [:viewport :y-offset])) (get-in up [:viewport :y-offset]))
+          "Up scrolls the conversation up one line (input focused)")
+      (let [open     (first (app/update-model m (msg/key-press "l" :ctrl true)))   ; focus :logs
+            m2       (reduce (fn [model i]
+                               (first (app/update-model model
+                                                        {:type :log/appended
+                                                         :entry {:level :debug :msg (str "l" i)}})))
+                             open (range 40))
+            [up2 _]  (app/update-model m2 (msg/key-press :up))]
+        (is (= (dec (get-in m2 [:log-viewport :y-offset])) (get-in up2 [:log-viewport :y-offset]))
+            "logs focused: Up scrolls the log viewport up one line")))))
