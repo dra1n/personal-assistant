@@ -5,6 +5,7 @@
             [pa.logging :as logging]
             [pa.ui.app :as app]
             [pa.ui.subscribe :as subscribe]
+            [pa.ui.view :as view]
             [taoensso.timbre :as log]))
 
 ;; ---------------------------------------------------------------------------
@@ -27,7 +28,7 @@
                                                             :log-ch        log-ch
                                                             :watch-log-cmd watch-log-cmd))
                                    :update app/update-model
-                                   :view   app/view
+                                   :view   view/view
                                    :alt-screen  false
                                    :hide-cursor false})]
     (log/info "terminal UI initialized")

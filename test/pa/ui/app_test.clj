@@ -3,7 +3,8 @@
             [charm.message :as msg]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
-            [pa.ui.app :as app]))
+            [pa.ui.app :as app]
+            [pa.ui.view :as view]))
 
 (defn- model-with-turns
   "An initialised model sized to a terminal with `n` turns of content, so the
@@ -74,7 +75,7 @@
 
 (deftest visible-window-scrolls-to-trailing-text
   (testing "fits untouched, never wider than avail, ellipsis when scrolled"
-    (let [vw #'app/visible-window]
+    (let [vw #'view/visible-window]
       (is (= "short" (vw "short" 10)) "shorter than avail is untouched")
       (is (= "abcde" (vw "abcde" 5)) "exact fit is untouched")
       (let [r (vw "abcdefghij" 5)]
@@ -84,7 +85,7 @@
 
 (deftest view-shows-placeholder-and-hint-when-empty
   (testing "empty input shows the placeholder and the key hint"
-    (let [out (app/view {:input "" :width 40 :db {:conversation []}})]
+    (let [out (view/view {:input "" :width 40 :db {:conversation []}})]
       (is (str/includes? out "Ask me anything"))
       (is (str/includes? out "Enter send")))))
 
