@@ -216,13 +216,11 @@
       [(refresh-logs (update model :focus #(if (= % :logs) :input :logs))) nil]
       [model nil])
 
-    ;; Scroll keys drive the focused region.
-    (msg/key-match? message :up)         [(scroll-focused model vp/scroll-up) nil]
-    (msg/key-match? message :down)       [(scroll-focused model vp/scroll-down) nil]
-    (msg/key-match? message :page-up)    [(scroll-focused model vp/scroll-page-up) nil]
-    (msg/key-match? message :page-down)  [(scroll-focused model vp/scroll-page-down) nil]
-    (msg/key-match? message "ctrl+u")    [(scroll-focused model vp/scroll-half-page-up) nil]
-    (msg/key-match? message "ctrl+d")    [(scroll-focused model vp/scroll-half-page-down) nil]
+    ;; Scroll keys drive the focused region (line via arrows, half-page via ^U/^D).
+    (msg/key-match? message :up)       [(scroll-focused model vp/scroll-up) nil]
+    (msg/key-match? message :down)     [(scroll-focused model vp/scroll-down) nil]
+    (msg/key-match? message "ctrl+u")  [(scroll-focused model vp/scroll-half-page-up) nil]
+    (msg/key-match? message "ctrl+d")  [(scroll-focused model vp/scroll-half-page-down) nil]
 
     ;; Enter — commit the buffer as a user message (ignored when blank).
     (msg/key-match? message :enter)
@@ -293,7 +291,7 @@
      (str (style/styled "›" :fg accent :bold true) " " body))))
 
 (defn- hint []
-  (style/styled "Enter send · Tab focus · ↑/↓ PgUp/PgDn scroll · ^L logs · ^C quit" :faint true))
+  (style/styled "Enter send · Tab focus · ↑/↓ ^U/^D scroll · ^L logs · ^C quit" :faint true))
 
 (defn- log-panel [{:keys [logs logs-open? log-viewport focus] :as model}]
   (let [iw (inner-width model)]

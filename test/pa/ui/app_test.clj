@@ -96,10 +96,10 @@
   (testing "after a db update the viewport shows the latest turns"
     (is (vp/viewport-at-bottom? (:viewport (model-with-turns 20))))))
 
-(deftest page-up-scrolls-conversation-up
-  (testing "PgUp moves the window up, away from the bottom"
+(deftest half-page-up-scrolls-conversation-up
+  (testing "Ctrl+U moves the window up, away from the bottom"
     (let [m       (model-with-turns 20)
-          [m' _]  (app/update-model m (msg/key-press :page-up))]
+          [m' _]  (app/update-model m (msg/key-press "u" :ctrl true))]
       (is (< (get-in m' [:viewport :y-offset]) (get-in m [:viewport :y-offset])))
       (is (not (vp/viewport-at-bottom? (:viewport m')))))))
 
@@ -160,7 +160,7 @@
       (is (= :logs (:focus m2)) "Tab toggles back"))))
 
 (deftest scroll-keys-drive-the-focused-region
-  (testing "PgUp scrolls the conversation when focused, the log panel when focused"
+  (testing "Ctrl+U scrolls the conversation when focused, the log panel when focused"
     (let [m         (model-with-turns 20)
           ;; many log lines so the log viewport is scrollable
           m         (reduce (fn [model i]
@@ -168,16 +168,16 @@
                                                        {:type :log/appended
                                                         :entry {:level :debug :msg (str "line " i)}})))
                             m (range 40))
-          [conv _]  (app/update-model m (msg/key-press :page-up))]
+          [conv _]  (app/update-model m (msg/key-press "u" :ctrl true))]
       (is (< (get-in conv [:viewport :y-offset]) (get-in m [:viewport :y-offset]))
-          "conversation focused: PgUp scrolls the conversation")
+          "conversation focused: Ctrl+U scrolls the conversation")
       (is (= (get-in m [:log-viewport :y-offset]) (get-in conv [:log-viewport :y-offset]))
           "log viewport untouched")
       (let [open      (first (app/update-model m (msg/key-press "l" :ctrl true)))   ; focus :logs
-            [logs _]  (app/update-model open (msg/key-press :page-up))]
+            [logs _]  (app/update-model open (msg/key-press "u" :ctrl true))]
         (is (= :logs (:focus open)))
         (is (< (get-in logs [:log-viewport :y-offset]) (get-in open [:log-viewport :y-offset]))
-            "logs focused: PgUp scrolls the log viewport")))))
+            "logs focused: Ctrl+U scrolls the log viewport")))))
 
 (deftest arrow-keys-scroll-the-focused-region-by-line
   (testing "Down then Up move the focused viewport one line at a time"

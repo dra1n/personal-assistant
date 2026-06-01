@@ -26,8 +26,8 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 #### Group C polish (input UX)
 - [x] Render a visible cursor inside the input box (reverse-video block at the buffer end) so the caret tracks typed text, rather than relying on the stray terminal cursor.
 - [x] Handle input longer than the box width: trailing-window horizontal scroll with a leading ellipsis (`visible-window`), keeping the caret in view without overflowing the box.
-- [x] Add input affordances: faint placeholder in the empty box and a key-hint line ("Enter to send · PgUp/PgDn to scroll · Ctrl+C to quit").
-- [x] Make `conversation-view` scrollable via charm's `viewport`: word-wrapped content, fixed height (terminal height − chrome), auto-pinned to the latest turn, scrolled with PgUp/PgDn + Ctrl+U/D. Scroll keys are wired via the specific scroll fns (not `viewport-update`) to avoid its default `j`/`k`/arrow bindings hijacking text input.
+- [x] Add input affordances: faint placeholder in the empty box and a key-hint line ("Enter send · Tab focus · ↑/↓ ^U/^D scroll · ^L logs · ^C quit").
+- [x] Make `conversation-view` scrollable via charm's `viewport`: word-wrapped content, fixed height (terminal height − chrome), auto-pinned to the latest turn, scrolled with arrows (line) + Ctrl+U/D (half-page). Scroll keys are wired via the specific scroll fns (not `viewport-update`) to avoid its default `j`/`k` bindings hijacking text input.
 
 #### Observability: logging (the TUI shared stdout with Timbre, corrupting the frame)
 - [x] Add a durable file appender (`PA_HOME/logs/pa.log`, `:debug+`) in `pa.logging`; bootstrap creates the `logs/` dir.
