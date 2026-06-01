@@ -181,6 +181,15 @@
   (let [k (if (= (:focus model) :logs) :log-viewport :viewport)]
     (cond-> model (k model) (update k f))))
 
+(defn- focus-input
+  "Return focus to the input (used when the user interacts with the input
+  buffer while the log panel is focused). Refreshes the logs so they resume
+  tailing once unfocused."
+  [model]
+  (if (= :logs (:focus model))
+    (refresh-logs (assoc model :focus :input))
+    model))
+
 (defn update-model [model message]
   (cond
     (and (msg/key-press? message) (msg/key-match? message "ctrl+c"))
@@ -224,23 +233,23 @@
     (msg/key-match? message :enter)
     (let [text (str/trim (:input model))]
       (if (str/blank? text)
-        [model nil]
-        [(assoc model :input "")
+        [(focus-input model) nil]
+        [(focus-input (assoc model :input ""))
          (dispatch-user-message (:dispatch! model) text)]))
 
     (msg/key-match? message :backspace)
-    [(update model :input backspace) nil]
+    [(focus-input (update model :input backspace)) nil]
 
     ;; Space arrives as a special key, not a runes string.
     (msg/key-match? message :space)
-    [(update model :input str " ") nil]
+    [(focus-input (update model :input str " ")) nil]
 
     ;; Printable characters arrive as a runes string; ignore modified chords.
     (and (msg/key-press? message)
          (string? (:key message))
          (not (msg/ctrl? message))
          (not (msg/alt? message)))
-    [(update model :input str (:key message)) nil]
+    [(focus-input (update model :input str (:key message))) nil]
 
     :else
     [model nil]))

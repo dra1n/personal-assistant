@@ -152,6 +152,17 @@
       (is (= :input (:focus m1)) "Tab moves focus off the logs to the input")
       (is (= :logs (:focus m2)) "Tab toggles back"))))
 
+(deftest typing-returns-focus-to-the-input
+  (testing "interacting with the input while logs are focused snaps focus back"
+    (let [logs-focused (first (app/update-model (model-with-turns 5) (msg/key-press "l" :ctrl true)))]
+      (is (= :logs (:focus logs-focused)) "precondition: logs focused")
+      (doseq [[label key] [["a printable char" (msg/key-press "x")]
+                           ["space"            (msg/key-press :space)]
+                           ["backspace"        (msg/key-press :backspace)]
+                           ["enter"            (msg/key-press :enter)]]]
+        (let [[m _] (app/update-model logs-focused key)]
+          (is (= :input (:focus m)) (str label " returns focus to the input")))))))
+
 (deftest arrow-keys-scroll-the-focused-region-by-line
   (testing "Up scrolls the conversation when input-focused, the log panel when logs-focused"
     (let [m        (model-with-turns 20)
