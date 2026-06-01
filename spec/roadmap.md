@@ -847,6 +847,7 @@ Goal: Introduce controlled, abstracted LLM interaction.
 - [ ] Implement Anthropic provider stub (same protocol, minimal implementation)
 - [ ] Build prompt assembly pipeline: identity + user context + memory snippets → messages list
 - [ ] Wire LLM invocation as an effect type (`{:effect/type :llm/invoke, ...}`)
+- [ ] Capture terminal text input: maintain a UI-local input buffer in `pa.ui.app`, accumulate key presses, and on Enter dispatch a `:user/message` event with the buffer contents, then clear the buffer (keeps the UI a thin client — input becomes an event, no direct state mutation)
 - [ ] Implement streaming response handler: emit partial tokens as events
 - [ ] Display streamed response in charm.clj terminal UI
 - [ ] Integrate conversation turn into event log (user message + assistant response as events)
@@ -854,6 +855,7 @@ Goal: Introduce controlled, abstracted LLM interaction.
 - [ ] Write tests for prompt assembly with fixture identity/memory data
 - [ ] Write tests for LLM provider protocol with a stub/mock provider
 - [ ] Write tests for streaming response handler: fixture SSE chunks → assert events emitted
+- [ ] Write test for terminal input capture: simulate key presses + Enter → assert a `:user/message` event is dispatched with the buffer contents and the buffer is cleared
 
 ---
 
