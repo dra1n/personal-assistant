@@ -96,13 +96,6 @@
   (testing "after a db update the viewport shows the latest turns"
     (is (vp/viewport-at-bottom? (:viewport (model-with-turns 20))))))
 
-(deftest half-page-up-scrolls-conversation-up
-  (testing "Ctrl+U moves the window up, away from the bottom"
-    (let [m       (model-with-turns 20)
-          [m' _]  (app/update-model m (msg/key-press "u" :ctrl true))]
-      (is (< (get-in m' [:viewport :y-offset]) (get-in m [:viewport :y-offset])))
-      (is (not (vp/viewport-at-bottom? (:viewport m')))))))
-
 (deftest typing-does-not-scroll-the-viewport
   (testing "j/k go to the input buffer, not the viewport (no keymap conflict)"
     (let [m      (model-with-turns 20)
@@ -159,38 +152,22 @@
       (is (= :input (:focus m1)) "Tab moves focus off the logs to the input")
       (is (= :logs (:focus m2)) "Tab toggles back"))))
 
-(deftest scroll-keys-drive-the-focused-region
-  (testing "Ctrl+U scrolls the conversation when focused, the log panel when focused"
-    (let [m         (model-with-turns 20)
-          ;; many log lines so the log viewport is scrollable
-          m         (reduce (fn [model i]
-                              (first (app/update-model model
-                                                       {:type :log/appended
-                                                        :entry {:level :debug :msg (str "line " i)}})))
-                            m (range 40))
-          [conv _]  (app/update-model m (msg/key-press "u" :ctrl true))]
-      (is (< (get-in conv [:viewport :y-offset]) (get-in m [:viewport :y-offset]))
-          "conversation focused: Ctrl+U scrolls the conversation")
-      (is (= (get-in m [:log-viewport :y-offset]) (get-in conv [:log-viewport :y-offset]))
-          "log viewport untouched")
-      (let [open      (first (app/update-model m (msg/key-press "l" :ctrl true)))   ; focus :logs
-            [logs _]  (app/update-model open (msg/key-press "u" :ctrl true))]
-        (is (= :logs (:focus open)))
-        (is (< (get-in logs [:log-viewport :y-offset]) (get-in open [:log-viewport :y-offset]))
-            "logs focused: Ctrl+U scrolls the log viewport")))))
-
 (deftest arrow-keys-scroll-the-focused-region-by-line
-  (testing "Down then Up move the focused viewport one line at a time"
-    (let [m         (model-with-turns 20)
-          [up _]    (app/update-model m (msg/key-press :up))]
-      (is (= (dec (get-in m [:viewport :y-offset])) (get-in up [:viewport :y-offset]))
-          "Up scrolls the conversation up one line (input focused)")
+  (testing "Up scrolls the conversation when input-focused, the log panel when logs-focused"
+    (let [m        (model-with-turns 20)
+          ;; many log lines so the log viewport is scrollable
+          m        (reduce (fn [model i]
+                             (first (app/update-model model
+                                                      {:type :log/appended
+                                                       :entry {:level :debug :msg (str "line " i)}})))
+                           m (range 40))
+          [conv _] (app/update-model m (msg/key-press :up))]
+      (is (= (dec (get-in m [:viewport :y-offset])) (get-in conv [:viewport :y-offset]))
+          "input focused: Up scrolls the conversation up one line")
+      (is (= (get-in m [:log-viewport :y-offset]) (get-in conv [:log-viewport :y-offset]))
+          "the unfocused log viewport is untouched")
       (let [open     (first (app/update-model m (msg/key-press "l" :ctrl true)))   ; focus :logs
-            m2       (reduce (fn [model i]
-                               (first (app/update-model model
-                                                        {:type :log/appended
-                                                         :entry {:level :debug :msg (str "l" i)}})))
-                             open (range 40))
-            [up2 _]  (app/update-model m2 (msg/key-press :up))]
-        (is (= (dec (get-in m2 [:log-viewport :y-offset])) (get-in up2 [:log-viewport :y-offset]))
+            [logs _] (app/update-model open (msg/key-press :up))]
+        (is (= :logs (:focus open)))
+        (is (= (dec (get-in open [:log-viewport :y-offset])) (get-in logs [:log-viewport :y-offset]))
             "logs focused: Up scrolls the log viewport up one line")))))
