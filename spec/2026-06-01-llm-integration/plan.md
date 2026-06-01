@@ -18,10 +18,10 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [x] Append the running `:conversation` as alternating user/assistant messages.
 
 ### Group C — Terminal text input capture
-- [ ] Add a UI-local `:input` buffer to the `pa.ui.app` charm model.
-- [ ] In `update-model`, handle character key presses (append to buffer), Backspace (trim), and Enter (commit).
-- [ ] On Enter: dispatch a `:user/message` event with the buffer contents via the runtime dispatch path, then clear the buffer. No direct `:db` mutation.
-- [ ] Update `view` to render the input line (and a prompt indicator) beneath the existing frame.
+- [x] Add a UI-local `:input` buffer to the `pa.ui.app` charm model. _(Also threads `:dispatch!` from `:pa.runtime/dispatcher` into the UI component via config, and tracks `:width`/`:height` from `:window-size`.)_
+- [x] In `update-model`, handle character key presses (append to buffer), Backspace (trim), and Enter (commit). _(Space arrives as the `:space` special key, not a runes string; ctrl/alt chords are ignored.)_
+- [x] On Enter: dispatch a `:user/message` event (trimmed) via a charm command using `:dispatch!`, then clear the buffer. Blank input is a no-op. No direct `:db` mutation.
+- [x] Update `view` to render the input line (and a prompt indicator) beneath the existing frame. _(Styled with `charm.style`: header, colour-coded turns, rounded-border input box with a cyan `›`.)_
 
 ### Group D — Effect & streaming wiring
 - [ ] Add the delta side-channel: extend `pa.ui.subscribe/make-subscription` to also create `delta-ch` (and its sink); own its lifecycle in `pa.ui.core` (create at init, close on halt) alongside `db-ch`.
@@ -36,7 +36,7 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [x] Prompt assembly: fixture identity + fixture memory records → assert exact messages vector (`pa.llm.prompt` unit test). _(Plus front-matter/prose rendering, memory-snippet injection seam, conversation metadata stripping, empty handling.)_
 - [x] Provider protocol: a stub/mock provider implementing the protocol → assert `invoke`/`stream` contract (delta callback called per chunk, full text returned). _(Done via the OpenAI provider + a fake `pa.http/HttpClient`; Anthropic stub conformance also asserted.)_
 - [x] Streaming handler: fixture SSE chunk strings → assert the sequence of deltas parsed and `[DONE]` termination. _(`parse-sse-line` + `stream` accumulation tests.)_
-- [ ] Terminal input capture: simulate key presses + Enter → assert a `:user/message` event is dispatched with buffer contents and the buffer is cleared.
+- [x] Terminal input capture: simulate key presses + Enter → assert a `:user/message` event is dispatched with buffer contents and the buffer is cleared. _(Plus space/backspace/chord handling, blank-input no-op, and db-update preserving the buffer.)_
 - [ ] (Optional, deterministic) conversation-turn integration: drive `:user/message` through the runtime with the stub provider → assert `:user/message` and `:assistant/response` events are stored and `:conversation` reflects both.
 
 ## Notes
@@ -47,3 +47,4 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - **Secrets:** the OpenAI API key comes from env/config; do not commit it. A missing key should fail clearly, and the stub Anthropic provider plus the test stub provider allow all deterministic tests to run with no key present.
 - **Replay check:** after Group D, a replay of a fixture event log containing one turn must reconstruct `:conversation` identically without any provider call — proving deltas were never part of state.
 - **HTTP seam (added in Group A):** the concrete HTTP client is wrapped behind a `pa.http/HttpClient` protocol (production impl `HatoClient`), injected into `OpenAIProvider` via an `:http` field. This lets the provider be tested end-to-end with a fake client and no network; Phase 4 web tools can reuse the same seam.
+- **charm border-colour bug (Group C):** `charm.style`'s text styling downgrades box-drawing edges (`─`/`│`) to ASCII (`-`/`|`) whenever a border `:fg`/`:bg` is applied (all colour profiles, incl. `:true-color`); corners survive. Workaround: leave the input border uncoloured and accent the prompt glyph/header/labels instead.

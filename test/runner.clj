@@ -17,7 +17,8 @@
             pa.db.memory-test
             pa.llm.openai-test
             pa.llm.anthropic-test
-            pa.llm.prompt-test))
+            pa.llm.prompt-test
+            pa.ui.app-test))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (test/run-all-tests #"pa\..*-test")]

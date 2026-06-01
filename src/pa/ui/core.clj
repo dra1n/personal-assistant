@@ -10,11 +10,11 @@
 ;; Integrant component — assembles subscribe + app, manages lifecycle
 ;; ---------------------------------------------------------------------------
 
-(defmethod ig/init-key :pa.ui/terminal [_ _opts]
+(defmethod ig/init-key :pa.ui/terminal [_ {:keys [dispatcher]}]
   (let [{:keys [db-ch tap-sink watch-cmd] :as sub} (subscribe/make-subscription)
         _                        (add-tap tap-sink)
         {:keys [quit! result]}   (charm/run-async
-                                  {:init   (app/init sub)
+                                  {:init   (app/init (assoc sub :dispatch! (:dispatch! dispatcher)))
                                    :update app/update-model
                                    :view   app/view
                                    :alt-screen  false

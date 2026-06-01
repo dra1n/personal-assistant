@@ -17,4 +17,4 @@
                               :memory   (ig/ref :memory/store)
                               :indexer  (ig/ref :memory/indexer)
                               :llm      (ig/ref :llm/provider)}
-   :pa.ui/terminal           {}})
+   :pa.ui/terminal           {:dispatcher (ig/ref :pa.runtime/dispatcher)}})
