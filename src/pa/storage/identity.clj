@@ -71,15 +71,18 @@
 
 (defn load-all
   "Load soul.md, identity.md, user.md, agents.md from root/identity/.
-  Returns a merged context map:
-    {:soul     <front-matter map>
-     :identity <front-matter map>
-     :user     <front-matter map>
-     :agents   <front-matter map>}"
+  Returns a merged context map keyed by file, each value carrying both the
+  parsed front-matter and the prose body:
+    {:soul     {:front-matter <map> :prose <string>}
+     :identity {:front-matter <map> :prose <string>}
+     :user     {:front-matter <map> :prose <string>}
+     :agents   {:front-matter <map> :prose <string>}}"
   [root]
   (into {}
         (map (fn [[filename key]]
-               [key (:front-matter (load-identity-file (str root "/identity/" filename)))])
+               (let [{:keys [front-matter prose]}
+                     (load-identity-file (str root "/identity/" filename))]
+                 [key {:front-matter front-matter :prose prose}]))
              identity-files)))
 
 ;; ---------------------------------------------------------------------------

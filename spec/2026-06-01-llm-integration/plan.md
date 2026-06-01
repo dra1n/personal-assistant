@@ -12,10 +12,10 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [x] Wire both providers as Integrant components and add the active provider to `pa.config/system-config`; expose the provider to the dispatcher ctx (sibling to `store-event!`, etc.).
 
 ### Group B — Prompt assembly pipeline
-- [ ] Create `pa.llm.prompt` (or `pa.cognition.prompt`) with a pure `assemble` fn: `{:identity ... :conversation ... :memory-snippets ...} → [{:role :content} ...]`.
-- [ ] Render the identity context map (`soul`/`identity`/`user`/`agents` front-matter + prose) into a system message.
-- [ ] Render memory snippets — accept retrieved records (recent N via existing basic retrieval) and format `:memory/title` + `:memory/summary` into the system/context message. Keep retrieval injected, not hard-wired (Phase 5 seam).
-- [ ] Append the running `:conversation` as alternating user/assistant messages.
+- [x] Create `pa.llm.prompt` with a pure `assemble` fn: `{:identity ... :conversation ... :memory-snippets ...} → [{:role :content} ...]`.
+- [x] Render the identity context map (`soul`/`identity`/`user`/`agents` front-matter + prose) into a system message. _(Required fixing `pa.storage.identity/load-all`, which had been discarding prose; identity tests updated for the `{:front-matter :prose}` shape.)_
+- [x] Render memory snippets — accept retrieved records (recent N via existing basic retrieval) and format `:memory/title` + `:memory/summary` into the system/context message. Keep retrieval injected, not hard-wired (Phase 5 seam).
+- [x] Append the running `:conversation` as alternating user/assistant messages.
 
 ### Group C — Terminal text input capture
 - [ ] Add a UI-local `:input` buffer to the `pa.ui.app` charm model.
@@ -33,7 +33,7 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [ ] Confirm (assertion/REPL note) that no memory-write or tool effect is emitted anywhere in this path.
 
 ### Group E — Tests
-- [ ] Prompt assembly: fixture identity + fixture memory records → assert exact messages vector (`pa.llm.prompt` unit test).
+- [x] Prompt assembly: fixture identity + fixture memory records → assert exact messages vector (`pa.llm.prompt` unit test). _(Plus front-matter/prose rendering, memory-snippet injection seam, conversation metadata stripping, empty handling.)_
 - [x] Provider protocol: a stub/mock provider implementing the protocol → assert `invoke`/`stream` contract (delta callback called per chunk, full text returned). _(Done via the OpenAI provider + a fake `pa.http/HttpClient`; Anthropic stub conformance also asserted.)_
 - [x] Streaming handler: fixture SSE chunk strings → assert the sequence of deltas parsed and `[DONE]` termination. _(`parse-sse-line` + `stream` accumulation tests.)_
 - [ ] Terminal input capture: simulate key presses + Enter → assert a `:user/message` event is dispatched with buffer contents and the buffer is cleared.

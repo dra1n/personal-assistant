@@ -106,19 +106,21 @@
       (is (contains? ctx :agents)))))
 
 (deftest load-all-merges-front-matter-under-named-keys
-  (testing "each key in the result holds the parsed front-matter for that file"
-    (write-identity! "soul.md"     "---\nname: Aria\n---")
+  (testing "each key holds the parsed front-matter (and prose) for that file"
+    (write-identity! "soul.md"     "---\nname: Aria\n---\n\nSoul prose.")
     (write-identity! "identity.md" "---\nrole: assistant\n---")
     (write-identity! "user.md"     "---\nname: Alice\n---")
     (write-identity! "agents.md"   "---\nagents: []\n---")
     (let [ctx (identity/load-all *tmp-root*)]
-      (is (= "Aria"      (get-in ctx [:soul :name])))
-      (is (= "assistant" (get-in ctx [:identity :role])))
-      (is (= "Alice"     (get-in ctx [:user :name])))
-      (is (= []          (get-in ctx [:agents :agents]))))))
+      (is (= "Aria"        (get-in ctx [:soul :front-matter :name])))
+      (is (= "Soul prose." (get-in ctx [:soul :prose])))
+      (is (= "assistant"   (get-in ctx [:identity :front-matter :role])))
+      (is (= "Alice"       (get-in ctx [:user :front-matter :name])))
+      (is (= []            (get-in ctx [:agents :front-matter :agents]))))))
 
 (deftest load-all-tolerates-missing-files
-  (testing "missing files produce empty maps rather than throwing"
+  (testing "missing files produce empty front-matter rather than throwing"
     (let [ctx (identity/load-all *tmp-root*)]
-      (is (= {} (:soul ctx)))
-      (is (= {} (:user ctx))))))
+      (is (= {} (get-in ctx [:soul :front-matter])))
+      (is (= "" (get-in ctx [:soul :prose])))
+      (is (= {} (get-in ctx [:user :front-matter]))))))
