@@ -2,6 +2,7 @@
   (:require [charm.program :as charm]
             [clojure.core.async :as async]
             [integrant.core :as ig]
+            [pa.logging :as logging]
             [pa.ui.app :as app]
             [pa.ui.subscribe :as subscribe]
             [taoensso.timbre :as log]))
@@ -16,10 +17,10 @@
         _                        (add-tap tap-sink)
         ;; Route logs into the in-app panel; silence the stdout appender,
         ;; which would otherwise scribble over the charm-rendered frame.
-        ;; (The file appender from pa.logging stays on.)
-        _                        (log/merge-config!
-                                  {:appenders {:panel   log-appender
-                                               :println {:enabled? false}}})
+        ;; set-console! also flips the flag so a later pa.logging init can't
+        ;; re-enable :println. (The file appender stays on.)
+        _                        (logging/set-console! false)
+        _                        (log/merge-config! {:appenders {:panel log-appender}})
         {:keys [quit! result]}   (charm/run-async
                                   {:init   (app/init (assoc sub
                                                             :dispatch!     (:dispatch! dispatcher)
@@ -39,9 +40,9 @@
 
 (defmethod ig/halt-key! :pa.ui/terminal [_ {:keys [quit! db-ch tap-sink log-ch]}]
   (remove-tap tap-sink)
-  ;; Restore stdout logging (for REPL use) and drop the panel appender.
-  (log/merge-config! {:appenders {:panel   {:enabled? false}
-                                  :println {:enabled? true}}})
+  ;; Drop the panel appender and restore stdout logging (for REPL use).
+  (log/merge-config! {:appenders {:panel {:enabled? false}}})
+  (logging/set-console! true)
   (async/close! db-ch)
   (when log-ch (async/close! log-ch))
   (quit!)
