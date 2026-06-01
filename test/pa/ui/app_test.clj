@@ -1,7 +1,20 @@
 (ns pa.ui.app-test
-  (:require [charm.message :as msg]
+  (:require [charm.components.viewport :as vp]
+            [charm.message :as msg]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [pa.ui.app :as app]))
+
+(defn- model-with-turns
+  "An initialised model sized to a small terminal with `n` turns of content,
+  so the conversation overflows the viewport."
+  [n]
+  (let [[m0 _] ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity}))
+        [m1 _] (app/update-model m0 {:type :window-size :width 40 :height 12})
+        turns  (vec (for [i (range n) role [:user :assistant]]
+                      {:role role :content (str (name role) " " i)}))
+        [m2 _] (app/update-model m1 {:type :runtime/db-updated :db {:conversation turns}})]
+    m2))
 
 (deftest typing-appends-runes-to-input
   (testing "printable characters accumulate in the input buffer"
@@ -54,3 +67,46 @@
           [m _]  (app/update-model model {:type :runtime/db-updated :db {:conversation [:x]}})]
       (is (= "half-typed" (:input m)))
       (is (= {:conversation [:x]} (:db m))))))
+
+;; ---------------------------------------------------------------------------
+;; View
+;; ---------------------------------------------------------------------------
+
+(deftest visible-window-scrolls-to-trailing-text
+  (testing "fits untouched, never wider than avail, ellipsis when scrolled"
+    (let [vw #'app/visible-window]
+      (is (= "short" (vw "short" 10)) "shorter than avail is untouched")
+      (is (= "abcde" (vw "abcde" 5)) "exact fit is untouched")
+      (let [r (vw "abcdefghij" 5)]
+        (is (= 5 (count r)) "never wider than avail")
+        (is (str/starts-with? r "…"))
+        (is (= "…ghij" r) "keeps the trailing chars after the ellipsis")))))
+
+(deftest view-shows-placeholder-and-hint-when-empty
+  (testing "empty input shows the placeholder and the key hint"
+    (let [out (app/view {:input "" :width 40 :db {:conversation []}})]
+      (is (str/includes? out "Ask me anything"))
+      (is (str/includes? out "Enter to send")))))
+
+;; ---------------------------------------------------------------------------
+;; Conversation viewport
+;; ---------------------------------------------------------------------------
+
+(deftest new-turns-pin-conversation-to-bottom
+  (testing "after a db update the viewport shows the latest turns"
+    (is (vp/viewport-at-bottom? (:viewport (model-with-turns 20))))))
+
+(deftest page-up-scrolls-conversation-up
+  (testing "PgUp moves the window up, away from the bottom"
+    (let [m       (model-with-turns 20)
+          [m' _]  (app/update-model m (msg/key-press :page-up))]
+      (is (< (get-in m' [:viewport :y-offset]) (get-in m [:viewport :y-offset])))
+      (is (not (vp/viewport-at-bottom? (:viewport m')))))))
+
+(deftest typing-does-not-scroll-the-viewport
+  (testing "j/k go to the input buffer, not the viewport (no keymap conflict)"
+    (let [m      (model-with-turns 20)
+          [m' _] (app/update-model m (msg/key-press "j"))]
+      (is (= "j" (:input m')) "j is typed, not consumed as a scroll key")
+      (is (= (get-in m [:viewport :y-offset]) (get-in m' [:viewport :y-offset]))
+          "viewport offset unchanged by typing"))))

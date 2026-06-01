@@ -23,6 +23,12 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [x] On Enter: dispatch a `:user/message` event (trimmed) via a charm command using `:dispatch!`, then clear the buffer. Blank input is a no-op. No direct `:db` mutation.
 - [x] Update `view` to render the input line (and a prompt indicator) beneath the existing frame. _(Styled with `charm.style`: header, colour-coded turns, rounded-border input box with a cyan `›`.)_
 
+#### Group C polish (input UX)
+- [x] Render a visible cursor inside the input box (reverse-video block at the buffer end) so the caret tracks typed text, rather than relying on the stray terminal cursor.
+- [x] Handle input longer than the box width: trailing-window horizontal scroll with a leading ellipsis (`visible-window`), keeping the caret in view without overflowing the box.
+- [x] Add input affordances: faint placeholder in the empty box and a key-hint line ("Enter to send · PgUp/PgDn to scroll · Ctrl+C to quit").
+- [x] Make `conversation-view` scrollable via charm's `viewport`: word-wrapped content, fixed height (terminal height − chrome), auto-pinned to the latest turn, scrolled with PgUp/PgDn + Ctrl+U/D. Scroll keys are wired via the specific scroll fns (not `viewport-update`) to avoid its default `j`/`k`/arrow bindings hijacking text input.
+
 ### Group D — Effect & streaming wiring
 - [ ] Add the delta side-channel: extend `pa.ui.subscribe/make-subscription` to also create `delta-ch` (and its sink); own its lifecycle in `pa.ui.core` (create at init, close on halt) alongside `db-ch`.
 - [ ] Expose `emit-delta!` as a dispatcher ctx capability (wired through `pa.config`/dispatcher, same as the existing capabilities).
