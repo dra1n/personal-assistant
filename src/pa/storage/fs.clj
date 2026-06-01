@@ -17,7 +17,8 @@
                 "tasks/completed"
                 "events"
                 "system"
-                "sqlite"]]
+                "sqlite"
+                "logs"]]
     (.mkdirs (io/file root path))))
 
 (defn- create-identity-templates! [root]

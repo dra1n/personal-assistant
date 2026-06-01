@@ -110,3 +110,38 @@
       (is (= "j" (:input m')) "j is typed, not consumed as a scroll key")
       (is (= (get-in m [:viewport :y-offset]) (get-in m' [:viewport :y-offset]))
           "viewport offset unchanged by typing"))))
+
+;; ---------------------------------------------------------------------------
+;; Log panel
+;; ---------------------------------------------------------------------------
+
+(deftest log-appended-buffers-entries
+  (testing ":log/appended conj's the entry and reschedules the watch command"
+    (let [[m cmd] (app/update-model {:logs [] :log-ch nil}
+                                    {:type :log/appended
+                                     :entry {:level :info :msg "hello"}})]
+      (is (= [{:level :info :msg "hello"}] (:logs m)))
+      (is (some? cmd) "watch-log-cmd rescheduled"))))
+
+(deftest log-buffer-is-bounded
+  (testing "the ring buffer keeps only the most recent entries"
+    (let [m (reduce (fn [model i]
+                      (first (app/update-model model
+                                               {:type :log/appended
+                                                :entry {:level :info :msg (str "m" i)}})))
+                    {:logs [] :log-ch nil}
+                    (range 250))]
+      (is (= 200 (count (:logs m))) "capped at log-buffer-size")
+      (is (= "m249" (:msg (last (:logs m)))) "newest retained")
+      (is (= "m50" (:msg (first (:logs m)))) "oldest dropped"))))
+
+(deftest ctrl-l-toggles-log-panel
+  (testing "Ctrl+L flips the panel open/closed and the conversation viewport resizes"
+    (let [m0       (model-with-turns 20)
+          h0       (get-in m0 [:viewport :height])
+          [m1 _]   (app/update-model m0 (msg/key-press "l" :ctrl true))
+          [m2 _]   (app/update-model m1 (msg/key-press "l" :ctrl true))]
+      (is (true? (:logs-open? m1)))
+      (is (< (get-in m1 [:viewport :height]) h0) "expanded panel shrinks the conversation")
+      (is (false? (:logs-open? m2)))
+      (is (= h0 (get-in m2 [:viewport :height])) "collapsing restores the height"))))

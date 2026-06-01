@@ -29,6 +29,11 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [x] Add input affordances: faint placeholder in the empty box and a key-hint line ("Enter to send · PgUp/PgDn to scroll · Ctrl+C to quit").
 - [x] Make `conversation-view` scrollable via charm's `viewport`: word-wrapped content, fixed height (terminal height − chrome), auto-pinned to the latest turn, scrolled with PgUp/PgDn + Ctrl+U/D. Scroll keys are wired via the specific scroll fns (not `viewport-update`) to avoid its default `j`/`k`/arrow bindings hijacking text input.
 
+#### Observability: logging (the TUI shared stdout with Timbre, corrupting the frame)
+- [x] Add a durable file appender (`PA_HOME/logs/pa.log`, `:debug+`) in `pa.logging`; bootstrap creates the `logs/` dir.
+- [x] Add an in-app collapsable log panel: a Timbre appender (`:info+`) forwards entries over a dropping-buffer channel (`pa.ui.subscribe/make-log-subscription`) into the charm loop as `:log/appended`; `pa.ui.app` keeps a bounded ring buffer and renders a panel — collapsed summary or expanded level-coloured rows — toggled with Ctrl+L, with the conversation viewport height recomputed for the panel state.
+- [x] Suspend the stdout (`:println`) appender while the TUI runs and restore it on halt (REPL keeps inline console logs); file appender stays on in both modes.
+
 ### Group D — Effect & streaming wiring
 - [ ] Add the delta side-channel: extend `pa.ui.subscribe/make-subscription` to also create `delta-ch` (and its sink); own its lifecycle in `pa.ui.core` (create at init, close on halt) alongside `db-ch`.
 - [ ] Expose `emit-delta!` as a dispatcher ctx capability (wired through `pa.config`/dispatcher, same as the existing capabilities).

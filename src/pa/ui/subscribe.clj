@@ -47,3 +47,47 @@
     {:db-ch     db-ch
      :tap-sink  (make-tap-sink db-ch)
      :watch-cmd (watch-db-cmd db-ch)}))
+
+;; ---------------------------------------------------------------------------
+;; Log subscription
+;;
+;; A Timbre appender forwards formatted log entries onto log-ch, which the
+;; charm loop drains one entry at a time via watch-log-cmd. Unlike db-ch this
+;; uses a dropping buffer (not sliding-1) so individual entries are delivered
+;; rather than coalesced; offer! keeps the logging thread non-blocking.
+;;
+;; Message emitted into the charm loop:
+;;   {:type :log/appended :entry {:level kw :msg str :instant inst}}
+;; ---------------------------------------------------------------------------
+
+(defn watch-log-cmd
+  "Return a charm command that parks on log-ch and emits a :log/appended
+  message when an entry arrives."
+  [log-ch]
+  (charm/cmd
+    (fn []
+      (when-let [entry (async/<!! log-ch)]
+        {:type :log/appended :entry entry}))))
+
+(defn make-log-appender
+  "A Timbre appender map that offers compact entries onto log-ch. Non-blocking
+  (dropping buffer), and limited to :info and above to keep the panel readable."
+  [log-ch]
+  {:enabled?  true
+   :async?    false
+   :min-level :info
+   :fn (fn [{:keys [level msg_ instant]}]
+         (async/offer! log-ch {:level   level
+                               :msg     (force msg_)
+                               :instant instant}))})
+
+(defn make-log-subscription
+  "Create the log-panel subscription. Returns:
+    :log-ch        — core.async channel (dropping-buffer)
+    :log-appender  — Timbre appender map to register via merge-config!
+    :watch-log-cmd — initial charm command; reschedule on every :log/appended"
+  []
+  (let [log-ch (async/chan (async/dropping-buffer 1024))]
+    {:log-ch        log-ch
+     :log-appender  (make-log-appender log-ch)
+     :watch-log-cmd (watch-log-cmd log-ch)}))

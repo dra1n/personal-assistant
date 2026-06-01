@@ -11,19 +11,24 @@
 ;; ---------------------------------------------------------------------------
 ;; Charm model
 ;;
-;; {:db        <latest runtime state snapshot>
-;;  :db-ch     <core.async channel — owned by pa.ui.core, passed in at init>
-;;  :dispatch! <runtime dispatch fn — UI's only way to push events inward>
-;;  :input     <UI-local input buffer string>
-;;  :viewport  <charm viewport holding the scrollable conversation>
-;;  :width     <terminal width, tracked from :window-size>
-;;  :height    <terminal height>}
+;; {:db         <latest runtime state snapshot>
+;;  :db-ch      <core.async channel — owned by pa.ui.core, passed in at init>
+;;  :dispatch!  <runtime dispatch fn — UI's only way to push events inward>
+;;  :input      <UI-local input buffer string>
+;;  :viewport   <charm viewport holding the scrollable conversation>
+;;  :logs       <bounded vector of recent log entries {:level :msg :instant}>
+;;  :logs-open? <whether the log panel is expanded>
+;;  :log-ch     <core.async channel feeding :log/appended messages>
+;;  :width      <terminal width, tracked from :window-size>
+;;  :height     <terminal height>}
 ;;
 ;; Runtime state is read only through pa.state.queries; the UI never mutates
 ;; it directly. User input becomes a :user/message event via :dispatch!.
 ;; ---------------------------------------------------------------------------
 
 (def ^:private accent style/cyan)
+(def ^:private log-buffer-size 200)   ; ring-buffer cap for in-memory log entries
+(def ^:private log-content-lines 8)   ; visible log lines when the panel is expanded
 
 ;; --- conversation rendering -------------------------------------------------
 
@@ -59,23 +64,28 @@
       (str/join "\n\n" (map #(render-turn % width) turns))
       (style/styled "Type a message and press Enter." :faint true))))
 
-;; --- viewport ---------------------------------------------------------------
+;; --- layout / viewport ------------------------------------------------------
 
-;; Lines of chrome around the conversation viewport: header + blank + blank +
-;; input box (3) + hint.
-(def ^:private chrome-lines 7)
+(defn- panel-lines
+  "Vertical lines the log panel occupies: a one-line summary when collapsed,
+  a header plus the content rows when expanded."
+  [logs-open?]
+  (if logs-open? (inc log-content-lines) 1))
 
-(defn- viewport-height [term-h]
-  (max 3 (- (or term-h 24) chrome-lines)))
+(defn- viewport-height
+  "Lines available to the conversation viewport: terminal height minus the
+  fixed chrome (header + blanks + input box + hint) and the log panel."
+  [{:keys [height logs-open?]}]
+  (max 3 (- (or height 24) (+ 7 (panel-lines logs-open?)))))
 
 (defn- refresh-viewport
   "Rebuild the viewport's content and dimensions from the model's db + size,
   pinned to the bottom (latest turn visible)."
-  [{:keys [db width height viewport] :as model}]
+  [{:keys [db width viewport] :as model}]
   (assoc model :viewport
          (-> (or viewport (vp/viewport ""))
              (vp/viewport-set-content (conversation-content db width))
-             (vp/viewport-set-dimensions 0 (viewport-height height))
+             (vp/viewport-set-dimensions 0 (viewport-height model))
              (vp/scroll-to-bottom))))
 
 ;; ---------------------------------------------------------------------------
@@ -83,17 +93,20 @@
 ;; ---------------------------------------------------------------------------
 
 (defn init
-  "Return a charm init fn. Returns the initial model plus the first watch-db command."
-  [{:keys [db-ch watch-cmd dispatch!]}]
+  "Return a charm init fn. Returns the initial model plus the startup commands."
+  [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd]}]
   (fn []
-    [(refresh-viewport {:db        (db/current-db)
-                        :db-ch     db-ch
-                        :dispatch! dispatch!
-                        :input     ""
-                        :width     80
-                        :height    24
-                        :viewport  (vp/viewport "" :height (viewport-height 24))})
-     watch-cmd]))
+    [(refresh-viewport {:db         (db/current-db)
+                        :db-ch      db-ch
+                        :dispatch!  dispatch!
+                        :log-ch     log-ch
+                        :logs       []
+                        :logs-open? false
+                        :input      ""
+                        :width      80
+                        :height     24
+                        :viewport   (vp/viewport "" :height (viewport-height {:height 24}))})
+     (charm/batch watch-cmd watch-log-cmd)]))
 
 ;; ---------------------------------------------------------------------------
 ;; Update
@@ -114,6 +127,9 @@
 (defn- scroll [model f]
   (cond-> model (:viewport model) (update :viewport f)))
 
+(defn- append-log [model entry]
+  (update model :logs #(vec (take-last log-buffer-size (conj (or % []) entry)))))
+
 (defn update-model [model message]
   (cond
     (and (msg/key-press? message) (msg/key-match? message "ctrl+c"))
@@ -123,8 +139,16 @@
     [(refresh-viewport (assoc model :db (:db message)))
      (subscribe/watch-db-cmd (:db-ch model))]
 
+    (= :log/appended (:type message))
+    [(append-log model (:entry message))
+     (subscribe/watch-log-cmd (:log-ch model))]
+
     (= :window-size (:type message))
     [(refresh-viewport (assoc model :width (:width message) :height (:height message))) nil]
+
+    ;; Toggle the log panel (recompute viewport height for the new chrome).
+    (and (msg/key-press? message) (msg/key-match? message "ctrl+l"))
+    [(refresh-viewport (update model :logs-open? not)) nil]
 
     ;; Conversation scrolling — dedicated keys that never conflict with typing.
     (msg/key-match? message :page-up)    [(scroll model vp/scroll-page-up) nil]
@@ -198,7 +222,33 @@
      (str (style/styled "›" :fg accent :bold true) " " body))))
 
 (defn- hint []
-  (style/styled "Enter to send · PgUp/PgDn to scroll · Ctrl+C to quit" :faint true))
+  (style/styled "Enter to send · PgUp/PgDn to scroll · ^L logs · Ctrl+C to quit" :faint true))
+
+;; --- log panel --------------------------------------------------------------
+
+(defn- log-entry-line [{:keys [level msg]} width]
+  (let [oneline (str (format "%-5s " (str/upper-case (name (or level :info))))
+                     (str/replace (str msg) #"\s*\n\s*" " "))
+        text    (style/truncate oneline width :tail "…")]
+    (case level
+      :error (style/render (style/style :fg style/red :bold true) text)
+      :fatal (style/render (style/style :fg style/red :bold true) text)
+      :warn  (style/render (style/style :fg style/yellow) text)
+      :debug (style/render (style/style :faint true) text)
+      text)))
+
+(defn- log-panel [{:keys [logs logs-open? width]}]
+  (let [w    (max 10 (or width 80))
+        logs (or logs [])]
+    (if logs-open?
+      (let [shown (vec (take-last log-content-lines logs))
+            rows  (concat (map #(log-entry-line % w) shown)
+                          (repeat (- log-content-lines (count shown)) ""))]
+        (str/join "\n" (cons (style/styled "▾ logs · ^L to collapse" :faint true) rows)))
+      (let [n     (count logs)
+            warns (count (filter #(#{:warn :error :fatal} (:level %)) logs))]
+        (style/styled (str "▸ logs (" n (when (pos? warns) (str ", " warns " warn/err")) ") · ^L to expand")
+                      :faint true)))))
 
 (defn view [model]
   (style/join-vertical
@@ -208,4 +258,5 @@
    (conversation-view model)
    ""
    (input-view model)
-   (hint)))
+   (hint)
+   (log-panel model)))
