@@ -72,8 +72,8 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest llm-delta-grows-the-streaming-buffer
-  (testing ":llm/delta accumulates into :streaming and reschedules the watch"
-    (let [m0     {:streaming "" :delta-ch nil :db {} :width 40}
+  (testing ":llm/delta accumulates into :streaming while the stream is open"
+    (let [m0     {:streaming "" :streaming-open? true :delta-ch nil :db {} :width 40}
           [m1 c] (app/update-model m0 {:type :llm/delta :delta "Hel"})
           [m2 _] (app/update-model m1 {:type :llm/delta :delta "lo"})]
       (is (= "Hello" (:streaming m2)))
@@ -82,10 +82,32 @@
 (deftest db-update-clears-the-streaming-buffer
   (testing "a committed snapshot clears the in-progress stream"
     (let [[m _] (app/update-model
-                 {:streaming "partial reply" :db-ch nil :db {} :width 40}
+                 {:streaming "partial reply" :streaming-open? true :db-ch nil :db {} :width 40}
                  {:type :runtime/db-updated
                   :db {:conversation [{:role :assistant :content "partial reply"}]}})]
       (is (= "" (:streaming m))))))
+
+(deftest deltas-after-commit-do-not-resurrect-a-ghost-turn
+  (testing "a straggler delta arriving after the assistant turn commits is dropped"
+    (let [open   {:streaming "" :streaming-open? true :db {} :width 40 :delta-ch nil :db-ch nil}
+          [m1 _] (app/update-model open {:type :llm/delta :delta "Hello there"})
+          [m2 _] (app/update-model m1 {:type :runtime/db-updated
+                                       :db {:conversation [{:role :user :content "hi"}
+                                                           {:role :assistant :content "Hello there"}]}})
+          [m3 _] (app/update-model m2 {:type :llm/delta :delta " there"})]
+      (is (= "Hello there" (:streaming m1)) "deltas accumulate while open")
+      (is (= "" (:streaming m2)) "the commit clears the buffer")
+      (is (false? (:streaming-open? m2)) "the commit closes the stream")
+      (is (= "" (:streaming m3)) "the straggler does not re-grow a ghost turn"))))
+
+(deftest user-turn-commit-keeps-the-stream-open
+  (testing "committing the user turn leaves the stream open for the assistant's deltas"
+    (let [open   {:streaming "" :streaming-open? true :db {} :width 40 :delta-ch nil :db-ch nil}
+          [m1 _] (app/update-model open {:type :runtime/db-updated
+                                         :db {:conversation [{:role :user :content "hi"}]}})
+          [m2 _] (app/update-model m1 {:type :llm/delta :delta "Hi!"})]
+      (is (true? (:streaming-open? m1)) "a user-turn commit does not close the stream")
+      (is (= "Hi!" (:streaming m2)) "subsequent deltas are still accepted"))))
 
 ;; ---------------------------------------------------------------------------
 ;; Conversation viewport

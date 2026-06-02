@@ -8,6 +8,10 @@
      :db-ch        core.async channel — owned by pa.ui.core
      :dispatch!    runtime dispatch fn — the UI's only way to push events in
      :input        UI-local input buffer string
+     :streaming    live text of the in-flight assistant turn (delta preview)
+     :streaming-open? whether to accept incoming deltas — opened when the user
+                   sends, closed when the assistant turn commits (so stragglers
+                   buffered on delta-ch can't re-grow a ghost turn)
      :viewport     charm viewport: the scrollable conversation
      :log-viewport charm viewport: the scrollable log panel
      :logs         bounded vector of recent log entries {:level :msg :instant}
@@ -85,6 +89,7 @@
           :focus        :input
           :input        ""
           :streaming    ""
+          :streaming-open? false
           :width        80
           :height       24
           :viewport     (vp/viewport "")
@@ -147,18 +152,30 @@
     [model charm/quit-cmd]
 
     ;; A committed conversation snapshot — clear the in-progress stream (the
-    ;; assistant turn, if any, is now part of the conversation).
+    ;; assistant turn, if any, is now part of the conversation). Once the
+    ;; assistant turn lands the stream is closed, so late deltas still buffered
+    ;; on delta-ch are rejected rather than re-growing a ghost trailing turn.
     (= :runtime/db-updated (:type message))
-    [(refresh-conversation (assoc model :db (:db message) :streaming ""))
-     (subscribe/watch-db-cmd (:db-ch model))]
+    (let [new-db (:db message)
+          committed? (= :assistant (:role (last (:conversation new-db))))]
+      [(refresh-conversation (assoc model
+                                    :db new-db
+                                    :streaming ""
+                                    :streaming-open? (and (:streaming-open? model)
+                                                          (not committed?))))
+       (subscribe/watch-db-cmd (:db-ch model))])
 
     (= :log/appended (:type message))
     [(refresh-logs (append-log model (:entry message)))
      (subscribe/watch-log-cmd (:log-ch model))]
 
-    ;; A streamed response fragment — grow the live buffer and re-render.
+    ;; A streamed response fragment — grow the live buffer and re-render, but
+    ;; only while the stream is open. A delta arriving after the turn committed
+    ;; is a straggler and is dropped (the channel is still drained/rescheduled).
     (= :llm/delta (:type message))
-    [(refresh-conversation (update model :streaming str (:delta message)))
+    [(cond-> model
+       (:streaming-open? model) (-> (update :streaming str (:delta message))
+                                    refresh-conversation))
      (subscribe/watch-delta-cmd (:delta-ch model))]
 
     (= :window-size (:type message))
@@ -197,7 +214,9 @@
     (let [text (str/trim (:input model))]
       (if (str/blank? text)
         [(focus-input model) nil]
-        [(focus-input (assoc model :input ""))
+        ;; Open the stream so the assistant's deltas are accepted into the live
+        ;; preview; it closes again when the assistant turn commits.
+        [(focus-input (assoc model :input "" :streaming-open? true))
          (dispatch-user-message (:dispatch! model) text)]))
 
     (msg/key-match? message :backspace)

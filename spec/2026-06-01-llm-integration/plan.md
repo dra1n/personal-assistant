@@ -42,7 +42,7 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [x] Register a `:user/message` handler: append to `:conversation`, persist via `:event/store`, assemble the prompt (Group B), and return an `:llm/invoke` effect carrying the messages vector.
 - [x] Implement the `:llm/invoke` `execute-effect` method: run the provider `stream` on a `future`, call `emit-delta!` per delta, accumulate full text, and on completion `dispatch!` a single `:assistant/response` event (errors dispatch an error response).
 - [x] Register an `:assistant/response` handler: append the assistant entry to `:conversation` (persist via `:event/store`).
-- [x] In `pa.ui.app`, consume `:llm/delta` messages into a UI-local `:streaming` buffer rendered as a live trailing assistant turn; clear it on the next `:runtime/db-updated` (the committed turn).
+- [x] In `pa.ui.app`, consume `:llm/delta` messages into a UI-local `:streaming` buffer rendered as a live trailing assistant turn; clear it on the next `:runtime/db-updated` (the committed turn). _(Bugfix: `delta-ch` and `db-ch` are independent channels, so deltas still buffered when the assistant turn committed were processed after the clear and re-grew a ghost partial turn. Added a `:streaming-open?` flag — opened on send, closed when the committed turn's last entry is an assistant message — and deltas only append while open, so stragglers are dropped.)_
 - [x] Confirm (assertion) that no memory-write or tool effect is emitted on the conversation path (`:user/message` handler test asserts neither `:memory/write` nor `:tool/invoke` is present).
 
 ### Group E — Tests
