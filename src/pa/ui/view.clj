@@ -40,21 +40,24 @@
        (mapcat #(wrap-line % width))
        (str/join "\n")))
 
-(defn- render-turn [{:keys [role content]} width]
+(defn- render-turn [{:keys [role content]} width names]
   (let [label (case role
-                :user      (style/styled "you"       :fg accent :bold true)
-                :assistant (style/styled "assistant" :fg style/green :bold true)
+                :user      (style/styled (or (:user names) "You")            :fg accent :bold true)
+                :assistant (style/styled (or (:assistant names) "Assistant") :fg style/green :bold true)
                 (style/styled (name (or role :system)) :faint true))]
     (str label "\n" (wrap-text (str content) (max 1 width)))))
 
 (defn conversation-content
   "Render the committed conversation, plus the in-progress streamed response
-  (if any) as a trailing live assistant turn."
+  (if any) as a trailing live assistant turn. Turn labels use the identity
+  names when set, falling back to capitalized \"You\"/\"Assistant\"."
   [db width streaming]
   (let [turns (cond-> (vec (queries/conversation db))
-                (not (str/blank? streaming)) (conj {:role :assistant :content streaming}))]
+                (not (str/blank? streaming)) (conj {:role :assistant :content streaming}))
+        names {:user      (queries/user-name db)
+               :assistant (queries/assistant-name db)}]
     (if (seq turns)
-      (str/join "\n\n" (map #(render-turn % width) turns))
+      (str/join "\n\n" (map #(render-turn % width names) turns))
       (style/styled "Type a message and press Enter." :faint true))))
 
 ;; --- log content ------------------------------------------------------------

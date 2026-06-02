@@ -18,3 +18,32 @@
     (let [out (view/view {:input "" :width 40 :db {:conversation []}})]
       (is (str/includes? out "Ask me anything"))
       (is (str/includes? out "Enter send")))))
+
+(deftest conversation-labels-default-capitalized
+  (testing "with no identity names, turns use capitalized You/Assistant"
+    (let [out (view/conversation-content
+               {:conversation [{:role :user :content "hi"}
+                               {:role :assistant :content "hello"}]}
+               40 nil)]
+      (is (str/includes? out "You"))
+      (is (str/includes? out "Assistant")))))
+
+(deftest conversation-labels-use-identity-names
+  (testing "identity names override the default labels when set"
+    (let [out (view/conversation-content
+               {:conversation [{:role :user :content "hi"}
+                               {:role :assistant :content "hello"}]
+                :identity {:identity {:front-matter {:name "Aria"}}
+                           :user     {:front-matter {:name "Andrey"}}}}
+               40 nil)]
+      (is (str/includes? out "Andrey"))
+      (is (str/includes? out "Aria"))
+      (is (not (str/includes? out "Assistant")) "name replaces the default label"))))
+
+(deftest conversation-labels-fall-back-on-blank-name
+  (testing "a blank identity name falls back to the capitalized default"
+    (let [out (view/conversation-content
+               {:conversation [{:role :assistant :content "hello"}]
+                :identity {:identity {:front-matter {:name ""}}}}
+               40 nil)]
+      (is (str/includes? out "Assistant")))))
