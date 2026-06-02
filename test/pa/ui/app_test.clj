@@ -1,6 +1,7 @@
 (ns pa.ui.app-test
   (:require [charm.components.viewport :as vp]
             [charm.message :as msg]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [pa.ui.app :as app]
             [pa.ui.view :as view]))
@@ -117,6 +118,14 @@
 (deftest new-turns-pin-conversation-to-bottom
   (testing "after a db update the viewport shows the latest turns"
     (is (vp/viewport-at-bottom? (:viewport (model-with-turns 20))))))
+
+(deftest frame-fills-the-terminal-height
+  (testing "the rendered frame is always exactly the terminal height (fluid layout)"
+    ;; model-with-turns sizes the terminal to 40×30.
+    (doseq [[label n] [["empty" 0] ["sparse" 1] ["overflowing" 30]]]
+      (let [m (model-with-turns n)]
+        (is (= 30 (count (str/split-lines (view/view m))))
+            (str label " conversation fills the terminal height, input pinned"))))))
 
 (deftest typing-does-not-scroll-the-viewport
   (testing "j/k go to the input buffer, not the viewport (no keymap conflict)"

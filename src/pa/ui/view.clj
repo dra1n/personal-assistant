@@ -128,6 +128,19 @@
 (defn- border-for [focused?]
   (if focused? style/thick-border style/rounded-border))
 
+(defn- pad-lines
+  "Append blank lines so `s` spans exactly `n` lines (no-op if already ≥ n).
+  charm's `:height` doesn't pad, so we fill manually — this is what makes the
+  conversation box always occupy its full slot, keeping the layout fixed and
+  the input pinned to the bottom regardless of how much has been said. The
+  filler is a single space, not \"\": charm drops trailing *empty* lines when
+  rendering borders and joining blocks."
+  [s n]
+  (let [lines (str/split-lines s)]
+    (->> (concat lines (repeat " "))
+         (take (max n (count lines)))
+         (str/join "\n"))))
+
 (defn- conversation-view [{:keys [viewport focus] :as model}]
   (let [content (if viewport
                   (vp/viewport-view viewport)
@@ -135,17 +148,19 @@
     (style/render (style/style :border  (border-for (= :conversation focus))
                                :padding box-padding
                                :width   (inner-width model))
-                  content)))
+                  (pad-lines content (viewport-height model)))))
 
 ;; Shown before the first message: a borderless, unfocusable hint centred in
 ;; the same rectangle the conversation box would occupy, so the input below
 ;; stays put. No border/focus styling — that's what looked wonky empty.
 (defn- empty-conversation-view [model]
-  (style/render (style/style :width  (or (:width model) 80)
-                             :height (+ (viewport-height model) 2)
-                             :align  :center
-                             :valign :center)
-                (style/styled empty-conversation-hint :faint true)))
+  (let [w    (or (:width model) 80)
+        h    (+ (viewport-height model) 2)            ; match the bordered box's outer height
+        lead (apply str (repeat (max 0 (quot (- w (count empty-conversation-hint)) 2)) \space))
+        line (style/styled (str lead empty-conversation-hint) :faint true)
+        top  (quot (dec h) 2)]
+    ;; Space-filled blanks, not "" — charm drops trailing empty lines on join.
+    (str/join "\n" (concat (repeat top " ") [line] (repeat (- h top 1) " ")))))
 
 (defn- cursor []
   (style/styled " " :reverse true))

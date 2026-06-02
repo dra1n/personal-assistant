@@ -81,6 +81,7 @@ Promote the conversation from an unbordered viewport implicitly scrolled by the 
 - [x] Add shared horizontal inner padding (`box-padding [0 1]`) to the conversation and log boxes so text doesn't sit against the side borders; introduce `view/text-width` (= `inner-width − 2`) and wrap viewport/content to it (the padding is carved out of the box `:width`). Vertical (top/bottom) is left flush, consistent with the input box.
 - [x] Give each turn's name label a one-line bottom gap so it reads as a header, and widen the between-turn gap to two blank lines so the label groups with its own body (label gap < message gap — equal gaps would float the body between two labels).
 - [x] Empty state: extract the "no messages yet" placeholder into its own borderless, centred `empty-conversation-view` (filling the same rectangle so the input stays put), shown when `conversation-empty?`. Skip the conversation in the Tab focus cycle while empty — previously the placeholder inherited the box's border + focus, which looked wonky.
+- [x] Fluid full-height layout: the conversation region always fills its slot via `pad-lines` (charm's `:height` doesn't pad, and it drops trailing *empty* lines, so we pad with space-lines). The frame is now always exactly the terminal height — input pinned at the bottom, conversation taking the rest — instead of the frame (and input position) shrinking with little content and jumping after the first message.
 
 ## Notes
 
