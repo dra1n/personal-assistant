@@ -124,8 +124,8 @@
     s
     (str "…" (subs s (- (count s) (dec avail))))))
 
-(defn- input-view [{:keys [input width focus]}]
-  (let [inner (max 20 (- (or width 80) 4))
+(defn- input-view [{:keys [input focus] :as model}]
+  (let [inner (inner-width model)                 ; full width, flush with the other boxes
         avail (max 1 (- inner 5))                 ; room for input text + cursor
         body  (if (str/blank? input)
                 (str (cursor) (style/styled placeholder :faint true))
