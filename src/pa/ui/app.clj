@@ -45,7 +45,7 @@
         prev-off   (:y-offset viewport)
         vp0        (-> (or viewport (vp/viewport ""))
                        (vp/viewport-set-content
-                        (view/conversation-content db (view/inner-width model) streaming))
+                        (view/conversation-content db (view/text-width model) streaming))
                        (vp/viewport-set-dimensions 0 (view/viewport-height model)))]
     (assoc model :viewport
            (if (and (= focus :conversation) (not at-bottom?))
@@ -60,7 +60,7 @@
   (let [at-bottom? (or (nil? log-viewport) (vp/viewport-at-bottom? log-viewport))
         prev-off   (:y-offset log-viewport)
         vp0        (-> (or log-viewport (vp/viewport ""))
-                       (vp/viewport-set-content (view/logs-content logs (view/inner-width model)))
+                       (vp/viewport-set-content (view/logs-content logs (view/text-width model)))
                        (vp/viewport-set-dimensions 0 view/log-content-lines))]
     (assoc model :log-viewport
            (if (and (= focus :logs) (not at-bottom?))

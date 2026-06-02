@@ -13,11 +13,23 @@
 (def ^:private accent style/cyan)
 (def log-content-lines 8)   ; log rows visible inside the expanded panel
 
+(def ^:private box-padding
+  "Inner horizontal padding for the bordered content boxes (1 column each
+  side), so text doesn't sit flush against the side borders."
+  [0 1])
+
 (defn inner-width
   "Content width inside a full-width bordered box (terminal width minus the
-  two border columns)."
+  two border columns). This is the box's `:width`; the padding is carved out
+  of it, leaving `text-width` for the text itself."
   [{:keys [width]}]
   (max 10 (- (or width 80) 2)))
+
+(defn text-width
+  "Wrappable width for text inside a padded, bordered box: the inner width
+  minus the two horizontal padding columns."
+  [model]
+  (max 8 (- (inner-width model) 2)))
 
 ;; --- conversation content ---------------------------------------------------
 
@@ -45,7 +57,9 @@
                 :user      (style/styled (or (:user names) "You")            :fg accent :bold true)
                 :assistant (style/styled (or (:assistant names) "Assistant") :fg style/green :bold true)
                 (style/styled (name (or role :system)) :faint true))]
-    (str label "\n" (wrap-text (str content) (max 1 width)))))
+    ;; One blank line under the label so it stands out as a header; the gap
+    ;; between turns (below) is wider, so the label groups with its own body.
+    (str label "\n\n" (wrap-text (str content) (max 1 width)))))
 
 (defn conversation-content
   "Render the committed conversation, plus the in-progress streamed response
@@ -57,7 +71,8 @@
         names {:user      (queries/user-name db)
                :assistant (queries/assistant-name db)}]
     (if (seq turns)
-      (str/join "\n\n" (map #(render-turn % width names) turns))
+      ;; Two blank lines between turns — wider than the label's own bottom gap.
+      (str/join "\n\n\n" (map #(render-turn % width names) turns))
       (style/styled "Type a message and press Enter." :faint true))))
 
 ;; --- log content ------------------------------------------------------------
@@ -106,11 +121,12 @@
   (if focused? style/thick-border style/rounded-border))
 
 (defn- conversation-view [{:keys [viewport focus] :as model}]
-  (let [iw      (inner-width model)
-        content (if viewport
+  (let [content (if viewport
                   (vp/viewport-view viewport)
-                  (conversation-content (:db model) iw (:streaming model)))]
-    (style/render (style/style :border (border-for (= :conversation focus)) :width iw)
+                  (conversation-content (:db model) (text-width model) (:streaming model)))]
+    (style/render (style/style :border  (border-for (= :conversation focus))
+                               :padding box-padding
+                               :width   (inner-width model))
                   content)))
 
 (defn- cursor []
@@ -132,7 +148,7 @@
                 (str (visible-window input avail) (cursor)))]
     (style/render
      (style/style :border  (border-for (= :input focus))
-                  :padding [0 1]
+                  :padding box-padding
                   :width   inner)
      (str (style/styled "›" :fg accent :bold true) " " body))))
 
@@ -145,8 +161,11 @@
       (let [focused? (= focus :logs)
             title    (style/styled (str "▾ logs (" (count logs) ") · Tab focus · ^L collapse")
                                    :faint (not focused?) :bold focused? :fg (when focused? accent))
-            content  (if log-viewport (vp/viewport-view log-viewport) (logs-content logs iw))]
-        (str title "\n" (style/render (style/style :border (border-for focused?) :width iw) content)))
+            content  (if log-viewport (vp/viewport-view log-viewport) (logs-content logs (text-width model)))]
+        (str title "\n" (style/render (style/style :border  (border-for focused?)
+                                                   :padding box-padding
+                                                   :width   iw)
+                                      content)))
       (let [n     (count logs)
             warns (count (filter #(#{:warn :error :fatal} (:level %)) logs))]
         (style/styled (str "▸ logs (" n (when (pos? warns) (str ", " warns " warn/err")) ") · ^L expand")
