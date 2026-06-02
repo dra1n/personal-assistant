@@ -17,8 +17,7 @@ The assistant should:
 
 Recommended architecture for memory, skills, and identity:
 
-- `SOUL.md` — who I am, how I behave (the agent)
-- `IDENTITY.md` — the agent’s name, gender, vibe/personality (can be merged with SOUL.md)
+- `IDENTITY.md` — who the agent is: name, vibe/personality, role, and how it behaves (front-matter: name, role, purpose, traits, communication-style, values)
 - `USER.md` — what the agent knows about the user (name, time zone, language, preferences)
 - `AGENTS.md` — behavior rules, how to work with files, limitations, etc.
 
@@ -323,7 +322,6 @@ Planned persistent storage layout:
 ```text
 assistant-data/
   identity/
-    soul.md
     identity.md
     user.md
     agents.md

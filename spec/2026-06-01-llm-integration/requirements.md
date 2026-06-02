@@ -25,7 +25,7 @@ Introduce controlled, abstracted LLM interaction into the runtime. The assistant
 - Tool selection / tool execution (Phase 4).
 - The explicit multi-stage cognition pipeline (`interpret → retrieve → plan → …`) — Phase 7. This phase wires a direct `:user/message → assemble → :llm/invoke → :assistant/response` path, not the staged pipeline.
 - Sophisticated/semantic retrieval, embeddings, cosine similarity (Phase 5). Memory snippets use existing recency retrieval only.
-- Personality injection as a stable system prefix from `soul.md` schema (Phase 8) — Phase 3 includes identity/user content in the prompt but does not formalize the personality schema.
+- Personality injection as a stable system prefix from the `identity.md` schema (Phase 8) — Phase 3 includes identity/user content in the prompt but does not formalize the personality schema.
 - Live-LLM tests in CI (non-deterministic, costly — excluded per `tech-stack.md`).
 - Anthropic full streaming implementation (stub only this phase).
 - Slash-command parsing (`/command`) — Phase 7 builds on the input pipeline created here.
@@ -58,6 +58,6 @@ Phases 0–2 are complete: an event-driven runtime (dispatch → coeffect inject
 This phase plugs the first LLM interaction into that substrate without violating its invariants. Key existing seams it builds on:
 
 - **Effects** are a multimethod `pa.runtime.executor/execute-effect` dispatched on effect-type keyword; handlers (`pa.runtime.handlers` via `pa.runtime.registry/reg-handler`) return an effects map. The dispatcher ctx already carries runtime capabilities (`dispatch!`, `store-event!`, `write-memory!`, `index-memory!`); this phase adds `emit-delta!` and the LLM provider.
-- **State** `pa.state.db` already has `:conversation []` with `add-conversation-entry` (transitions) and a `conversation` query. The `:identity` context map is already populated by `pa.storage.identity/load-all` (`soul.md`, `identity.md`, `user.md`, `agents.md`).
+- **State** `pa.state.db` already has `:conversation []` with `add-conversation-entry` (transitions) and a `conversation` query. The `:identity` context map is already populated by `pa.storage.identity/load-all` (`identity.md`, `user.md`, `agents.md`; `soul.md` retired in Group F).
 - **The UI** (`pa.ui.app`) is output-only today: `update-model` handles `ctrl+c` and `:runtime/db-updated`, everything else is a no-op, and the model already reserves room for "input buffer, scroll" UI-local state. The subscription bridge (`pa.ui.subscribe`) demonstrates the exact channel-into-charm-loop pattern the delta side-channel reuses.
 - **Persistence** is event-driven: any event that should be durable goes through the `:event/store` path; replay reconstructs `:db` from `events.edn` alone.

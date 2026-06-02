@@ -58,8 +58,7 @@
 ;; ---------------------------------------------------------------------------
 
 (def ^:private identity-sections
-  [[:soul     "Assistant identity"]
-   [:identity "Assistant role"]
+  [[:identity "Assistant identity"]
    [:user     "About the user"]
    [:agents   "Operating guidelines"]])
 

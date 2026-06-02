@@ -11,7 +11,7 @@
   (:fn (registry/get-handler event-type)))
 
 (deftest user-message-handler-assembles-and-invokes
-  (let [db {:conversation [] :identity {:soul {:front-matter {:name "Aria"} :prose ""}}}
+  (let [db {:conversation [] :identity {:identity {:front-matter {:name "Aria"} :prose ""}}}
         fx ((handler :user/message)
             {:db db :event {:event/type :user/message :content "hello"}})]
     (testing "appends the user turn and persists the event"

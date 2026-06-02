@@ -8,18 +8,18 @@
     (is (= [{:role :system :content "# Assistant identity\nname: Aria"}
             {:role :user :content "hi"}]
            (prompt/assemble
-            {:identity        {:soul {:front-matter {:name "Aria"} :prose ""}}
+            {:identity        {:identity {:front-matter {:name "Aria"} :prose ""}}
              :conversation    [{:role :user :content "hi"}]
              :memory-snippets []})))))
 
 (deftest assemble-renders-front-matter-and-prose-test
   (testing "front-matter fields and cleaned prose both appear; empties omitted"
     (let [sys (-> (prompt/assemble
-                   {:identity {:soul {:front-matter {:name "Aria"
-                                                     :traits ["curious" "helpful"]
-                                                     :communication-style ""
-                                                     :values []}
-                                      :prose "<!-- describe -->\nWarm and direct."}
+                   {:identity {:identity {:front-matter {:name "Aria"
+                                                         :traits ["curious" "helpful"]
+                                                         :communication-style ""
+                                                         :values []}
+                                          :prose "<!-- describe -->\nWarm and direct."}
                                :user {:front-matter {:name "Alice"
                                                      :preferences {:tone "terse"}}
                                       :prose ""}}

@@ -9,7 +9,8 @@ Establish a durable, inspectable, recoverable storage architecture. This phase d
 ### In scope
 
 - `~/.config/personal-assistant/` directory layout and first-startup bootstrap
-- Identity template generation (`soul.md`, `identity.md`, `user.md`, `agents.md`)
+- Identity template generation (`identity.md`, `user.md`, `agents.md`) <!-- soul.md was originally generated too; retired and merged into identity.md in Phase 3 (Group F) -->
+
 - Append-only EDN event log (`~/.config/personal-assistant/events/events.edn`)
 - Replay pipeline: load events from disk → dispatch through runtime → reconstruct state
 - Identity loader: parse structured Markdown (YAML front-matter or EDN sections) → normalized EDN maps → injected into startup state
@@ -43,7 +44,7 @@ Establish a durable, inspectable, recoverable storage architecture. This phase d
 
 2. **Markdown is canonical for semantic content; SQLite is rebuildable infrastructure.** The system must tolerate SQLite deletion without semantic memory loss. `rebuild-memory-index!` must work from Markdown alone.
 
-3. **Identity files use structured format.** Identity Markdown files (`soul.md`, `identity.md`, `user.md`, `agents.md`) use YAML front-matter or EDN sections for machine-parseable fields alongside prose content. This enables the identity loader to produce normalized EDN maps without fragile freeform prose parsing.
+3. **Identity files use structured format.** Identity Markdown files (`identity.md`, `user.md`, `agents.md`) use YAML front-matter or EDN sections for machine-parseable fields alongside prose content. This enables the identity loader to produce normalized EDN maps without fragile freeform prose parsing. _(Originally also included `soul.md`; it was retired and its `name`/`traits`/`communication-style`/`values` schema merged into `identity.md` in Phase 3, Group F.)_
 
 4. **Data root is `~/.config/personal-assistant/`.** The runtime resolves this path at startup (respecting a `PA_HOME` env var override for testing). No `assistant-data/` directory in the project tree.
 

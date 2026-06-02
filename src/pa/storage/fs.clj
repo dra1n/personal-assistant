@@ -3,7 +3,7 @@
             [integrant.core :as ig]))
 
 (def ^:private identity-template-files
-  ["soul.md" "identity.md" "user.md" "agents.md"])
+  ["identity.md" "user.md" "agents.md"])
 
 (defn- create-dirs! [root]
   (doseq [path ["identity"

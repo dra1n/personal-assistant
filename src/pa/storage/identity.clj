@@ -17,7 +17,7 @@
 ;; load-identity-file returns a map with:
 ;;   :front-matter  — EDN map of parsed YAML fields (keys keywordized)
 ;;   :prose         — the Markdown prose below the front-matter block
-;;   :source        — the filename (e.g. "soul.md")
+;;   :source        — the filename (e.g. "identity.md")
 ;; ---------------------------------------------------------------------------
 
 (defn- split-front-matter [text]
@@ -59,22 +59,20 @@
 ;; ---------------------------------------------------------------------------
 ;; load-all
 ;;
-;; Loads the four identity files and merges their front-matter under named
+;; Loads the identity files and merges their front-matter under named
 ;; keys into a single :identity context map injected at startup.
 ;; ---------------------------------------------------------------------------
 
 (def ^:private identity-files
-  [["soul.md"     :soul]
-   ["identity.md" :identity]
+  [["identity.md" :identity]
    ["user.md"     :user]
    ["agents.md"   :agents]])
 
 (defn load-all
-  "Load soul.md, identity.md, user.md, agents.md from root/identity/.
+  "Load identity.md, user.md, agents.md from root/identity/.
   Returns a merged context map keyed by file, each value carrying both the
   parsed front-matter and the prose body:
-    {:soul     {:front-matter <map> :prose <string>}
-     :identity {:front-matter <map> :prose <string>}
+    {:identity {:front-matter <map> :prose <string>}
      :user     {:front-matter <map> :prose <string>}
      :agents   {:front-matter <map> :prose <string>}}"
   [root]

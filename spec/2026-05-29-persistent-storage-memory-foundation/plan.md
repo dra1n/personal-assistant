@@ -9,7 +9,6 @@
   ```text
   ~/.config/personal-assistant/
     identity/
-      soul.md
       identity.md
       user.md
       agents.md
@@ -40,7 +39,7 @@
   ```
 
 - [x] Implement first-startup detection: if `~/.config/personal-assistant/` does not exist, run bootstrap sequence
-- [x] Generate default identity template files: `soul.md`, `identity.md`, `user.md`, `agents.md` with minimal structured stubs
+- [x] Generate default identity template files: `identity.md`, `user.md`, `agents.md` with minimal structured stubs _(originally included `soul.md`; retired and merged into `identity.md` in Phase 3, Group F)_
 - [x] Create empty `~/.config/personal-assistant/events/events.edn` on first startup
 - [x] Wire bootstrap as an Integrant component (`pa.storage.fs`) that runs at system start
 - [x] Write fresh-boot test: point `PA_HOME` at a temp directory, start system, assert directory structure and template files created correctly
@@ -75,7 +74,7 @@
 
 - [x] Define structured format for identity files: YAML front-matter block for machine-parseable fields, Markdown prose below
 - [x] Implement `pa.storage.identity/load-identity-file`: parse a single identity Markdown file → normalized EDN map
-- [x] Implement `pa.storage.identity/load-all`: load `soul.md`, `identity.md`, `user.md`, `agents.md` → merged identity context map
+- [x] Implement `pa.storage.identity/load-all`: load `identity.md`, `user.md`, `agents.md` → merged identity context map _(originally also loaded `soul.md`; retired in Phase 3, Group F)_
 - [x] Inject identity context into runtime startup state (add `:identity` key to initial db map at system start)
 - [x] Write identity loader tests: fixture identity Markdown files → assert normalized EDN structure matches expected output
 

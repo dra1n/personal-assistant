@@ -40,7 +40,7 @@
 (deftest bootstrap-creates-identity-templates
   (testing "identity template files are created with content"
     (fs/bootstrap! *tmp-root*)
-    (doseq [filename ["soul.md" "identity.md" "user.md" "agents.md"]]
+    (doseq [filename ["identity.md" "user.md" "agents.md"]]
       (let [f (io/file *tmp-root* "identity" filename)]
         (is (.exists f) (str filename " should exist"))
         (is (pos? (.length f)) (str filename " should not be empty"))))))
@@ -53,7 +53,7 @@
 (deftest bootstrap-is-idempotent
   (testing "running bootstrap twice does not overwrite existing files"
     (fs/bootstrap! *tmp-root*)
-    (let [soul (io/file *tmp-root* "identity" "soul.md")]
-      (spit soul "custom content")
+    (let [identity (io/file *tmp-root* "identity" "identity.md")]
+      (spit identity "custom content")
       (fs/bootstrap! *tmp-root*)
-      (is (= "custom content" (slurp soul))))))
+      (is (= "custom content" (slurp identity))))))

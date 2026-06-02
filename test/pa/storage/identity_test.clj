@@ -41,17 +41,17 @@
 
 (deftest load-identity-file-parses-front-matter
   (testing "scalar fields are parsed from YAML front-matter"
-    (write-identity! "soul.md"
+    (write-identity! "identity.md"
       "---\nname: Aria\ncommunication-style: concise\n---\n\nProse here.")
-    (let [result (identity/load-identity-file (identity-path "soul.md"))]
+    (let [result (identity/load-identity-file (identity-path "identity.md"))]
       (is (= "Aria"    (get-in result [:front-matter :name])))
       (is (= "concise" (get-in result [:front-matter :communication-style]))))))
 
 (deftest load-identity-file-parses-sequence-fields
   (testing "YAML sequence fields become vectors"
-    (write-identity! "soul.md"
+    (write-identity! "identity.md"
       "---\ntraits:\n  - curious\n  - helpful\nvalues:\n  - honesty\n---")
-    (let [fm (:front-matter (identity/load-identity-file (identity-path "soul.md")))]
+    (let [fm (:front-matter (identity/load-identity-file (identity-path "identity.md")))]
       (is (= ["curious" "helpful"] (:traits fm)))
       (is (= ["honesty"] (:values fm))))))
 
@@ -77,8 +77,8 @@
 
 (deftest load-identity-file-empty-front-matter
   (testing "file with no front-matter returns empty map"
-    (write-identity! "soul.md" "Just prose, no front-matter.")
-    (let [result (identity/load-identity-file (identity-path "soul.md"))]
+    (write-identity! "identity.md" "Just prose, no front-matter.")
+    (let [result (identity/load-identity-file (identity-path "identity.md"))]
       (is (= {} (:front-matter result))))))
 
 (deftest load-identity-file-missing-file-returns-empty
@@ -91,36 +91,34 @@
 ;; load-all
 ;; ---------------------------------------------------------------------------
 
-(deftest load-all-returns-all-four-keys
-  (testing "load-all returns a map with :soul :identity :user :agents keys"
+(deftest load-all-returns-all-keys
+  (testing "load-all returns a map with :identity :user :agents keys"
     (doseq [[f content]
-            [["soul.md"     "---\nname: Aria\ntraits: []\n---"]
-             ["identity.md" "---\nversion: 1\nrole: assistant\n---"]
+            [["identity.md" "---\nversion: 1\nname: Aria\nrole: assistant\n---"]
              ["user.md"     "---\nname: Alice\ntimezone: UTC\n---"]
              ["agents.md"   "---\nagents: []\n---"]]]
       (write-identity! f content))
     (let [ctx (identity/load-all *tmp-root*)]
-      (is (contains? ctx :soul))
       (is (contains? ctx :identity))
       (is (contains? ctx :user))
-      (is (contains? ctx :agents)))))
+      (is (contains? ctx :agents))
+      (is (not (contains? ctx :soul))))))
 
 (deftest load-all-merges-front-matter-under-named-keys
   (testing "each key holds the parsed front-matter (and prose) for that file"
-    (write-identity! "soul.md"     "---\nname: Aria\n---\n\nSoul prose.")
-    (write-identity! "identity.md" "---\nrole: assistant\n---")
+    (write-identity! "identity.md" "---\nname: Aria\nrole: assistant\n---\n\nIdentity prose.")
     (write-identity! "user.md"     "---\nname: Alice\n---")
     (write-identity! "agents.md"   "---\nagents: []\n---")
     (let [ctx (identity/load-all *tmp-root*)]
-      (is (= "Aria"        (get-in ctx [:soul :front-matter :name])))
-      (is (= "Soul prose." (get-in ctx [:soul :prose])))
-      (is (= "assistant"   (get-in ctx [:identity :front-matter :role])))
-      (is (= "Alice"       (get-in ctx [:user :front-matter :name])))
-      (is (= []            (get-in ctx [:agents :front-matter :agents]))))))
+      (is (= "Aria"            (get-in ctx [:identity :front-matter :name])))
+      (is (= "assistant"       (get-in ctx [:identity :front-matter :role])))
+      (is (= "Identity prose." (get-in ctx [:identity :prose])))
+      (is (= "Alice"           (get-in ctx [:user :front-matter :name])))
+      (is (= []                (get-in ctx [:agents :front-matter :agents]))))))
 
 (deftest load-all-tolerates-missing-files
   (testing "missing files produce empty front-matter rather than throwing"
     (let [ctx (identity/load-all *tmp-root*)]
-      (is (= {} (get-in ctx [:soul :front-matter])))
-      (is (= "" (get-in ctx [:soul :prose])))
+      (is (= {} (get-in ctx [:identity :front-matter])))
+      (is (= "" (get-in ctx [:identity :prose])))
       (is (= {} (get-in ctx [:user :front-matter]))))))

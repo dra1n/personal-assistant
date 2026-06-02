@@ -11,7 +11,8 @@ Phase 2 is complete when the system boots cleanly from scratch (no pre-existing 
 - [ ] Fresh-boot test: `PA_HOME` pointed at a temp directory, system starts, directory structure and template identity files are created correctly
 - [ ] Replay test: fixture events written to `events.edn`, replayed through runtime, reconstructed state matches expected state
 - [ ] Replay independence test: replay completes successfully with SQLite deleted / unavailable
-- [ ] Identity loader test: fixture `soul.md`, `identity.md`, `user.md`, `agents.md` → normalized EDN maps match expected structure
+- [ ] Identity loader test: fixture `identity.md`, `user.md`, `agents.md` → normalized EDN maps match expected structure <!-- soul.md retired in Phase 3 (Group F) -->
+
 - [ ] Memory round-trip test: memory record → Markdown writer → Markdown reader → reconstructed record is semantically equivalent
 - [ ] SQLite integration test: memory record → `pa.db.memory/index!` → query (recent, by-type, by-tags) → returned metadata matches original
 - [ ] Rebuild test: populate SQLite, delete and reinitialize schema, call `rebuild-memory-index!`, assert all records restored from Markdown

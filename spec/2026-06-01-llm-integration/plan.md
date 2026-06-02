@@ -13,7 +13,7 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 
 ### Group B — Prompt assembly pipeline
 - [x] Create `pa.llm.prompt` with a pure `assemble` fn: `{:identity ... :conversation ... :memory-snippets ...} → [{:role :content} ...]`.
-- [x] Render the identity context map (`soul`/`identity`/`user`/`agents` front-matter + prose) into a system message. _(Required fixing `pa.storage.identity/load-all`, which had been discarding prose; identity tests updated for the `{:front-matter :prose}` shape.)_
+- [x] Render the identity context map (`identity`/`user`/`agents` front-matter + prose) into a system message. _(Required fixing `pa.storage.identity/load-all`, which had been discarding prose; identity tests updated for the `{:front-matter :prose}` shape. `soul` was later retired and merged into `identity` — Group F.)_
 - [x] Render memory snippets — accept retrieved records (recent N via existing basic retrieval) and format `:memory/title` + `:memory/summary` into the system/context message. Keep retrieval injected, not hard-wired (Phase 5 seam).
 - [x] Append the running `:conversation` as alternating user/assistant messages.
 
@@ -51,6 +51,17 @@ Task groups are dependency-ordered: protocol & providers → prompt assembly →
 - [x] Streaming handler: fixture SSE chunk strings → assert the sequence of deltas parsed and `[DONE]` termination. _(`parse-sse-line` + `stream` accumulation tests.)_
 - [x] Terminal input capture: simulate key presses + Enter → assert a `:user/message` event is dispatched with buffer contents and the buffer is cleared. _(Plus space/backspace/chord handling, blank-input no-op, and db-update preserving the buffer.)_
 - [x] Conversation-turn integration: covered by `pa.runtime.conversation-test` — the `:user/message` handler assembles + emits `:llm/invoke`; the `:llm/invoke` effect streams via a stub provider and dispatches `:assistant/response`; the `:assistant/response` handler commits; and a replay of `[:user/message :assistant/response]` reconstructs `:conversation` with no provider call.
+
+### Group F — Misc: retire soul.md (merge into identity.md)
+
+Motivation: `soul.md` and `identity.md` overlapped in practice — everything intended for soul ended up in identity.md, leaving soul redundant. Collapse to a single identity file. soul's front-matter schema (`name`, `traits`, `communication-style`, `values`) folds into identity.md's front-matter (`version`, `role`, `purpose`).
+
+- [x] `pa.storage.identity/load-all`: drop `["soul.md" :soul]` from the file→key mapping; update the docstring and the return-shape comment (three identity files now: identity/user/agents). The `:soul` key disappears from the loaded `:identity` map.
+- [x] `pa.storage.fs`: remove `"soul.md"` from the template list so bootstrap no longer creates it.
+- [x] Delete `resources/templates/identity/soul.md`; merge its front-matter fields (`name`, `traits`, `communication-style`, `values`) into `resources/templates/identity/identity.md`.
+- [x] `pa.llm.prompt`: drop the `[:soul "Assistant identity"]` section, and rename the `:identity` section title from "Assistant role" → "Assistant identity" (it now carries the persona). Section order becomes identity → user → agents.
+- [x] Tests: remove soul fixtures/assertions in `identity_test`, `prompt_test`, `fs_test`, `conversation_test`; fold the moved front-matter (name/traits/…) into the identity fixtures where those assertions still matter.
+- [x] Docs: PROJECT.md (drop the `SOUL.md` line + storage-layout entry, note the merge), roadmap Phase 8 personality-schema goal (now identity.md), and the `2026-05-29-persistent-storage-memory-foundation` spec records that list `soul.md`.
 
 ## Notes
 

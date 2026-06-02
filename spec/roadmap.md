@@ -429,7 +429,6 @@ Create:
 ```text
 assistant-data/
   identity/
-    soul.md
     identity.md
     user.md
     agents.md
@@ -481,7 +480,6 @@ Initialize all required folders.
 
 Generate default:
 
-* `soul.md`
 * `identity.md`
 * `user.md`
 * `agents.md`
@@ -585,7 +583,6 @@ Replayability is a core architectural goal.
 
 Implement identity loaders for:
 
-* `soul.md`
 * `identity.md`
 * `user.md`
 * `agents.md`
@@ -943,7 +940,7 @@ Goal: Formalize and make inspectable all cognition stages.
 
 Goal: Evolve the assistant into a durable long-term system.
 
-- [ ] Define personality schema in `soul.md` (name, traits, communication style, values)
+- [ ] Define personality schema in `identity.md` (name, traits, communication style, values)
 - [ ] Inject personality into prompt assembly as a stable system prefix
 - [ ] Implement user model evolution: update `user.md` when new facts are extracted
 - [ ] Implement memory decay: lower retrieval weight for memories beyond age/access thresholds
