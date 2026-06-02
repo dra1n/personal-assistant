@@ -12,14 +12,17 @@
      :log-viewport charm viewport: the scrollable log panel
      :logs         bounded vector of recent log entries {:level :msg :instant}
      :logs-open?   whether the log panel is expanded
-     :focus        :input | :logs — which region is highlighted & scrolls
+     :focus        :input | :conversation | :logs — the highlighted region
      :log-ch       core.async channel feeding :log/appended messages
      :width :height terminal dimensions, tracked from :window-size}
 
-  Two focusable regions: the input (chat mode — scroll keys move the
-  conversation) and the log panel (scroll keys move the logs). Typing and
-  Enter always target the input regardless of focus. Runtime state is read
-  only via pa.state.queries; the UI never mutates it."
+  Three focusable regions: the input (where typing lands), the conversation,
+  and the log panel. The focused region gets a thick border and is the target
+  of the ↑/↓ scroll keys; input focus scrolls nothing (the conversation tails
+  live). Tab cycles input → conversation → logs (when open) → input; Esc
+  returns to the input. Typing and Enter always target the input and snap
+  focus back to it. Runtime state is read only via pa.state.queries; the UI
+  never mutates it."
   (:require [charm.components.viewport :as vp]
             [charm.message :as msg]
             [charm.program :as charm]
@@ -34,13 +37,20 @@
 
 (defn- refresh-conversation
   "Rebuild the conversation viewport from db + size (plus any in-progress
-  streamed response), pinned to the latest turn."
-  [{:keys [db width streaming viewport] :as model}]
-  (assoc model :viewport
-         (-> (or viewport (vp/viewport ""))
-             (vp/viewport-set-content (view/conversation-content db (or width 80) streaming))
-             (vp/viewport-set-dimensions 0 (view/viewport-height model))
-             (vp/scroll-to-bottom))))
+  streamed response). Tails the latest turn unless the conversation is
+  focused and the user has scrolled up — then the position is held so history
+  can be read without being yanked away by new turns or streamed deltas."
+  [{:keys [db streaming viewport focus] :as model}]
+  (let [at-bottom? (or (nil? viewport) (vp/viewport-at-bottom? viewport))
+        prev-off   (:y-offset viewport)
+        vp0        (-> (or viewport (vp/viewport ""))
+                       (vp/viewport-set-content
+                        (view/conversation-content db (view/inner-width model) streaming))
+                       (vp/viewport-set-dimensions 0 (view/viewport-height model)))]
+    (assoc model :viewport
+           (if (and (= focus :conversation) (not at-bottom?))
+             (vp/viewport-scroll-to vp0 (or prev-off 0))
+             (vp/scroll-to-bottom vp0)))))
 
 (defn- refresh-logs
   "Rebuild the log viewport from the ring buffer. Tails (scroll to bottom)
@@ -103,19 +113,32 @@
   (update model :logs #(vec (take-last log-buffer-size (conj (or % []) entry)))))
 
 (defn- scroll-focused
-  "Apply scroll fn `f` to whichever viewport the focus drives: the log panel
-  when focus is :logs, otherwise the conversation."
+  "Apply scroll fn `f` to the viewport the focus drives: the log panel when
+  focus is :logs, the conversation when :conversation. Input focus scrolls
+  nothing — the conversation tails live until explicitly focused."
   [model f]
-  (let [k (if (= (:focus model) :logs) :log-viewport :viewport)]
-    (cond-> model (k model) (update k f))))
+  (if-let [k (case (:focus model)
+               :logs         :log-viewport
+               :conversation :viewport
+               nil)]
+    (cond-> model (k model) (update k f))
+    model))
+
+(defn- next-focus
+  "The next region when cycling focus with Tab: input → conversation → logs
+  (only when the panel is open) → input."
+  [{:keys [focus logs-open?]}]
+  (let [order (cond-> [:input :conversation] logs-open? (conj :logs))]
+    (->> (concat order order) (drop-while #(not= % focus)) second)))
 
 (defn- focus-input
-  "Return focus to the input (used when the user interacts with the input
-  buffer while the log panel is focused). Refreshes the logs so they resume
-  tailing once unfocused."
+  "Return focus to the input when the user interacts with the input buffer
+  while another region is focused. Refreshes the region being left so it
+  resumes tailing once unfocused."
   [model]
-  (if (= :logs (:focus model))
-    (refresh-logs (assoc model :focus :input))
+  (case (:focus model)
+    :logs         (refresh-logs (assoc model :focus :input))
+    :conversation (refresh-conversation (assoc model :focus :input))
     model))
 
 (defn update-model [model message]
@@ -145,20 +168,25 @@
          refresh-logs)
      nil]
 
-    ;; Toggle the log panel; opening focuses it, closing returns focus to input.
+    ;; Toggle the log panel; opening focuses it, closing returns focus to the
+    ;; input only if the logs held it (a conversation focus is left intact).
     (and (msg/key-press? message) (msg/key-match? message "ctrl+l"))
     (let [opening? (not (:logs-open? model))]
       [(-> model
-           (assoc :logs-open? opening? :focus (if opening? :logs :input))
+           (assoc :logs-open? opening?
+                  :focus (cond opening?                 :logs
+                               (= :logs (:focus model)) :input
+                               :else                    (:focus model)))
            refresh-conversation
            refresh-logs)
        nil])
 
-    ;; Tab switches focus between input and logs (only when the panel shows).
+    ;; Tab cycles focus across regions; Esc returns to the input.
     (msg/key-match? message :tab)
-    (if (:logs-open? model)
-      [(refresh-logs (update model :focus #(if (= % :logs) :input :logs))) nil]
-      [model nil])
+    [(-> model (assoc :focus (next-focus model)) refresh-conversation refresh-logs) nil]
+
+    (msg/key-match? message :escape)
+    [(focus-input model) nil]
 
     ;; Arrow keys scroll the focused region one line at a time.
     (msg/key-match? message :up)    [(scroll-focused model vp/scroll-up) nil]

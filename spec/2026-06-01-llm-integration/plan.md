@@ -63,6 +63,19 @@ Motivation: `soul.md` and `identity.md` overlapped in practice — everything in
 - [x] Tests: remove soul fixtures/assertions in `identity_test`, `prompt_test`, `fs_test`, `conversation_test`; fold the moved front-matter (name/traits/…) into the identity fixtures where those assertions still matter.
 - [x] Docs: PROJECT.md (drop the `SOUL.md` line + storage-layout entry, note the merge), roadmap Phase 8 personality-schema goal (now identity.md), and the `2026-05-29-persistent-storage-memory-foundation` spec records that list `soul.md`.
 
+### Group G — Conversation as a focusable, bordered, scrollable pane
+
+Promote the conversation from an unbordered viewport implicitly scrolled by the input focus into a first-class focusable region alongside the input and log panel. The log panel is the template (border + own focus + freeze-on-scroll-up). Decisions: Tab-only navigation (no dedicated chord) plus Esc→input; only the focused region scrolls; bare border (no title row).
+
+- [x] Focus model: `:focus` becomes `:input | :conversation | :logs` (was `:input | :logs`).
+- [x] `pa.ui.view` conversation render: wrap the viewport in a bordered box (rounded normally, thick when focused) mirroring the log panel; wrap content to `inner-width` (width − 2). No title row.
+- [x] `pa.ui.view/viewport-height`: reserve the conversation box's 2 border rows (fixed chrome 7 → 9); update the docstring (no longer "unbordered").
+- [x] `pa.ui.app/refresh-conversation`: tail the latest turn unless the conversation is focused and scrolled up — then hold position so history reads without being yanked by new turns/deltas (mirror `refresh-logs`).
+- [x] `pa.ui.app/scroll-focused`: route ↑/↓ to the conversation when focus is `:conversation`, the logs when `:logs`, and nothing when `:input`.
+- [x] `pa.ui.app` Tab: cycle `input → conversation → logs` (logs only when open) → `input` (previously a no-op unless logs open). Esc returns focus to the input.
+- [x] `pa.ui.app/focus-input`: typing snaps focus back to the input from `:conversation` as well as `:logs`.
+- [x] Update the hint line + app model docstring; update/extend app & view tests (Tab cycle across regions, focused-region scroll incl. input-focus no-op, Esc→input, border-row reservation).
+
 ## Notes
 
 - **Sequencing:** A, B, C are independent — do them first/in parallel. D is the integration point and depends on all three. E's unit tests can be written alongside their target groups; the integration test waits for D.

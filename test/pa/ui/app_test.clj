@@ -140,44 +140,77 @@
       (is (= :input (:focus m2)) "closing returns focus to the input")
       (is (= h0 (get-in m2 [:viewport :height])) "collapsing restores the height"))))
 
-(deftest tab-switches-scroll-focus-only-when-panel-open
-  (testing "Tab is a no-op while collapsed, toggles input/logs while expanded"
+(deftest tab-cycles-focus-across-regions
+  (testing "while collapsed Tab cycles input ↔ conversation"
     (let [m0     (model-with-turns 20)
-          [m1 _] (app/update-model m0 (msg/key-press :tab))]
-      (is (= :input (:focus m1)) "no focus change while the panel is collapsed"))
-    (let [open   (first (app/update-model (model-with-turns 20) (msg/key-press "l" :ctrl true)))
-          [m1 _] (app/update-model open (msg/key-press :tab))
+          [m1 _] (app/update-model m0 (msg/key-press :tab))
           [m2 _] (app/update-model m1 (msg/key-press :tab))]
-      (is (= :input (:focus m1)) "Tab moves focus off the logs to the input")
-      (is (= :logs (:focus m2)) "Tab toggles back"))))
+      (is (= :conversation (:focus m1)) "Tab moves from input to conversation")
+      (is (= :input (:focus m2)) "Tab wraps back to input")))
+  (testing "while expanded Tab cycles input → conversation → logs → input"
+    (let [open   (first (app/update-model (model-with-turns 20) (msg/key-press "l" :ctrl true)))]
+      (is (= :logs (:focus open)) "precondition: opening focuses logs")
+      (let [[m1 _] (app/update-model open (msg/key-press :tab))
+            [m2 _] (app/update-model m1 (msg/key-press :tab))
+            [m3 _] (app/update-model m2 (msg/key-press :tab))]
+        (is (= :input (:focus m1)) "logs → input")
+        (is (= :conversation (:focus m2)) "input → conversation")
+        (is (= :logs (:focus m3)) "conversation → logs")))))
+
+(deftest escape-returns-focus-to-the-input
+  (testing "Esc snaps focus back to the input from any region"
+    (let [conv (first (app/update-model (model-with-turns 5) (msg/key-press :tab)))]
+      (is (= :conversation (:focus conv)) "precondition: conversation focused")
+      (is (= :input (:focus (first (app/update-model conv (msg/key-press :escape)))))))
+    (let [logs (first (app/update-model (model-with-turns 5) (msg/key-press "l" :ctrl true)))]
+      (is (= :logs (:focus logs)) "precondition: logs focused")
+      (is (= :input (:focus (first (app/update-model logs (msg/key-press :escape)))))))))
 
 (deftest typing-returns-focus-to-the-input
-  (testing "interacting with the input while logs are focused snaps focus back"
-    (let [logs-focused (first (app/update-model (model-with-turns 5) (msg/key-press "l" :ctrl true)))]
-      (is (= :logs (:focus logs-focused)) "precondition: logs focused")
+  (testing "interacting with the input from another region snaps focus back"
+    (doseq [[region focus-model]
+            [["logs"         (first (app/update-model (model-with-turns 5) (msg/key-press "l" :ctrl true)))]
+             ["conversation" (first (app/update-model (model-with-turns 5) (msg/key-press :tab)))]]]
       (doseq [[label key] [["a printable char" (msg/key-press "x")]
                            ["space"            (msg/key-press :space)]
                            ["backspace"        (msg/key-press :backspace)]
                            ["enter"            (msg/key-press :enter)]]]
-        (let [[m _] (app/update-model logs-focused key)]
-          (is (= :input (:focus m)) (str label " returns focus to the input")))))))
+        (let [[m _] (app/update-model focus-model key)]
+          (is (= :input (:focus m)) (str label " from " region " returns focus to the input")))))))
 
-(deftest arrow-keys-scroll-the-focused-region-by-line
-  (testing "Up scrolls the conversation when input-focused, the log panel when logs-focused"
-    (let [m        (model-with-turns 20)
-          ;; many log lines so the log viewport is scrollable
-          m        (reduce (fn [model i]
-                             (first (app/update-model model
-                                                      {:type :log/appended
-                                                       :entry {:level :debug :msg (str "line " i)}})))
-                           m (range 40))
-          [conv _] (app/update-model m (msg/key-press :up))]
-      (is (= (dec (get-in m [:viewport :y-offset])) (get-in conv [:viewport :y-offset]))
-          "input focused: Up scrolls the conversation up one line")
-      (is (= (get-in m [:log-viewport :y-offset]) (get-in conv [:log-viewport :y-offset]))
-          "the unfocused log viewport is untouched")
-      (let [open     (first (app/update-model m (msg/key-press "l" :ctrl true)))   ; focus :logs
-            [logs _] (app/update-model open (msg/key-press :up))]
+(deftest arrow-keys-scroll-only-the-focused-region
+  (let [base (reduce (fn [model i]
+                       (first (app/update-model model
+                                                {:type :log/appended
+                                                 :entry {:level :debug :msg (str "line " i)}})))
+                     (model-with-turns 20) (range 40))]
+    (testing "input focused: arrows scroll nothing (the conversation tails live)"
+      (let [[m _] (app/update-model base (msg/key-press :up))]
+        (is (= :input (:focus base)) "precondition: input focused")
+        (is (= (get-in base [:viewport :y-offset]) (get-in m [:viewport :y-offset]))
+            "conversation offset unchanged while typing-focused")))
+    (testing "conversation focused: Up scrolls the conversation up one line"
+      (let [conv      (first (app/update-model base (msg/key-press :tab)))   ; focus :conversation
+            [m _]     (app/update-model conv (msg/key-press :up))]
+        (is (= :conversation (:focus conv)))
+        (is (= (dec (get-in conv [:viewport :y-offset])) (get-in m [:viewport :y-offset])))))
+    (testing "logs focused: Up scrolls the log viewport, not the conversation"
+      (let [open  (first (app/update-model base (msg/key-press "l" :ctrl true)))   ; focus :logs
+            [m _] (app/update-model open (msg/key-press :up))]
         (is (= :logs (:focus open)))
-        (is (= (dec (get-in open [:log-viewport :y-offset])) (get-in logs [:log-viewport :y-offset]))
-            "logs focused: Up scrolls the log viewport up one line")))))
+        (is (= (dec (get-in open [:log-viewport :y-offset])) (get-in m [:log-viewport :y-offset]))
+            "log viewport scrolls up one line")
+        (is (= (get-in open [:viewport :y-offset]) (get-in m [:viewport :y-offset]))
+            "the unfocused conversation viewport is untouched")))))
+
+(deftest focused-conversation-holds-position-against-new-turns
+  (testing "scrolled up + focused, a new committed turn does not yank to the bottom"
+    (let [conv     (first (app/update-model (model-with-turns 20) (msg/key-press :tab)))
+          scrolled (first (app/update-model conv (msg/key-press :up)))
+          off      (get-in scrolled [:viewport :y-offset])
+          turns    (vec (for [i (range 21) role [:user :assistant]]
+                          {:role role :content (str (name role) " " i)}))
+          [m _]    (app/update-model scrolled {:type :runtime/db-updated :db {:conversation turns}})]
+      (is (= :conversation (:focus scrolled)) "precondition: conversation focused & scrolled up")
+      (is (false? (vp/viewport-at-bottom? (:viewport scrolled))))
+      (is (= off (get-in m [:viewport :y-offset])) "position held, not pinned to bottom"))))

@@ -86,11 +86,11 @@
   (if logs-open? (+ 1 log-content-lines 2) 1))
 
 (defn viewport-height
-  "Lines available to the conversation viewport: terminal height minus fixed
-  chrome (header + 2 blanks + input box + hint = 7) and the log panel. The
-  conversation is unbordered, so no border lines are reserved for it."
+  "Lines available inside the conversation box's viewport: terminal height
+  minus fixed chrome (header + 2 blanks + input box + hint = 7), the log
+  panel, and the conversation box's own two border rows."
   [{:keys [height logs-open?]}]
-  (max 3 (- (or height 24) (+ 7 (panel-lines logs-open?)))))
+  (max 3 (- (or height 24) (+ 9 (panel-lines logs-open?)))))
 
 ;; --- view -------------------------------------------------------------------
 
@@ -105,10 +105,13 @@
 (defn- border-for [focused?]
   (if focused? style/thick-border style/rounded-border))
 
-(defn- conversation-view [model]
-  (if-let [vp* (:viewport model)]
-    (vp/viewport-view vp*)
-    (conversation-content (:db model) (or (:width model) 80) (:streaming model))))
+(defn- conversation-view [{:keys [viewport focus] :as model}]
+  (let [iw      (inner-width model)
+        content (if viewport
+                  (vp/viewport-view viewport)
+                  (conversation-content (:db model) iw (:streaming model)))]
+    (style/render (style/style :border (border-for (= :conversation focus)) :width iw)
+                  content)))
 
 (defn- cursor []
   (style/styled " " :reverse true))
@@ -134,7 +137,7 @@
      (str (style/styled "›" :fg accent :bold true) " " body))))
 
 (defn- hint []
-  (style/styled "Enter send · Tab focus · ↑/↓ scroll · ^L logs · ^C quit" :faint true))
+  (style/styled "Enter send · Tab/Esc focus · ↑/↓ scroll · ^L logs · ^C quit" :faint true))
 
 (defn- log-panel [{:keys [logs logs-open? log-viewport focus] :as model}]
   (let [iw (inner-width model)]

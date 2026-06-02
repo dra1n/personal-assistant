@@ -40,6 +40,13 @@
       (is (str/includes? out "Aria"))
       (is (not (str/includes? out "Assistant")) "name replaces the default label"))))
 
+(deftest viewport-height-reserves-conversation-border-rows
+  (testing "the conversation box's two border rows are subtracted from the height"
+    ;; 24 − fixed chrome (9) − collapsed log panel (1) = 14
+    (is (= 14 (view/viewport-height {:height 24 :logs-open? false})))
+    ;; 24 − 9 − expanded log panel (11) = 4
+    (is (= 4 (view/viewport-height {:height 24 :logs-open? true})))))
+
 (deftest conversation-labels-fall-back-on-blank-name
   (testing "a blank identity name falls back to the capitalized default"
     (let [out (view/conversation-content
