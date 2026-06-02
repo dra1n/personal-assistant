@@ -61,19 +61,26 @@
     ;; between turns (below) is wider, so the label groups with its own body.
     (str label "\n\n" (wrap-text (str content) (max 1 width)))))
 
+(defn conversation-empty?
+  "True when there are no committed turns and nothing streaming — the state in
+  which the borderless empty-conversation placeholder is shown instead of the
+  bordered, focusable pane."
+  [{:keys [db streaming]}]
+  (and (empty? (queries/conversation db)) (str/blank? streaming)))
+
 (defn conversation-content
   "Render the committed conversation, plus the in-progress streamed response
   (if any) as a trailing live assistant turn. Turn labels use the identity
-  names when set, falling back to capitalized \"You\"/\"Assistant\"."
+  names when set, falling back to capitalized \"You\"/\"Assistant\". Returns an
+  empty string when there are no turns — the empty state is handled by the
+  placeholder view, not here."
   [db width streaming]
   (let [turns (cond-> (vec (queries/conversation db))
                 (not (str/blank? streaming)) (conj {:role :assistant :content streaming}))
         names {:user      (queries/user-name db)
                :assistant (queries/assistant-name db)}]
-    (if (seq turns)
-      ;; Two blank lines between turns — wider than the label's own bottom gap.
-      (str/join "\n\n\n" (map #(render-turn % width names) turns))
-      (style/styled "Type a message and press Enter." :faint true))))
+    ;; Two blank lines between turns — wider than the label's own bottom gap.
+    (str/join "\n\n\n" (map #(render-turn % width names) turns))))
 
 ;; --- log content ------------------------------------------------------------
 
@@ -110,6 +117,7 @@
 ;; --- view -------------------------------------------------------------------
 
 (def ^:private placeholder "Ask me anything…")
+(def ^:private empty-conversation-hint "Type a message and press Enter.")
 
 (defn- header []
   (style/styled "  personal assistant  " :bold true :fg style/black :bg accent))
@@ -128,6 +136,16 @@
                                :padding box-padding
                                :width   (inner-width model))
                   content)))
+
+;; Shown before the first message: a borderless, unfocusable hint centred in
+;; the same rectangle the conversation box would occupy, so the input below
+;; stays put. No border/focus styling — that's what looked wonky empty.
+(defn- empty-conversation-view [model]
+  (style/render (style/style :width  (or (:width model) 80)
+                             :height (+ (viewport-height model) 2)
+                             :align  :center
+                             :valign :center)
+                (style/styled empty-conversation-hint :faint true)))
 
 (defn- cursor []
   (style/styled " " :reverse true))
@@ -176,7 +194,9 @@
    :left
    (header)
    ""
-   (conversation-view model)
+   (if (conversation-empty? model)
+     (empty-conversation-view model)
+     (conversation-view model))
    ""
    (input-view model)
    (hint)

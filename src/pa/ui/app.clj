@@ -131,9 +131,12 @@
 
 (defn- next-focus
   "The next region when cycling focus with Tab: input → conversation → logs
-  (only when the panel is open) → input."
-  [{:keys [focus logs-open?]}]
-  (let [order (cond-> [:input :conversation] logs-open? (conj :logs))]
+  → input. The conversation is skipped while empty (it shows a borderless,
+  unfocusable placeholder); the log panel only when collapsed."
+  [{:keys [focus logs-open?] :as model}]
+  (let [order (cond-> [:input]
+                (not (view/conversation-empty? model)) (conj :conversation)
+                logs-open?                             (conj :logs))]
     (->> (concat order order) (drop-while #(not= % focus)) second)))
 
 (defn- focus-input

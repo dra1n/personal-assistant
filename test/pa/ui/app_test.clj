@@ -2,7 +2,8 @@
   (:require [charm.components.viewport :as vp]
             [charm.message :as msg]
             [clojure.test :refer [deftest is testing]]
-            [pa.ui.app :as app]))
+            [pa.ui.app :as app]
+            [pa.ui.view :as view]))
 
 (defn- model-with-turns
   "An initialised model sized to a terminal with `n` turns of content, so the
@@ -178,6 +179,20 @@
         (is (= :input (:focus m1)) "logs → input")
         (is (= :conversation (:focus m2)) "input → conversation")
         (is (= :logs (:focus m3)) "conversation → logs")))))
+
+(deftest tab-skips-the-empty-conversation
+  (testing "while empty the conversation is not a focus target"
+    (let [empty-model (first (app/update-model (model-with-turns 0)
+                                               {:type :runtime/db-updated :db {:conversation []}}))]
+      (is (true? (view/conversation-empty? empty-model)) "precondition: empty")
+      (testing "logs closed: Tab stays on input (only focusable region)"
+        (is (= :input (:focus (first (app/update-model empty-model (msg/key-press :tab)))))))
+      (testing "logs open: Tab cycles input ↔ logs, skipping the empty conversation"
+        (let [open   (first (app/update-model empty-model (msg/key-press "l" :ctrl true)))
+              [m1 _] (app/update-model open (msg/key-press :tab))
+              [m2 _] (app/update-model m1 (msg/key-press :tab))]
+          (is (= :input (:focus m1)) "logs → input")
+          (is (= :logs (:focus m2)) "input → logs, conversation skipped"))))))
 
 (deftest escape-returns-focus-to-the-input
   (testing "Esc snaps focus back to the input from any region"
