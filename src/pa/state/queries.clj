@@ -47,6 +47,12 @@
   [db]
   (non-blank (get-in db [:identity :user :front-matter :name])))
 
+(defn user-motd
+  "The user's configured message-of-the-day from user.md front-matter, or nil
+  if unset (the header then falls back to a rotating usage tip)."
+  [db]
+  (non-blank (get-in db [:identity :user :front-matter :motd])))
+
 (defn memories
   "Return the in-session memory records vector."
   [db]

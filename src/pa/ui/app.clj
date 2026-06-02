@@ -12,6 +12,8 @@
      :streaming-open? whether to accept incoming deltas — opened when the user
                    sends, closed when the assistant turn commits (so stragglers
                    buffered on delta-ch can't re-grow a ghost turn)
+     :motd-fallback session's header MOTD when the user hasn't set one in
+                   user.md — picked once at startup so it doesn't flicker
      :viewport     charm viewport: the scrollable conversation
      :log-viewport charm viewport: the scrollable log panel
      :logs         bounded vector of recent log entries {:level :msg :instant}
@@ -90,6 +92,7 @@
           :input        ""
           :streaming    ""
           :streaming-open? false
+          :motd-fallback   (view/random-tip)
           :width        80
           :height       24
           :viewport     (vp/viewport "")

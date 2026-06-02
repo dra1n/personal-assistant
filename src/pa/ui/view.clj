@@ -109,18 +109,43 @@
 
 (defn viewport-height
   "Lines available inside the conversation box's viewport: terminal height
-  minus fixed chrome (header + 2 blanks + input box + hint = 7), the log
-  panel, and the conversation box's own two border rows."
+  minus fixed chrome (4-row header box + 2 blanks + input box + hint = 10),
+  the log panel, and the conversation box's own two border rows."
   [{:keys [height logs-open?]}]
-  (max 3 (- (or height 24) (+ 9 (panel-lines logs-open?)))))
+  (max 3 (- (or height 24) (+ 12 (panel-lines logs-open?)))))
 
 ;; --- view -------------------------------------------------------------------
 
 (def ^:private placeholder "Ask me anything…")
 (def ^:private empty-conversation-hint "Type a message and press Enter.")
 
-(defn- header []
-  (style/styled "  personal assistant  " :bold true :fg style/black :bg accent))
+(def ^:private tips
+  ["Tab cycles focus · Esc jumps back to the input"
+   "Press ^L to peek at the live log panel"
+   "↑/↓ scroll whichever pane is focused"
+   "Set your own header line via `motd` in user.md"
+   "Your assistant's persona lives in identity.md"])
+
+(defn random-tip
+  "A randomly chosen usage tip — the header MOTD fallback when the user hasn't
+  set `motd` in user.md. Picked once at startup (app/init) and held in the
+  model so it stays stable for the session rather than flickering each render."
+  []
+  (rand-nth tips))
+
+;; Framed-wordmark header: a full-width rounded box with the wordmark on top
+;; and the message-of-the-day (user's `motd`, else the session's fallback tip)
+;; faint beneath it. Both lines kept non-empty so the box is always 4 rows.
+(defn- header [model]
+  (let [motd (or (queries/user-motd (:db model)) (:motd-fallback model) (first tips))
+        body (str (style/styled "✦" :fg accent :bold true) "  "
+                  (style/styled "personal assistant" :bold true)
+                  "\n"
+                  (style/styled (style/truncate motd (text-width model) :tail "…") :faint true))]
+    (style/render (style/style :border  style/rounded-border
+                               :padding box-padding
+                               :width   (inner-width model))
+                  body)))
 
 ;; A focused region gets a thick border; otherwise a rounded one. Borders are
 ;; never coloured — charm downgrades box-drawing edges to ASCII when a border
@@ -207,7 +232,7 @@
 (defn view [model]
   (style/join-vertical
    :left
-   (header)
+   (header model)
    ""
    (if (conversation-empty? model)
      (empty-conversation-view model)
