@@ -839,20 +839,20 @@ By the end of Phase 2, the system should support:
 
 Goal: Introduce controlled, abstracted LLM interaction.
 
-- [ ] Define LLM provider protocol (`invoke`, `stream`)
-- [ ] Implement OpenAI provider (HTTP via hato/http-kit, streaming SSE)
-- [ ] Implement Anthropic provider stub (same protocol, minimal implementation)
-- [ ] Build prompt assembly pipeline: identity + user context + memory snippets → messages list
-- [ ] Wire LLM invocation as an effect type (`{:effect/type :llm/invoke, ...}`)
-- [ ] Capture terminal text input: maintain a UI-local input buffer in `pa.ui.app`, accumulate key presses, and on Enter dispatch a `:user/message` event with the buffer contents, then clear the buffer (keeps the UI a thin client — input becomes an event, no direct state mutation)
-- [ ] Implement streaming response handler: emit partial tokens as events
-- [ ] Display streamed response in charm.clj terminal UI
-- [ ] Integrate conversation turn into event log (user message + assistant response as events)
-- [ ] Confirm LLM does NOT yet write memory or execute tools — only responds
-- [ ] Write tests for prompt assembly with fixture identity/memory data
-- [ ] Write tests for LLM provider protocol with a stub/mock provider
-- [ ] Write tests for streaming response handler: fixture SSE chunks → assert events emitted
-- [ ] Write test for terminal input capture: simulate key presses + Enter → assert a `:user/message` event is dispatched with the buffer contents and the buffer is cleared
+- [x] Define LLM provider protocol (`invoke`, `stream`)
+- [x] Implement OpenAI provider (HTTP via hato/http-kit, streaming SSE)
+- [x] Implement Anthropic provider stub (same protocol, minimal implementation)
+- [x] Build prompt assembly pipeline: identity + user context + memory snippets → messages list
+- [x] Wire LLM invocation as an effect type (`{:effect/type :llm/invoke, ...}`)
+- [x] Capture terminal text input: maintain a UI-local input buffer in `pa.ui.app`, accumulate key presses, and on Enter dispatch a `:user/message` event with the buffer contents, then clear the buffer (keeps the UI a thin client — input becomes an event, no direct state mutation)
+- [x] Implement streaming response handler: emit partial tokens as events
+- [x] Display streamed response in charm.clj terminal UI
+- [x] Integrate conversation turn into event log (user message + assistant response as events)
+- [x] Confirm LLM does NOT yet write memory or execute tools — only responds
+- [x] Write tests for prompt assembly with fixture identity/memory data
+- [x] Write tests for LLM provider protocol with a stub/mock provider
+- [x] Write tests for streaming response handler: fixture SSE chunks → assert events emitted
+- [x] Write test for terminal input capture: simulate key presses + Enter → assert a `:user/message` event is dispatched with the buffer contents and the buffer is cleared
 
 ---
 
