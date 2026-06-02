@@ -109,10 +109,10 @@
 
 (defn viewport-height
   "Lines available inside the conversation box's viewport: terminal height
-  minus fixed chrome (4-row header box + 2 blanks + input box + hint = 10),
+  minus fixed chrome (3-row header box + 2 blanks + input box + hint = 9),
   the log panel, and the conversation box's own two border rows."
   [{:keys [height logs-open?]}]
-  (max 3 (- (or height 24) (+ 12 (panel-lines logs-open?)))))
+  (max 3 (- (or height 24) (+ 11 (panel-lines logs-open?)))))
 
 ;; --- view -------------------------------------------------------------------
 
@@ -133,19 +133,30 @@
   []
   (rand-nth tips))
 
-;; Framed-wordmark header: a full-width rounded box with the wordmark on top
-;; and the message-of-the-day (user's `motd`, else the session's fallback tip)
-;; faint beneath it. Both lines kept non-empty so the box is always 4 rows.
+(defn- dim-glyph
+  "Faint via the raw SGR escape. charm's styler downgrades box-drawing *edges*
+  (─ │) to ASCII whenever an attribute is applied (see border-for), so we emit
+  the dim escape by hand around the glyphs to keep them Unicode."
+  [s]
+  (str "[2m" s "[0m"))
+
+;; Split header: a rounded box, wordmark on the left and the message-of-the-day
+;; (user's `motd`, else the session's fallback tip) on the right of one row.
+;; The border is hand-drawn and dimmed (dim-glyph) to match the faint MOTD.
 (defn- header [model]
-  (let [motd (or (queries/user-motd (:db model)) (:motd-fallback model) (first tips))
-        body (str (style/styled "✦" :fg accent :bold true) "  "
-                  (style/styled "personal assistant" :bold true)
-                  "\n"
-                  (style/styled (style/truncate motd (text-width model) :tail "…") :faint true))]
-    (style/render (style/style :border  style/rounded-border
-                               :padding box-padding
-                               :width   (inner-width model))
-                  body)))
+  (let [iw       (inner-width model)
+        tw       (text-width model)
+        wordmark "Personal Assistant"
+        left-len (+ 2 (count wordmark))                  ; ✦ + space + wordmark
+        left     (str (style/styled "✦" :fg accent :bold true) " "
+                      (style/styled wordmark :bold true))
+        raw      (or (queries/user-motd (:db model)) (:motd-fallback model) (first tips))
+        motd     (style/truncate raw (max 1 (- tw left-len 1)) :tail "…")
+        gap      (apply str (repeat (max 1 (- tw left-len (count motd))) " "))
+        rule     (dim-glyph (apply str (repeat iw "─")))]
+    (str (dim-glyph "╭") rule (dim-glyph "╮") "\n"
+         (dim-glyph "│") " " left gap (style/styled motd :faint true) " " (dim-glyph "│") "\n"
+         (dim-glyph "╰") rule (dim-glyph "╯"))))
 
 ;; A focused region gets a thick border; otherwise a rounded one. Borders are
 ;; never coloured — charm downgrades box-drawing edges to ASCII when a border
