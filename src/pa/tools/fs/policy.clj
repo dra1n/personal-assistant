@@ -1,6 +1,10 @@
-(ns pa.tools.policy
+(ns pa.tools.fs.policy
   "Filesystem access policy — the capability-flagged path allowlist that gates
   every filesystem tool.
+
+  This is the fs tool family's own policy. Other tool families (web, youtube)
+  carry their own sibling policies — there is no single 'tool policy'. See the
+  spec design-notes for the convention.
 
   The allowlist is authored in `<data-root>/system/tools.md` inside a fenced
   ```allowlist block, one `<path> <capabilities...>` entry per line. It is
@@ -144,7 +148,7 @@
 ;; Integrant component
 ;; ---------------------------------------------------------------------------
 
-(defmethod ig/init-key :tool/policy [_ {:keys [fs]}]
+(defmethod ig/init-key :tool.fs/policy [_ {:keys [fs]}]
   (load-policy (:root fs)))
 
-(defmethod ig/halt-key! :tool/policy [_ _])
+(defmethod ig/halt-key! :tool.fs/policy [_ _])

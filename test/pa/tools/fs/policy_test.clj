@@ -1,7 +1,7 @@
-(ns pa.tools.policy-test
+(ns pa.tools.fs.policy-test
   (:require [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing use-fixtures]]
-            [pa.tools.policy :as policy])
+            [pa.tools.fs.policy :as policy])
   (:import [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]))
 

@@ -36,7 +36,7 @@
                                   :write-memory!  (:write-memory! memory)
                                   :index-memory!  (:index-memory! indexer)
                                   :llm-provider   llm
-                                  :tool/policy    policy
+                                  :tool.fs/policy policy
                                   :emit-delta!    emit-delta!}}]
     (async/go-loop []
       (when-let [event (async/<! ch)]

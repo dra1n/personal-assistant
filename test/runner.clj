@@ -21,7 +21,7 @@
             pa.runtime.conversation-test
             pa.runtime.tool-effect-test
             pa.tools.registry-test
-            pa.tools.policy-test
+            pa.tools.fs.policy-test
             pa.ui.app-test
             pa.ui.view-test))
 
