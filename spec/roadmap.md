@@ -856,22 +856,72 @@ Goal: Introduce controlled, abstracted LLM interaction.
 
 ---
 
-## Phase 4 — Tool System
+## Phase 4 — Tool System (Filesystem)
 
-Goal: Deterministic, observable, safe tool execution.
+Goal: Deterministic, observable, safe tool execution — establish the full tool
+machinery, exercised end-to-end by the filesystem tools only. Network-backed
+tools (web search, webpage retrieval, YouTube transcripts) are deferred to
+Phase 4b so this phase can ship without HTTP concerns.
+
+Infrastructure:
 
 - [ ] Define tool registry: a map of `tool-name → {:fn, :schema, :description}`
 - [ ] Implement tool invocation as an effect type (`{:effect/type :tool/invoke, :tool/name ..., :tool/args ...}`)
-- [ ] Implement filesystem tools: `read-file`, `write-file`, `list-dir` (with path allowlist)
-- [ ] Implement web search tool (DuckDuckGo or similar, no API key required initially)
-- [ ] Implement webpage retrieval tool (fetch + extract readable text)
-- [ ] Implement YouTube transcript tool (yt-dlp or transcript API)
 - [ ] Add dry-run mode: log effect descriptor without executing
 - [ ] Add structured logging for every tool invocation (tool, args, result, duration)
 - [ ] Wire tool results back into the event bus as `:tool/result` events
-- [ ] Write tests for each tool with mocked HTTP/filesystem
+
+Filesystem access policy:
+
+The allowlist is **one list of roots, each carrying per-root capability flags**, so
+read and write scopes can differ and sensitive paths can be explicitly excluded.
+It lives in `assistant-data/system/tools.md` (the infrastructure cheat sheet) and
+is the single source of truth for what the filesystem tools may touch.
+
+- Capabilities per root: `read`, `write`, `deny`. Example:
+
+  ```text
+  ~/Projects        read write
+  ~/Documents       read
+  assistant-data/   read write
+  ~/.ssh            deny
+  ```
+
+- Resolution rules:
+  - Canonicalize the requested path first (expand `~`, resolve `..` and symlinks to a real absolute path) — capability checks run on the *resolved* path, not the literal argument.
+  - Match against the **most-specific (longest-prefix) matching root**.
+  - `deny` always wins: if the resolved path falls under any `deny` root, reject regardless of other matches.
+  - A path matching no root is rejected (default-deny).
+  - `write` does not imply `read` unless both flags are present on the root.
+
+Tasks:
+
+- [ ] Backfill the Phase 2 bootstrap gap: `system/tools.md` was never added to first-startup template generation, so extend bootstrap to write a default `assistant-data/system/tools.md` whose allowlist grants `read write` on `assistant-data/` only (safe default-deny baseline)
+- [ ] Parse the allowlist (roots + capability flags) out of `system/tools.md` at startup into an in-memory policy structure
+- [ ] Implement a path resolver: canonicalize the requested path, find the longest-prefix matching root, and return the granted capability set (honoring `deny`-wins and default-deny)
+- [ ] Implement `read-file` (path → contents, with schema) — requires `read` on the resolved path
+- [ ] Implement `list-dir` (path → entries, with schema) — requires `read` on the resolved path
+- [ ] Implement `write-file` (path + contents → write, with schema) — requires `write` on the resolved path
+
+Tests:
+
+- [ ] Write tests for each filesystem tool with a mocked/temp filesystem
+- [ ] Write tests for the path resolver: out-of-root paths, `..` traversal, and symlink escape are all rejected
+- [ ] Write tests for per-root capabilities: a `read`-only root rejects `write-file`/refuses writes; a `deny` root rejects reads even if a broader root would allow them; longest-prefix root wins
 - [ ] Write tests for dry-run mode: assert no side effects occur, correct effect descriptor is logged
 - [ ] Write property-based tests for tool schema validation
+
+---
+
+## Phase 4b — Tool System (Network)
+
+Goal: Extend the Phase 4 tool machinery with network-backed tools, reusing the
+registry, effect type, dry-run, logging, and event-bus wiring already in place.
+
+- [ ] Implement web search tool (DuckDuckGo or similar, no API key required initially)
+- [ ] Implement webpage retrieval tool (fetch + extract readable text)
+- [ ] Implement YouTube transcript tool (yt-dlp or transcript API)
+- [ ] Write tests for each tool with mocked HTTP
 
 ---
 
