@@ -122,9 +122,13 @@
   (if llm-provider
     (future
       (try
-        (let [text (provider/stream llm-provider messages (or opts {})
-                                    (fn [delta] (when emit-delta! (emit-delta! delta))))]
-          (dispatch! {:event/type :assistant/response :content text}))
+        (let [{:keys [content tool-calls]}
+              (provider/stream llm-provider messages (or opts {})
+                               (fn [delta] (when emit-delta! (emit-delta! delta))))]
+          (if (seq tool-calls)
+            ;; The model requested tools — hand off to the tool-call path.
+            (dispatch! {:event/type :assistant/tool-call :content content :tool-calls tool-calls})
+            (dispatch! {:event/type :assistant/response :content content})))
         (catch Throwable e
           (log/error e "LLM stream failed")
           (dispatch! {:event/type :assistant/response
@@ -150,12 +154,17 @@
   (quot (- (System/nanoTime) start-nanos) 1000000))
 
 (defmethod execute-effect :tool/invoke
-  [_ {tool-name :tool/name args :tool/args dry-run? :tool/dry-run?}
+  [_ {tool-name :tool/name args :tool/args dry-run? :tool/dry-run?
+      call-id :tool/call-id follow-up? :llm/follow-up?}
    {:keys [dispatch!] :as ctx}]
   (let [tool    (tools/get-tool tool-name)
+        ;; Echo correlation/routing keys back on the result so the
+        ;; :tool/result handler can match an LLM tool call and continue the turn.
         result! (fn [m] (dispatch! (merge {:event/type :tool/result
                                            :tool/name  tool-name
                                            :tool/args  args}
+                                          (when call-id {:tool/call-id call-id})
+                                          (when follow-up? {:llm/follow-up? true})
                                           m)))]
     (cond
       (nil? tool)

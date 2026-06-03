@@ -19,6 +19,7 @@
             pa.llm.anthropic-test
             pa.llm.prompt-test
             pa.runtime.conversation-test
+            pa.runtime.tool-call-test
             pa.runtime.tool-effect-test
             pa.tools.registry-test
             pa.tools.fs.policy-test

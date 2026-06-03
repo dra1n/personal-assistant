@@ -38,10 +38,10 @@
     (let [deltas     (atom [])
           dispatched (atom nil)
           stub       (reify provider/LLMProvider
-                       (invoke [_ _ _] "Hello world")
+                       (invoke [_ _ _] (provider/text-result "Hello world"))
                        (stream [_ _ _ on-delta]
                          (doseq [d ["Hello" " " "world"]] (on-delta d))
-                         "Hello world"))
+                         (provider/text-result "Hello world")))
           ctx        {:llm-provider stub
                       :emit-delta!  #(swap! deltas conj %)
                       :dispatch!    #(reset! dispatched %)}

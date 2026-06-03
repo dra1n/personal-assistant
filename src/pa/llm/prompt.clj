@@ -86,9 +86,15 @@
 
 (defn- conversation->message
   "Project a stored conversation entry down to a prompt message, dropping any
-  metadata (timestamps, ids) the entry may carry."
+  metadata (timestamps, ids) the entry may carry. Tool turns keep the extra
+  keys a provider needs to serialize them:
+    - an assistant turn that requested tools keeps :tool-calls;
+    - a tool-result turn keeps :tool-call-id."
   [entry]
-  (select-keys entry [:role :content]))
+  (cond
+    (:tool-calls entry)   (select-keys entry [:role :content :tool-calls])
+    (:tool-call-id entry) (select-keys entry [:role :content :tool-call-id])
+    :else                 (select-keys entry [:role :content])))
 
 ;; ---------------------------------------------------------------------------
 ;; Assemble

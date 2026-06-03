@@ -32,10 +32,10 @@ Tools live in `src/pa/tools/fs.clj`; each pulls `:tool.fs/policy` from ctx and c
 - [x] Preserve thrown `ex-data` in the `:tool/invoke` error result so `:tool/access-denied` is distinguishable from a generic `:exception` (small Group 1 follow-up motivated by the tools being the first typed throwers)
 
 ### Group 4 — Minimal LLM tool-call path (single hop)
-- [ ] Extend the LLM provider protocol so a response can surface a tool-call request (tool name + args) instead of final text
-- [ ] Implement tool advertisement + tool-call parsing in the OpenAI provider: translate registry `:schema` → function specs, parse returned tool calls
-- [ ] Keep the Anthropic provider a protocol-conforming stub under the extended protocol
-- [ ] Extend the `:user/message` / `:llm/invoke` path: on a tool-call request dispatch `:tool/invoke`, append the `:tool/result` to the conversation, and dispatch a single follow-up `:llm/invoke` (one explicit hop; no recursion)
+- [x] Extend the LLM provider protocol: `invoke`/`stream` now return `{:content :tool-calls}` (provider/text-result helper) instead of a bare string
+- [x] OpenAI tool advertisement + tool-call parsing: `request-body` translates advertised tools → function specs (slash-encoded names); streaming assembles `tool_calls` fragments and non-streaming parses `message.tool_calls`; tool/assistant-tool-call turns serialize to OpenAI message shapes
+- [x] Anthropic provider remains a protocol-conforming stub (throws; unchanged)
+- [x] Extend the path: `:user/message` advertises tools; the `:llm/invoke` effect branches to `:assistant/tool-call` on a tool request; that handler records the request turn and emits `:tool/invoke {:tool/call-id :llm/follow-up?}`; `:tool/result` appends a `:role :tool` turn and re-invokes the LLM with **no tools** (single hop enforced structurally; minimal = first tool call only)
 
 ### Group 5 — Tests & validation
 - [x] Per-tool tests for `read-file` / `list-dir` / `write-file` against a temp filesystem (+ end-to-end through `:tool/invoke`)
@@ -44,7 +44,7 @@ Tools live in `src/pa/tools/fs.clj`; each pulls `:tool.fs/policy` from ctx and c
 - [x] Dry-run tests: assert zero filesystem side effects and that the correct effect descriptor is logged / `:tool/result` marked `:dry-run`
 - [~] Observability tests: a replay test asserts the tool fn is not re-executed (done). Still want an explicit assertion that each invocation emits a structured log line.
 - [ ] `test.check` property tests for tool argument-schema validation (schema validation is not yet enforced in `:tool/invoke` — pairs with that)
-- [ ] Single-hop round-trip test with a fixture/stub provider returning a canned tool call: `:llm/invoke` → `:tool/invoke` → `:tool/result` → follow-up `:llm/invoke` (Group 4)
+- [x] Single-hop round-trip test with a stub provider (`tool_call_test`): the `:llm/invoke` tool-call branch, the `:assistant/tool-call` and `:tool/result` handlers, and a replay proving the four-event turn (`:user/message` → `:assistant/tool-call` → `:tool/result` → `:assistant/response`) reconstructs the conversation with no LLM or tool execution
 
 ## Notes
 
@@ -52,3 +52,7 @@ Tools live in `src/pa/tools/fs.clj`; each pulls `:tool.fs/policy` from ctx and c
 - **Naming reconciliation:** the roadmap and earlier specs say `assistant-data/`; the actual data root in code is `pa.storage.fs/pa-home` (`$PA_HOME` or `~/.config/personal-assistant`). `system/tools.md` resolves under that root. Treat `assistant-data/` as conceptual shorthand.
 - **Replay safety mirrors existing patterns:** model `:tool/invoke` → `:tool/result` on the proven `:llm/invoke` → `:assistant/response` and `:memory/write` → `:memory/stored` pairs. The effect is the impure hop (skipped on replay); the dispatched event is the persisted, replayable record.
 - **Blast-radius caution (Group 4):** the tool-call path touches Phase 3's `:llm/invoke`/response flow. Keep it strictly one hop and behind the extended provider protocol so the streaming-text path (no tool call) is unchanged; the recursive select-loop stays out until Phase 7.
+- **Known follow-ups after Group 4:**
+  - *UI rendering of tool turns* — the conversation view renders a `:role :tool` turn with a faint generic label and an assistant tool-call turn (empty content) as a bare label. It doesn't crash, but a nicer rendering (e.g. "→ called fs/read-file(…)") is deferred.
+  - *Multiple parallel tool calls* — the model may return several tool calls; the minimal path handles only the first. Full fan-out belongs with the Phase 7 cognition pipeline.
+  - *Schema enforcement + `test.check`* — args are advertised but not yet validated against `:schema` inside `:tool/invoke`; the property tests pair with that enforcement.

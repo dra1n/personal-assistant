@@ -42,6 +42,15 @@
   []
   (set (keys @registry)))
 
+(defn advertise
+  "Provider-neutral specs for advertising the registered tools to an LLM:
+  one {:name <kw> :description <string> :parameters <schema>} per tool, with
+  the :fn dropped. A provider translates these into its own tool format."
+  []
+  (mapv (fn [[name {:keys [schema description]}]]
+          {:name name :description description :parameters schema})
+        @registry))
+
 (defn snapshot
   "Return the current registry map. Used by test fixtures to save state."
   []
