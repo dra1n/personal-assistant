@@ -12,6 +12,7 @@
             [pa.db.sqlite]
             [pa.memory.indexer]
             [pa.llm.component]
+            [pa.tools.policy]
             [pa.ui.core]))
 
 (defonce ^:private state (atom nil))

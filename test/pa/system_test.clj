@@ -13,6 +13,7 @@
             [pa.db.sqlite]
             [pa.memory.indexer]
             [pa.llm.component]
+            [pa.tools.policy]
             [pa.ui.core]))
 
 (defn- start-test-system []

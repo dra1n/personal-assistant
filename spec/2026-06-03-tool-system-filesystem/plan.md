@@ -16,11 +16,11 @@ observability done-bar.
 - [x] Emit a `:trace` entry per invocation alongside the log line so calls are visible to tap>/Portal
 
 ### Group 2 — Filesystem access policy
-- [ ] Backfill the Phase 2 bootstrap gap: add `create-system-templates!` to `pa.storage.fs/bootstrap!` that idempotently writes `system/tools.md` from a `templates/system/` resource when absent
-- [ ] Author the default `templates/system/tools.md` whose allowlist grants `read write` on the PA data root only (safe default-deny baseline), formatted as the documented roots + capability-flags table
-- [ ] Implement allowlist parsing: read `system/tools.md` at startup into an in-memory policy structure (list of `{root, capabilities}`)
-- [ ] Implement the path resolver: canonicalize the requested path (expand `~`, resolve `..` and symlinks to a real absolute path), match the longest-prefix root, return the granted capability set — honoring `deny`-wins, default-deny, and `write` not implying `read`
-- [ ] Wire a `:tool/policy` (allowlist) Integrant component sourced from `:storage/fs`'s root, and add it to the config graph + dispatcher deps
+- [x] Backfill the Phase 2 bootstrap gap: `create-system-templates!` in `pa.storage.fs/bootstrap!` idempotently writes `system/tools.md` from a `templates/system/` resource when absent (shared `create-templates!` helper with the identity templates)
+- [x] Author the default `templates/system/tools.md`: an infrastructure cheat sheet whose fenced ```allowlist block grants `read write` on `.` (the data root) only — safe default-deny baseline
+- [x] Implement allowlist parsing (`pa.tools.policy/parse-allowlist`): extract the fenced ```allowlist block, parse `<path> <caps...>` lines into `{:path :caps}`, ignoring comments/blanks/prose
+- [x] Implement the path resolver (`resolve-path` / `capable?` / `check`): canonicalize the requested path (expand `~`, anchor relatives to the data root, resolve `..` and symlinks via getCanonicalPath), then `deny`-wins → longest-prefix allow → default-deny; `write` does not imply `read`. `check` returns the safe canonical path or throws `:tool/access-denied`.
+- [x] Wire the `:tool/policy` Integrant component (sourced from `:storage/fs` root) into the config graph and expose it on the dispatcher's `:runtime` ctx as `:tool/policy` (the seam Group 3 tools consume)
 
 ### Group 3 — Filesystem tools
 - [ ] Implement `read-file` (path → contents) with an argument schema; requires `read` on the resolved path
