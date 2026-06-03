@@ -34,6 +34,7 @@
                   "tasks/completed"
                   "events"
                   "system"
+                  "workspace"
                   "sqlite"]]
       (is (.isDirectory (io/file *tmp-root* path)) (str path " should be a directory")))))
 

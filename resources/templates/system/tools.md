@@ -19,9 +19,10 @@ Rules:
 - Lines starting with `#` are comments.
 
 ```allowlist
-# Out of the box the assistant can only touch its own data directory.
+# Out of the box the assistant gets a sandbox under its data directory.
+# Its own identity, event log, and database are NOT writable here.
 # Add lines like `~/Projects  read write` or `~/.ssh  deny` to taste.
-.  read write
+workspace  read write
 ```
 
 ## Infrastructure notes

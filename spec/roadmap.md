@@ -454,6 +454,8 @@ assistant-data/
     heartbeat.md
     tools.md
 
+  workspace/          ; default read+write sandbox for filesystem tools
+
   sqlite/
     assistant.db
 ```
@@ -896,7 +898,7 @@ is the single source of truth for what the filesystem tools may touch.
 
 Tasks:
 
-- [ ] Backfill the Phase 2 bootstrap gap: `system/tools.md` was never added to first-startup template generation, so extend bootstrap to write a default `assistant-data/system/tools.md` whose allowlist grants `read write` on `assistant-data/` only (safe default-deny baseline)
+- [ ] Backfill the Phase 2 bootstrap gap: `system/tools.md` was never added to first-startup template generation, so extend bootstrap to write a default `assistant-data/system/tools.md` whose allowlist grants `read write` on a dedicated `workspace/` sandbox only (the assistant's own identity/events/sqlite stay non-tool-writable; safe default-deny baseline)
 - [ ] Parse the allowlist (roots + capability flags) out of `system/tools.md` at startup into an in-memory policy structure
 - [ ] Implement a path resolver: canonicalize the requested path, find the longest-prefix matching root, and return the granted capability set (honoring `deny`-wins and default-deny)
 - [ ] Implement `read-file` (path → contents, with schema) — requires `read` on the resolved path

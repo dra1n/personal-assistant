@@ -148,10 +148,15 @@
   (let [p (policy/load-policy *root*)]
     (is (policy/capable? p (at "projects" "a.txt") :write))))
 
-(deftest default-template-grants-data-root-only
-  (testing "the shipped tools.md template parses and grants read+write on the data root"
+(deftest default-template-grants-workspace-only
+  (testing "the shipped tools.md template grants read+write on the workspace
+            sandbox only — not the assistant's own data root files"
     (let [text (slurp (io/resource "templates/system/tools.md"))
           p    (policy/build-policy *root* text)]
-      (is (policy/capable? p (at "memory" "x.md") :read))
-      (is (policy/capable? p (at "memory" "x.md") :write))
+      (is (policy/capable? p (at "workspace" "note.txt") :read))
+      (is (policy/capable? p (at "workspace" "note.txt") :write))
+      (testing "runtime state outside the workspace is not tool-writable"
+        (is (not (policy/capable? p (at "events" "events.edn") :write)))
+        (is (not (policy/capable? p (at "identity" "identity.md") :write)))
+        (is (not (policy/capable? p (at "sqlite" "assistant.db") :write))))
       (is (not (policy/capable? p "/etc/passwd" :read))))))

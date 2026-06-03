@@ -20,6 +20,7 @@
                 "tasks/completed"
                 "events"
                 "system"
+                "workspace"
                 "sqlite"
                 "logs"]]
     (.mkdirs (io/file root path))))

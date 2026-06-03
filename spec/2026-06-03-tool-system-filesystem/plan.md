@@ -17,7 +17,7 @@ observability done-bar.
 
 ### Group 2 — Filesystem access policy
 - [x] Backfill the Phase 2 bootstrap gap: `create-system-templates!` in `pa.storage.fs/bootstrap!` idempotently writes `system/tools.md` from a `templates/system/` resource when absent (shared `create-templates!` helper with the identity templates)
-- [x] Author the default `templates/system/tools.md`: an infrastructure cheat sheet whose fenced ```allowlist block grants `read write` on `.` (the data root) only — safe default-deny baseline
+- [x] Author the default `templates/system/tools.md`: an infrastructure cheat sheet whose fenced ```allowlist block grants `read write` on a `workspace/` sandbox only (not the data root itself) — runtime state stays non-tool-writable; safe default-deny baseline. Bootstrap creates `workspace/`.
 - [x] Implement allowlist parsing (`pa.tools.fs.policy/parse-allowlist`): extract the fenced ```allowlist block, parse `<path> <caps...>` lines into `{:path :caps}`, ignoring comments/blanks/prose
 - [x] Implement the path resolver (`resolve-path` / `capable?` / `check`): canonicalize the requested path (expand `~`, anchor relatives to the data root, resolve `..` and symlinks via getCanonicalPath), then `deny`-wins → longest-prefix allow → default-deny; `write` does not imply `read`. `check` returns the safe canonical path or throws `:tool/access-denied`.
 - [x] Wire the `:tool.fs/policy` Integrant component (sourced from `:storage/fs` root) into the config graph and expose it on the dispatcher's `:runtime` ctx as `:tool.fs/policy` (the seam Group 3 tools consume)
