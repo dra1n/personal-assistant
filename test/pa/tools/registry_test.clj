@@ -2,11 +2,12 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [pa.tools.registry :as tools]))
 
-;; Snapshot/restore the global registry around each test so registrations
-;; don't leak between tests (mirrors the handler-registry fixture pattern).
+;; Isolate each test in an empty registry (other namespaces register real tools
+;; globally at load time), then restore the real registry afterward.
 (use-fixtures :each
   (fn [f]
     (let [snap (tools/snapshot)]
+      (tools/restore! {})
       (try (f) (finally (tools/restore! snap))))))
 
 (def ^:private noop-spec

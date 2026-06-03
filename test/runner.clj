@@ -22,6 +22,7 @@
             pa.runtime.tool-effect-test
             pa.tools.registry-test
             pa.tools.fs.policy-test
+            pa.tools.fs-test
             pa.ui.app-test
             pa.ui.view-test))
 

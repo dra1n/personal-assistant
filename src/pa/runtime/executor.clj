@@ -177,11 +177,16 @@
                       "tool invoked")
             (result! {:tool/status :ok :tool/output output :tool/duration-ms ms}))
           (catch Throwable e
-            (let [ms (elapsed-ms start)]
+            (let [ms       (elapsed-ms start)
+                  ;; Preserve a thrown ex-info's data (e.g. :tool/access-denied
+                  ;; from policy/check) so the result is distinguishable, not a
+                  ;; generic :exception. Plain throwables fall back to :exception.
+                  ex-data' (when (instance? clojure.lang.ExceptionInfo e) (ex-data e))]
               (log/error e "tool invocation failed" {:tool/name tool-name :tool/args args})
               (result! {:tool/status      :error
                         :tool/duration-ms ms
-                        :tool/error       {:type :exception :message (.getMessage e)}}))))))))
+                        :tool/error       (merge {:type :exception :message (.getMessage e)}
+                                                 ex-data')}))))))))
 
 ;; --- default -----------------------------------------------------------
 

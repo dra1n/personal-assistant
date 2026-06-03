@@ -25,10 +25,11 @@ observability done-bar.
 
 ### Group 3 — Filesystem tools (`pa.tools.fs`)
 Tools live in `src/pa/tools/fs.clj`; each pulls `:tool.fs/policy` from ctx and calls `policy/check` with its capability before touching disk, operating on the returned canonical path.
-- [ ] Implement `read-file` (path → contents) with an argument schema; requires `read` on the resolved path
-- [ ] Implement `list-dir` (path → entries) with an argument schema; requires `read` on the resolved path
-- [ ] Implement `write-file` (path + contents → write) with an argument schema; requires `write` on the resolved path
-- [ ] Register all three tools (`:fs/read-file`, `:fs/list-dir`, `:fs/write-file`) in the registry with `:fn`, `:schema`, `:description`
+- [x] Implement `read-file` (path → contents) with a JSON-Schema arg schema; requires `read` on the resolved path
+- [x] Implement `list-dir` (path → sorted, typed entries) with an arg schema; requires `read`; errors on a non-directory
+- [x] Implement `write-file` (path + contents → write, creating parent dirs) with an arg schema; requires `write` on the resolved path
+- [x] Register all three tools (`:fs/read-file`, `:fs/list-dir`, `:fs/write-file`) in the registry with `:fn`, `:schema`, `:description`; wired into `pa.system` so they register at startup
+- [x] Preserve thrown `ex-data` in the `:tool/invoke` error result so `:tool/access-denied` is distinguishable from a generic `:exception` (small Group 1 follow-up motivated by the tools being the first typed throwers)
 
 ### Group 4 — Minimal LLM tool-call path (single hop)
 - [ ] Extend the LLM provider protocol so a response can surface a tool-call request (tool name + args) instead of final text
@@ -37,13 +38,13 @@ Tools live in `src/pa/tools/fs.clj`; each pulls `:tool.fs/policy` from ctx and c
 - [ ] Extend the `:user/message` / `:llm/invoke` path: on a tool-call request dispatch `:tool/invoke`, append the `:tool/result` to the conversation, and dispatch a single follow-up `:llm/invoke` (one explicit hop; no recursion)
 
 ### Group 5 — Tests & validation
-- [ ] Per-tool tests for `read-file` / `list-dir` / `write-file` against a temp filesystem
-- [ ] Adversarial resolver tests: `..` traversal, symlink escape, out-of-root, default-deny, longest-prefix precedence, `deny` beats a broader allow
-- [ ] Per-root capability-matrix tests: a `read`-only root rejects `write-file`; a `write`-only root rejects reads; both flags allow both
-- [ ] Dry-run tests: assert zero filesystem side effects and that the correct effect descriptor is logged / `:tool/result` marked `:dry-run`
-- [ ] Observability tests: every invocation produces a structured log line + a `:tool/result` event; a replay test asserts the tool fn is not re-executed (only `:db` applied)
-- [ ] `test.check` property tests for tool argument-schema validation
-- [ ] Single-hop round-trip test with a fixture/stub provider returning a canned tool call: `:llm/invoke` → `:tool/invoke` → `:tool/result` → follow-up `:llm/invoke`
+- [x] Per-tool tests for `read-file` / `list-dir` / `write-file` against a temp filesystem (+ end-to-end through `:tool/invoke`)
+- [x] Adversarial resolver tests: `..` traversal, symlink escape, out-of-root, default-deny, longest-prefix precedence, `deny` beats a broader allow
+- [x] Per-root capability-matrix tests: a `read`-only root rejects `write-file`; a `write`-only root rejects reads; both flags allow both
+- [x] Dry-run tests: assert zero filesystem side effects and that the correct effect descriptor is logged / `:tool/result` marked `:dry-run`
+- [~] Observability tests: a replay test asserts the tool fn is not re-executed (done). Still want an explicit assertion that each invocation emits a structured log line.
+- [ ] `test.check` property tests for tool argument-schema validation (schema validation is not yet enforced in `:tool/invoke` — pairs with that)
+- [ ] Single-hop round-trip test with a fixture/stub provider returning a canned tool call: `:llm/invoke` → `:tool/invoke` → `:tool/result` → follow-up `:llm/invoke` (Group 4)
 
 ## Notes
 
