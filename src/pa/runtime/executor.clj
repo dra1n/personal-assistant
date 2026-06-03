@@ -2,6 +2,7 @@
   (:require [clojure.core.async :as async]
             [pa.llm.provider :as provider]
             [pa.state.db :as db]
+            [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
 
 ;; ---------------------------------------------------------------------------
@@ -129,6 +130,58 @@
           (dispatch! {:event/type :assistant/response
                       :content (str "⚠ LLM error: " (.getMessage e))}))))
     (log/warn ":llm/invoke called but no :llm-provider in ctx — is :llm/provider wired?")))
+
+;; --- :tool/invoke -------------------------------------------------------
+;;
+;; params: {:tool/name <qualified-kw>, :tool/args <map>, :tool/dry-run? <bool>?}
+;; ctx is the runtime capability map; it must contain :dispatch!. The tool fn is
+;; called as (tool-fn args ctx), so a tool reaches its capabilities (the access
+;; policy added in Group 2, dispatch!, etc.) through the same ctx.
+;;
+;; Resolves the tool from the global registry, times the call, emits a
+;; structured log line, and dispatches exactly one :tool/result event carrying
+;; the outcome. Like :llm/invoke, the side effect is the impure hop and is never
+;; replayed; the dispatched :tool/result is the persisted, replayable record.
+;;
+;; Dry-run (params :tool/dry-run?) logs the descriptor and emits a :tool/result
+;; with status :dry-run WITHOUT calling the tool fn, so no side effect occurs.
+
+(defn- elapsed-ms [start-nanos]
+  (quot (- (System/nanoTime) start-nanos) 1000000))
+
+(defmethod execute-effect :tool/invoke
+  [_ {tool-name :tool/name args :tool/args dry-run? :tool/dry-run?}
+   {:keys [dispatch!] :as ctx}]
+  (let [tool    (tools/get-tool tool-name)
+        result! (fn [m] (dispatch! (merge {:event/type :tool/result
+                                           :tool/name  tool-name
+                                           :tool/args  args}
+                                          m)))]
+    (cond
+      (nil? tool)
+      (do (log/warn ":tool/invoke for unknown tool — ignoring" {:tool/name tool-name})
+          (result! {:tool/status :error
+                    :tool/error  {:type :unknown-tool :tool/name tool-name}}))
+
+      dry-run?
+      (do (log/info {:tool/name tool-name :tool/args args :tool/dry-run true}
+                    "tool dry-run — side effect skipped")
+          (result! {:tool/status :dry-run}))
+
+      :else
+      (let [start (System/nanoTime)]
+        (try
+          (let [output ((:fn tool) args ctx)
+                ms     (elapsed-ms start)]
+            (log/info {:tool/name tool-name :tool/args args :tool/duration-ms ms}
+                      "tool invoked")
+            (result! {:tool/status :ok :tool/output output :tool/duration-ms ms}))
+          (catch Throwable e
+            (let [ms (elapsed-ms start)]
+              (log/error e "tool invocation failed" {:tool/name tool-name :tool/args args})
+              (result! {:tool/status      :error
+                        :tool/duration-ms ms
+                        :tool/error       {:type :exception :message (.getMessage e)}}))))))))
 
 ;; --- default -----------------------------------------------------------
 

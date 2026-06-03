@@ -19,6 +19,8 @@
             pa.llm.anthropic-test
             pa.llm.prompt-test
             pa.runtime.conversation-test
+            pa.runtime.tool-effect-test
+            pa.tools.registry-test
             pa.ui.app-test
             pa.ui.view-test))
 

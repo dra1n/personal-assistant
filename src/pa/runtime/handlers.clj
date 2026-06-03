@@ -1,5 +1,6 @@
 (ns pa.runtime.handlers
   (:require [pa.llm.prompt :as prompt]
+            [pa.runtime.events :as events]
             [pa.runtime.registry :as registry]
             [pa.state.transitions :as tr]))
 
@@ -47,3 +48,21 @@
     {:db          (tr/add-conversation-entry db {:role :assistant :content (:content event)})
      :event/store event
      :trace       {:event/type :assistant/response}}))
+
+;; ---------------------------------------------------------------------------
+;; Tool handlers
+;;
+;; :tool/result is the persisted outcome of a :tool/invoke effect. The effect
+;; performs the side effect (and is never replayed); this handler records the
+;; result into runtime state and stores it, so replay reconstructs tool
+;; outcomes as data without re-running the tool — the same pattern as
+;; :llm/invoke -> :assistant/response and :memory/write -> :memory/stored.
+;; ---------------------------------------------------------------------------
+
+(registry/reg-handler :tool/result
+  (fn [{:keys [db event]}]
+    {:db          (tr/add-tool-result db (events/payload event))
+     :event/store event
+     :trace       {:event/type  :tool/result
+                   :tool/name   (:tool/name event)
+                   :tool/status (:tool/status event)}}))

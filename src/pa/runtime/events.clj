@@ -28,3 +28,14 @@
   (merge {:event/id        (UUID/randomUUID)
           :event/timestamp (Instant/now)}
          m))
+
+(def envelope-keys
+  "The event-envelope keys make-event manages. Everything else is payload."
+  [:event/type :event/id :event/timestamp])
+
+(defn payload
+  "The event's payload — the map with the envelope keys removed. Used by
+  handlers that project an event into a clean domain record for runtime state,
+  while the full event (envelope included) is still persisted via :event/store."
+  [event]
+  (apply dissoc event envelope-keys))

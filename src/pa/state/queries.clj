@@ -57,3 +57,8 @@
   "Return the in-session memory records vector."
   [db]
   (:memories db))
+
+(defn tool-results
+  "Return the tool-result records recorded this session."
+  [db]
+  (:tool/results db))

@@ -9,12 +9,11 @@ observability done-bar.
 ## Task groups
 
 ### Group 1 — Tool machinery
-- [ ] Define a tool registry component (`tool-name → {:fn, :schema, :description}`) with a `reg-tool`-style self-registration entry point mirroring `pa.runtime.registry/reg-handler`
-- [ ] Expose the registry (and the resolved access policy from Group 2) to handlers/effects by adding them to the dispatcher's curated `:runtime` context map in `pa.runtime.dispatcher`
-- [ ] Add `:tool/invoke` as a `pa.runtime.executor/execute-effect` method: registry lookup → policy guard → run tool fn → time the call → emit structured Timbre log → dispatch `:tool/result`
-- [ ] Define the `:tool/result` event shape and register its handler via `reg-handler`: append to runtime state and persist through `:event/store` (replayable as data; tool fn never re-runs on replay)
-- [ ] Add dry-run mode: a flag on `:tool/invoke` that logs the effect descriptor and emits a `:tool/result` marked `:dry-run true` without performing the side effect
-- [ ] Emit a `:trace` entry per invocation alongside the log line so calls are visible to tap>/Portal
+- [x] Define a tool registry (`tool-name → {:fn, :schema, :description}`) with a `reg-tool` self-registration entry point — built as a **global atom** in `pa.tools.registry`, mirroring `pa.runtime.registry` (the handler registry, which is also read directly, not passed via ctx). The disk-derived access *policy* will go through the `:runtime` ctx in Group 2; the registry does not.
+- [x] Add `:tool/invoke` as a `pa.runtime.executor/execute-effect` method: registry lookup → (policy guard seam: the tool fn receives ctx, so Group 2's resolver plugs in here) → run tool fn → time the call → emit structured Timbre log → dispatch `:tool/result`
+- [x] Define the `:tool/result` event shape and register its handler via `reg-handler`: append to runtime state (`:tool/results` via `tr/add-tool-result`) and persist through `:event/store` (replayable as data; tool fn never re-runs on replay)
+- [x] Add dry-run mode: `:tool/dry-run?` on the effect (or a ctx-level default) logs the descriptor and emits a `:tool/result` marked `:dry-run` without calling the tool fn
+- [x] Emit a `:trace` entry per invocation alongside the log line so calls are visible to tap>/Portal
 
 ### Group 2 — Filesystem access policy
 - [ ] Backfill the Phase 2 bootstrap gap: add `create-system-templates!` to `pa.storage.fs/bootstrap!` that idempotently writes `system/tools.md` from a `templates/system/` resource when absent

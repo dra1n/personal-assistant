@@ -28,3 +28,6 @@
 
 (defn add-memory [db record]
   (update db :memories (fnil conj []) record))
+
+(defn add-tool-result [db result]
+  (update db :tool/results (fnil conj []) result))
