@@ -862,8 +862,8 @@ Goal: Introduce controlled, abstracted LLM interaction.
 
 Goal: Deterministic, observable, safe tool execution — establish the full tool
 machinery, exercised end-to-end by the filesystem tools only. Network-backed
-tools (web search, webpage retrieval, YouTube transcripts) are deferred to
-Phase 4b so this phase can ship without HTTP concerns.
+tools (web search, webpage retrieval) are deferred to Phase 4b and YouTube
+transcripts to Phase 4c, so this phase can ship without HTTP concerns.
 
 Infrastructure:
 
@@ -940,8 +940,21 @@ Network tools:
 
 - [ ] Implement web search tool (DuckDuckGo or similar, no API key required initially)
 - [ ] Implement webpage retrieval tool: fetch + reduce to readable text/markdown (parse with a small library, not regex — strip scripts/styles/markup; raw HTML behind a `:format` flag; full main-content Readability is a later nice-to-have). Apply the domain/IP allow-deny + SSRF guard from [design-notes.md](design-notes.md) (resolve host → reject private/link-local ranges), which also covers the extraction approach.
-- [ ] Implement YouTube transcript tool (yt-dlp or transcript API)
 - [ ] Write tests for each tool with mocked HTTP
+
+---
+
+## Phase 4c — Tool System (YouTube Transcripts)
+
+Goal: A transcript-retrieval tool for YouTube videos, reusing the Phase 4 tool
+machinery. Split out from the network tools because it leans on a different
+mechanism (a `yt-dlp` subprocess or a transcript API) with its own dependency
+footprint and failure modes (no captions, age/region restrictions).
+
+- [ ] Decide and document the mechanism — `yt-dlp` subprocess vs a transcript API — and its dependency/runtime footprint
+- [ ] Implement the transcript tool: accept a URL or video id, return the transcript text
+- [ ] Surface the no-transcript / unavailable / restricted cases as clean `:tool/result` errors, not crashes
+- [ ] Write tests with the subprocess/HTTP boundary mocked
 
 ---
 
