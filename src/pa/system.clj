@@ -14,6 +14,7 @@
             [pa.llm.component]
             [pa.tools.fs.policy]
             [pa.tools.fs]
+            [pa.tools.network.search]
             [pa.ui.core]))
 
 (defonce ^:private state (atom nil))
