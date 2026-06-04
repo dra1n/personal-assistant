@@ -17,18 +17,18 @@
 ;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :system/identity-loaded
-  (fn [{:keys [db event]}]
-    {:db (tr/set-identity db (:identity event))}))
+                      (fn [{:keys [db event]}]
+                        {:db (tr/set-identity db (:identity event))}))
 
 ;; ---------------------------------------------------------------------------
 ;; Memory handlers
 ;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :memory/stored
-  (fn [{:keys [db event]}]
-    {:db           (tr/add-memory db (:record event))
-     :memory/index (:record event)
-     :trace        {:event/type :memory/stored :id (get-in event [:record :memory/id])}}))
+                      (fn [{:keys [db event]}]
+                        {:db           (tr/add-memory db (:record event))
+                         :memory/index (:record event)
+                         :trace        {:event/type :memory/stored :id (get-in event [:record :memory/id])}}))
 
 ;; ---------------------------------------------------------------------------
 ;; Conversation handlers
@@ -47,33 +47,33 @@
 ;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :user/message
-  (fn [{:keys [db event]}]
-    (let [db' (tr/add-conversation-entry db {:role :user :content (:content event)})]
-      {:db          db'
-       :event/store event
-       :llm/invoke  {:messages (assemble-for db') :opts {:tools (tools/advertise)}}
-       :trace       {:event/type :user/message}})))
+                      (fn [{:keys [db event]}]
+                        (let [db' (tr/add-conversation-entry db {:role :user :content (:content event)})]
+                          {:db          db'
+                           :event/store event
+                           :llm/invoke  {:messages (assemble-for db') :opts {:tools (tools/advertise)}}
+                           :trace       {:event/type :user/message}})))
 
 (registry/reg-handler :assistant/tool-call
-  (fn [{:keys [db event]}]
-    (let [{:keys [content tool-calls]} event
-          tc  (first tool-calls)                ; minimal: one tool per hop
-          db' (tr/add-conversation-entry db {:role       :assistant
-                                             :content    content
-                                             :tool-calls tool-calls})]
-      {:db          db'
-       :event/store event
-       :tool/invoke {:tool/name      (:name tc)
-                     :tool/args      (:arguments tc)
-                     :tool/call-id   (:id tc)
-                     :llm/follow-up? true}
-       :trace       {:event/type :assistant/tool-call :tool/name (:name tc)}})))
+                      (fn [{:keys [db event]}]
+                        (let [{:keys [content tool-calls]} event
+                              tc  (first tool-calls)                ; minimal: one tool per hop
+                              db' (tr/add-conversation-entry db {:role       :assistant
+                                                                 :content    content
+                                                                 :tool-calls tool-calls})]
+                          {:db          db'
+                           :event/store event
+                           :tool/invoke {:tool/name      (:name tc)
+                                         :tool/args      (:arguments tc)
+                                         :tool/call-id   (:id tc)
+                                         :llm/follow-up? true}
+                           :trace       {:event/type :assistant/tool-call :tool/name (:name tc)}})))
 
 (registry/reg-handler :assistant/response
-  (fn [{:keys [db event]}]
-    {:db          (tr/add-conversation-entry db {:role :assistant :content (:content event)})
-     :event/store event
-     :trace       {:event/type :assistant/response}}))
+                      (fn [{:keys [db event]}]
+                        {:db          (tr/add-conversation-entry db {:role :assistant :content (:content event)})
+                         :event/store event
+                         :trace       {:event/type :assistant/response}}))
 
 ;; ---------------------------------------------------------------------------
 ;; Tool handlers
@@ -98,18 +98,18 @@
     (pr-str (:tool/output event))))
 
 (registry/reg-handler :tool/result
-  (fn [{:keys [db event]}]
-    (let [base {:db          (tr/add-tool-result db (events/payload event))
-                :event/store event
-                :trace       {:event/type  :tool/result
-                              :tool/name   (:tool/name event)
-                              :tool/status (:tool/status event)}}]
-      (if-let [call-id (:tool/call-id event)]
-        (let [db' (tr/add-conversation-entry (:db base)
-                                             {:role         :tool
-                                              :tool-call-id call-id
-                                              :content      (tool-result->content event)})]
-          (cond-> (assoc base :db db')
-            (:llm/follow-up? event)
-            (assoc :llm/invoke {:messages (assemble-for db')})))
-        base))))
+                      (fn [{:keys [db event]}]
+                        (let [base {:db          (tr/add-tool-result db (events/payload event))
+                                    :event/store event
+                                    :trace       {:event/type  :tool/result
+                                                  :tool/name   (:tool/name event)
+                                                  :tool/status (:tool/status event)}}]
+                          (if-let [call-id (:tool/call-id event)]
+                            (let [db' (tr/add-conversation-entry (:db base)
+                                                                 {:role         :tool
+                                                                  :tool-call-id call-id
+                                                                  :content      (tool-result->content event)})]
+                              (cond-> (assoc base :db db')
+                                (:llm/follow-up? event)
+                                (assoc :llm/invoke {:messages (assemble-for db')})))
+                            base))))
