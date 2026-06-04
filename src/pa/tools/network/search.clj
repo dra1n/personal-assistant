@@ -28,22 +28,29 @@
          :snippet (str/trim (or snippet title ""))
          :url     url}))))
 
+(def ^:private request-headers
+  {"User-Agent" "Mozilla/5.0 (compatible; personal-assistant/1.0)"
+   "Accept"     "application/json"})
+
 (defn web-search
   "Search the web for :query. Returns {:query <str> :results [{:title :url :snippet}]}."
   [{:keys [query]} ctx]
   (let [resp   (http/fetch (http-of ctx) ddg-url
                            {:as           :string
+                            :headers      request-headers
                             :query-params {:q             query
                                            :format        "json"
                                            :no_html       1
                                            :skip_disambig 1}})
-        body   (json/read-str (:body resp) :key-fn keyword)
-        ;; RelatedTopics may contain nested groups (have :Topics, not :FirstURL);
-        ;; filter those out and keep only flat entries.
-        topics  (filter :FirstURL (:RelatedTopics body []))
-        results (concat (:Results body []) topics)
-        parsed  (into [] (keep parse-entry) results)]
-    {:query query :results parsed}))
+        status (:status resp)]
+    (when-not (= 200 status)
+      (throw (ex-info (str "DuckDuckGo returned HTTP " status)
+                      {:type :tool/http-error :status status})))
+    (let [body    (json/read-str (:body resp) :key-fn keyword)
+          topics  (filter :FirstURL (:RelatedTopics body []))
+          results (concat (:Results body []) topics)
+          parsed  (into [] (keep parse-entry) results)]
+      {:query query :results parsed})))
 
 ;; ---------------------------------------------------------------------------
 ;; Registration
