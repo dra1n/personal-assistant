@@ -67,6 +67,47 @@
     (is (not (contains? fx :llm/invoke)) "no follow-up")))
 
 ;; ---------------------------------------------------------------------------
+;; Multiple tool calls in one turn — run sequentially, follow up once
+;; ---------------------------------------------------------------------------
+
+(def ^:private two-calls
+  [{:id "call_1" :name :fs/write-file :arguments {:path "a.txt" :content "a"}}
+   {:id "call_2" :name :fs/write-file :arguments {:path "b.txt" :content "b"}}])
+
+(deftest assistant-tool-call-records-all-but-fires-first
+  (let [event {:event/type :assistant/tool-call :content "" :tool-calls two-calls}
+        fx    ((h :assistant/tool-call) {:db {:conversation []} :event event})]
+    (is (= two-calls (:tool-calls (last (:conversation (:db fx)))))
+        "all calls are recorded in the assistant turn (so the API sees N tool_calls)")
+    (is (= "call_1" (get-in fx [:tool/invoke :tool/call-id])) "only the first is fired")))
+
+(deftest tool-result-fires-next-call-before-following-up
+  (testing "mid-batch: a result fires the next unresolved call and does not re-invoke the LLM"
+    (let [db    {:identity {}
+                 :conversation [{:role :user :content "make a and b"}
+                                {:role :assistant :content "" :tool-calls two-calls}]}
+          event {:event/type :tool/result :tool/name :fs/write-file :tool/args {:path "a.txt" :content "a"}
+                 :tool/status :ok :tool/output {:bytes-written 1}
+                 :tool/call-id "call_1" :llm/follow-up? true}
+          fx    ((h :tool/result) {:db db :event event})]
+      (is (= "call_2" (get-in fx [:tool/invoke :tool/call-id])) "the next call is fired")
+      (is (not (contains? fx :llm/invoke)) "no follow-up while calls remain"))))
+
+(deftest tool-result-follows-up-after-last-call
+  (testing "the final result completes the batch and re-invokes the LLM with no tools"
+    (let [db    {:identity {}
+                 :conversation [{:role :user :content "make a and b"}
+                                {:role :assistant :content "" :tool-calls two-calls}
+                                {:role :tool :tool-call-id "call_1" :content "{:bytes-written 1}"}]}
+          event {:event/type :tool/result :tool/name :fs/write-file :tool/args {:path "b.txt" :content "b"}
+                 :tool/status :ok :tool/output {:bytes-written 1}
+                 :tool/call-id "call_2" :llm/follow-up? true}
+          fx    ((h :tool/result) {:db db :event event})]
+      (is (not (contains? fx :tool/invoke)) "no more calls to fire")
+      (is (vector? (get-in fx [:llm/invoke :messages])) "LLM re-invoked")
+      (is (not (contains? (:llm/invoke fx) :opts)) "follow-up advertises no tools"))))
+
+;; ---------------------------------------------------------------------------
 ;; :llm/invoke effect — branches on tool calls
 ;; ---------------------------------------------------------------------------
 
@@ -109,3 +150,16 @@
       (is (= [:user :assistant :tool :assistant] (mapv :role (:conversation final))))
       (is (= one-call (:tool-calls (second (:conversation final)))))
       (is (= "it says hello" (:content (last (:conversation final))))))))
+
+(deftest multi-call-turn-replays-into-conversation
+  (testing "a two-tool-call turn reconstructs both tool turns and the final answer"
+    (let [events [{:event/type :user/message :content "make a and b"}
+                  {:event/type :assistant/tool-call :content "" :tool-calls two-calls}
+                  {:event/type :tool/result :tool/name :fs/write-file :tool/args {:path "a.txt" :content "a"}
+                   :tool/status :ok :tool/output {:bytes-written 1} :tool/call-id "call_1" :llm/follow-up? true}
+                  {:event/type :tool/result :tool/name :fs/write-file :tool/args {:path "b.txt" :content "b"}
+                   :tool/status :ok :tool/output {:bytes-written 1} :tool/call-id "call_2" :llm/follow-up? true}
+                  {:event/type :assistant/response :content "done"}]
+          final  (replay/replay events)]
+      (is (= [:user :assistant :tool :tool :assistant] (mapv :role (:conversation final))))
+      (is (= ["call_1" "call_2"] (->> (:conversation final) (keep :tool-call-id) vec))))))

@@ -57,7 +57,7 @@
 (registry/reg-handler :assistant/tool-call
                       (fn [{:keys [db event]}]
                         (let [{:keys [content tool-calls]} event
-                              tc  (first tool-calls)                ; minimal: one tool per hop
+                              tc  (first tool-calls)                ; fire the first; the rest run sequentially via :tool/result
                               db' (tr/add-conversation-entry db {:role       :assistant
                                                                  :content    content
                                                                  :tool-calls tool-calls})]
@@ -85,9 +85,13 @@
 ;; :llm/invoke -> :assistant/response and :memory/write -> :memory/stored.
 ;;
 ;; When the result carries a :tool/call-id it came from an LLM tool call, so the
-;; outcome is also appended to the conversation as a :role :tool turn; if it
-;; also carries :llm/follow-up? the LLM is re-invoked (no tools) to finish.
-;; A result with no :tool/call-id (a directly-invoked tool) only records.
+;; outcome is also appended to the conversation as a :role :tool turn. The model
+;; may have requested several tools in one turn; they run sequentially —
+;; whenever a result lands, the next unresolved call in the batch is fired, and
+;; only once every call has a result does the LLM get re-invoked (no tools) to
+;; finish. This keeps the assistant message's N tool_calls matched by N tool
+;; results, as the API requires. A result with no :tool/call-id (a
+;; directly-invoked tool) only records.
 ;; ---------------------------------------------------------------------------
 
 (defn- tool-result->content
@@ -97,6 +101,19 @@
     (str "ERROR: " (get-in event [:tool/error :message] (:tool/error event)))
     (pr-str (:tool/output event))))
 
+(defn- unresolved-tool-calls
+  "The tool-calls of the most recent assistant tool-call turn that don't yet
+  have a matching :role :tool result after it, in order. Empty once the whole
+  batch is resolved. Drives sequential execution of a multi-call turn."
+  [conversation]
+  (let [conv (vec conversation)
+        idx  (->> conv
+                  (keep-indexed (fn [i e] (when (seq (:tool-calls e)) i)))
+                  last)]
+    (when idx
+      (let [satisfied (set (keep :tool-call-id (subvec conv (inc idx))))]
+        (remove #(satisfied (:id %)) (:tool-calls (nth conv idx)))))))
+
 (registry/reg-handler :tool/result
                       (fn [{:keys [db event]}]
                         (let [base {:db          (tr/add-tool-result db (events/payload event))
@@ -105,11 +122,19 @@
                                                   :tool/name   (:tool/name event)
                                                   :tool/status (:tool/status event)}}]
                           (if-let [call-id (:tool/call-id event)]
-                            (let [db' (tr/add-conversation-entry (:db base)
-                                                                 {:role         :tool
-                                                                  :tool-call-id call-id
-                                                                  :content      (tool-result->content event)})]
+                            (let [db'     (tr/add-conversation-entry (:db base)
+                                                                     {:role         :tool
+                                                                      :tool-call-id call-id
+                                                                      :content      (tool-result->content event)})
+                                  pending (unresolved-tool-calls (:conversation db'))]
                               (cond-> (assoc base :db db')
-                                (:llm/follow-up? event)
+                                ;; more calls in this batch — fire the next one
+                                (seq pending)
+                                (assoc :tool/invoke {:tool/name      (:name (first pending))
+                                                     :tool/args      (:arguments (first pending))
+                                                     :tool/call-id   (:id (first pending))
+                                                     :llm/follow-up? (:llm/follow-up? event)})
+                                ;; batch complete — re-invoke the LLM (no tools) to finish
+                                (and (empty? pending) (:llm/follow-up? event))
                                 (assoc :llm/invoke {:messages (assemble-for db')})))
                             base))))

@@ -914,7 +914,7 @@ Tests:
 
 LLM tool use (single hop):
 
-- [x] Let the LLM call a tool and continue the turn in one hop — a scope addition beyond the original Phase 4 list. The provider protocol returns `{:content :tool-calls}`; `:user/message` advertises the registered tools; a tool request becomes `:assistant/tool-call → :tool/invoke → :tool/result → ` a follow-up `:llm/invoke` with **no tools advertised**, so the model must answer in text (single hop enforced structurally). Streamed `tool_calls` are assembled in the OpenAI provider. The recursive multi-step tool loop remains Phase 7.
+- [x] Let the LLM call a tool and continue the turn in one hop — a scope addition beyond the original Phase 4 list. The provider protocol returns `{:content :tool-calls}`; `:user/message` advertises the registered tools; a tool request becomes `:assistant/tool-call → :tool/invoke → :tool/result → ` a follow-up `:llm/invoke` with **no tools advertised**, so the model must answer in text (single hop enforced structurally). Multiple tool calls in one turn run sequentially, with the follow-up deferred until all have results. Streamed `tool_calls` are assembled in the OpenAI provider. The recursive multi-step tool loop remains Phase 7.
 
 (Tool-argument schema validation — enforcement + property tests — is carried
 into Phase 4b, where LLM-supplied arguments to network tools make it matter
