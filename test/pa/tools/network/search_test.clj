@@ -1,6 +1,5 @@
 (ns pa.tools.network.search-test
-  (:require [clojure.data.json :as json]
-            [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [pa.http :as http]
             [pa.runtime.executor :as executor]
             [pa.tools.network.search :as search]
@@ -15,68 +14,77 @@
   (fetch [_ _url _opts] response))
 
 (defn- fake-http [body]
-  (->FakeHttp {:status 200 :body (json/write-str body)}))
+  (->FakeHttp {:status 200 :body body}))
 
 (defn- ctx [body]
-  {:http           (fake-http body)
+  {:http      (fake-http body)
    :dispatch! (fn [_])})
 
 ;; ---------------------------------------------------------------------------
-;; Fixture DDG response bodies
+;; Fixture DDG HTML response
 
-(def ^:private ddg-with-results
-  {:Abstract     ""
-   :RelatedTopics [{:FirstURL "https://example.com/a"
-                    :Text     "Alpha — The first result snippet."}
-                   {:FirstURL "https://example.com/b"
-                    :Text     "Beta — The second result snippet."}
-                   {:Topics [{:FirstURL "https://example.com/c" :Text "Nested"}]
-                    :Name   "More at..."}]
-   :Results      [{:FirstURL "https://direct.com/x"
-                   :Text     "Direct — A direct result."}]})
+(def ^:private ddg-html
+  "<!DOCTYPE html><html><body>
+  <div class='result__body'>
+    <h2 class='result__title'>
+      <a class='result__a' href='//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fa&rut=x'>
+        Alpha Result
+      </a>
+    </h2>
+    <a class='result__snippet' href='#'>The first result snippet.</a>
+  </div>
+  <div class='result__body'>
+    <h2 class='result__title'>
+      <a class='result__a' href='//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fb&rut=y'>
+        Beta Result
+      </a>
+    </h2>
+    <a class='result__snippet' href='#'>The second result snippet.</a>
+  </div>
+  </body></html>")
 
-(def ^:private ddg-empty
-  {:Abstract "" :RelatedTopics [] :Results []})
+(def ^:private ddg-html-no-results
+  "<!DOCTYPE html><html><body></body></html>")
 
 ;; ---------------------------------------------------------------------------
 ;; Unit tests: web-search fn
 
 (deftest web-search-returns-results-with-expected-shape
   (testing "results are a vec of {:title :url :snippet} maps"
-    (let [{:keys [query results]} (search/web-search {:query "test"} (ctx ddg-with-results))]
+    (let [{:keys [query results]} (search/web-search {:query "test"} (ctx ddg-html))]
       (is (= "test" query))
       (is (vector? results))
+      (is (= 2 (count results)))
       (is (every? #(and (string? (:title %))
                         (string? (:url %))
                         (string? (:snippet %)))
                   results)))))
 
-(deftest web-search-extracts-title-and-snippet
-  (testing "text before \" — \" is title; text after is snippet"
-    (let [{:keys [results]} (search/web-search {:query "q"} (ctx ddg-with-results))
-          by-url (into {} (map (juxt :url identity) results))]
-      (is (= "Alpha" (:title (by-url "https://example.com/a"))))
-      (is (= "The first result snippet." (:snippet (by-url "https://example.com/a"))))
-      (is (= "Direct" (:title (by-url "https://direct.com/x"))))
-      (is (= "A direct result." (:snippet (by-url "https://direct.com/x")))))))
+(deftest web-search-extracts-title-snippet-and-url
+  (testing "title, snippet, and URL are extracted correctly"
+    (let [{:keys [results]} (search/web-search {:query "q"} (ctx ddg-html))
+          first-result (first results)]
+      (is (= "Alpha Result" (:title first-result)))
+      (is (= "The first result snippet." (:snippet first-result)))
+      (is (= "https://example.com/a" (:url first-result))))))
 
-(deftest web-search-skips-nested-topic-groups
-  (testing "entries with :Topics instead of :FirstURL are dropped"
-    (let [{:keys [results]} (search/web-search {:query "q"} (ctx ddg-with-results))
-          urls (map :url results)]
-      (is (not-any? #(= "https://example.com/c" %) urls)))))
+(deftest web-search-decodes-ddg-redirect-urls
+  (testing "DDG redirect hrefs are decoded to actual destination URLs"
+    (let [{:keys [results]} (search/web-search {:query "q"} (ctx ddg-html))]
+      (is (= "https://example.com/a" (:url (first results))))
+      (is (= "https://example.com/b" (:url (second results)))))))
 
-(deftest web-search-combines-results-and-related-topics
-  (testing ":Results entries appear alongside :RelatedTopics entries"
-    (let [{:keys [results]} (search/web-search {:query "q"} (ctx ddg-with-results))
-          urls (set (map :url results))]
-      (is (contains? urls "https://direct.com/x"))
-      (is (contains? urls "https://example.com/a")))))
-
-(deftest web-search-empty-response-returns-empty-results
-  (testing "an empty DDG response returns an empty results vec"
-    (let [{:keys [results]} (search/web-search {:query "nothing"} (ctx ddg-empty))]
+(deftest web-search-empty-page-returns-empty-results
+  (testing "a page with no result__body elements returns an empty results vec"
+    (let [{:keys [results]} (search/web-search {:query "nothing"} (ctx ddg-html-no-results))]
       (is (= [] results)))))
+
+(deftest web-search-throws-on-non-200
+  (testing "a non-200 response throws an ex-info with :type :tool/http-error"
+    (let [client (->FakeHttp {:status 403 :body ""})]
+      (is (thrown-with-msg?
+           clojure.lang.ExceptionInfo #"403"
+           (search/web-search {:query "q"} {:http client :dispatch! (fn [_])}))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Integration: registered tool invoked via executor
@@ -98,7 +106,7 @@
 
 (deftest schema-validation-rejects-missing-query
   (testing "executor emits :tool/invalid-args when :query is missing"
-    (let [ctx {:http      (fake-http ddg-empty)
+    (let [ctx {:http      (fake-http ddg-html-no-results)
                :dispatch! (fn [ev] (swap! dispatched conj ev))}]
       (executor/execute-effect :tool/invoke
                                {:tool/name :network/web-search :tool/args {}}
