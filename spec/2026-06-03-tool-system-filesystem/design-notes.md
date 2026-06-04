@@ -45,6 +45,28 @@ throw `:tool/access-denied`) is a **pattern** to copy, not code to extend:
   `file://`). This is **SSRF — the network analog of path traversal** — and is the
   single most important guard for the page-fetch tool.
 
+## Webpage retrieval — reduce to text, don't dump HTML
+
+The point of the page-fetch tool's extraction is **token economy, not
+comprehension**. Understanding the page is the LLM's job; shipping 500KB of
+scripts/CSS/nav/markup into the context window is not — raw HTML is typically
+10–100× the useful text and can blow the context budget on a single page (the
+same "tool output lands in the next prompt" concern, acute).
+
+So the tool fetches and **reduces to readable text/markdown** before returning:
+
+- **Use a parser, not regex.** Regex tag-stripping breaks on comments, `<script>`
+  bodies, entities, malformed HTML. Reach for a small, contained library —
+  **JSoup** (`org.jsoup/jsoup`) is the JVM standard: one jar, no transitive deps.
+  `(.text (Jsoup/parse html))` after dropping `script`/`style` nodes is ~the whole
+  job; a light DOM walk (or a JSoup-based add-on like copy-down) gives markdown if
+  structure is wanted. One `deps.edn` line + a thin `pa.tools.web` namespace — not
+  a framework.
+- **Default to reduced; keep raw behind a `:format` flag** (`:text` default,
+  `:html` escape hatch) for the rare case the model wants to scrape structure.
+- **Defer full Readability** (main-content detection, dropping nav/footer) — it's
+  heavier and a nice-to-have; plain text/markdown captures ~all the token savings.
+
 ## `tools.md` will need multiple named blocks
 
 Today `pa.tools.fs.policy/parse-allowlist` reads exactly one fenced ```allowlist

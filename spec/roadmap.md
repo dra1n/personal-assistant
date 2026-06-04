@@ -939,7 +939,7 @@ Shared machinery:
 Network tools:
 
 - [ ] Implement web search tool (DuckDuckGo or similar, no API key required initially)
-- [ ] Implement webpage retrieval tool (fetch + extract readable text), with the domain/IP allow-deny + SSRF guard from the design notes (resolve host → reject private/link-local ranges)
+- [ ] Implement webpage retrieval tool: fetch + reduce to readable text/markdown (parse with a small library, not regex — strip scripts/styles/markup; raw HTML behind a `:format` flag; full main-content Readability is a later nice-to-have). Apply the domain/IP allow-deny + SSRF guard from the design notes (resolve host → reject private/link-local ranges). See design notes for the extraction approach.
 - [ ] Implement YouTube transcript tool (yt-dlp or transcript API)
 - [ ] Write tests for each tool with mocked HTTP
 
