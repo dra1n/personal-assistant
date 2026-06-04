@@ -25,17 +25,17 @@
 
 ### Group 3 — Webpage retrieval tool + SSRF guard
 
-- [ ] Implement the SSRF guard: resolve the hostname before any HTTP connection;
+- [x] Implement the SSRF guard: resolve the hostname before any HTTP connection;
       reject if any resolved address falls in RFC-1918, link-local, loopback, or
       IPv6 private ranges; emit `:tool/result` error on rejection
-- [ ] Implement `fetch-page` tool: accepts `:url` (required) and optional
+- [x] Implement `fetch-page` tool: accepts `:url` (required) and optional
       `:format` (`:text` default, `:raw` for original HTML); fetches the page,
       strips scripts/styles/markup via jsoup (or equivalent JVM HTML parser), returns
       clean text
-- [ ] Register the tool in the tool registry with a schema and description
-- [ ] Write unit tests with mocked HTTP: fixture HTML → assert extracted text,
+- [x] Register the tool in the tool registry with a schema and description
+- [x] Write unit tests with mocked HTTP: fixture HTML → assert extracted text,
       assert `:format :raw` returns original HTML
-- [ ] Write SSRF guard unit tests: private-IP URLs rejected, public URLs accepted,
+- [x] Write SSRF guard unit tests: private-IP URLs rejected, public URLs accepted,
       DNS-rebinding scenario (public hostname resolving to private IP) rejected
 
 ### Group 4 — End-to-end validation

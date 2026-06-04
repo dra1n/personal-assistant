@@ -25,7 +25,17 @@ Rules:
 workspace  read write
 ```
 
+## Announcer
+
+Configure the macOS `say` voice used when the assistant speaks aloud via the
+`os/say` tool. Set `voice` to any name shown by `say -v ?` in your terminal.
+Remove the block or leave `voice` blank to use the system default voice.
+
+```announcer
+voice: Samantha
+```
+
 ## Infrastructure notes
 
-<!-- Cheat sheet for your setup: device info, ffmpeg paths, cameras, how to
-     synthesize voice, etc. Fill in as needed — the assistant reads this file. -->
+<!-- Cheat sheet for your setup: device info, ffmpeg paths, cameras, etc.
+     Fill in as needed — the assistant reads this file. -->
