@@ -21,7 +21,7 @@ observability done-bar.
 - [x] Implement allowlist parsing (`pa.tools.fs.policy/parse-allowlist`): extract the fenced ```allowlist block, parse `<path> <caps...>` lines into `{:path :caps}`, ignoring comments/blanks/prose
 - [x] Implement the path resolver (`resolve-path` / `capable?` / `check`): canonicalize the requested path (expand `~`, anchor relatives to the data root, resolve `..` and symlinks via getCanonicalPath), then `deny`-wins → longest-prefix allow → default-deny; `write` does not imply `read`. `check` returns the safe canonical path or throws `:tool/access-denied`.
 - [x] Wire the `:tool.fs/policy` Integrant component (sourced from `:storage/fs` root) into the config graph and expose it on the dispatcher's `:runtime` ctx as `:tool.fs/policy` (the seam Group 3 tools consume)
-- [x] Sibling-family layout: policy lives at `pa.tools.fs.policy` (`src/pa/tools/fs/policy.clj`), not a generic `pa.tools.policy` — each tool family owns its policy (see [design-notes.md](design-notes.md))
+- [x] Sibling-family layout: policy lives at `pa.tools.fs.policy` (`src/pa/tools/fs/policy.clj`), not a generic `pa.tools.policy` — each tool family owns its policy (see [design-notes.md](../design-notes.md))
 
 ### Group 3 — Filesystem tools (`pa.tools.fs`)
 Tools live in `src/pa/tools/fs.clj`; each pulls `:tool.fs/policy` from ctx and calls `policy/check` with its capability before touching disk, operating on the returned canonical path.
