@@ -39,11 +39,11 @@
 ;; assembles the prompt and emits the :llm/invoke effect; replay applies only
 ;; :db, so the LLM is never called on replay.
 ;;
-;; When the model calls a tool instead of answering, the turn grows to four
-;; persisted events: :user/message, :assistant/tool-call (the request),
-;; :tool/result (the outcome), :assistant/response (the final text). The single
-;; hop is enforced structurally — the follow-up :llm/invoke advertises no tools,
-;; so the model must answer in text.
+;; When the model calls a tool instead of answering, the turn grows: each
+;; :assistant/tool-call → :tool/result pair adds two persisted events, and a
+;; final :assistant/response closes the turn. The follow-up :llm/invoke
+;; re-advertises tools so the model can chain calls (search → fetch → answer);
+;; the model is expected to stop calling tools once it has enough information.
 ;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :user/message
@@ -134,7 +134,8 @@
                                                      :tool/args      (:arguments (first pending))
                                                      :tool/call-id   (:id (first pending))
                                                      :llm/follow-up? (:llm/follow-up? event)})
-                                ;; batch complete — re-invoke the LLM (no tools) to finish
+                                ;; batch complete — re-invoke the LLM with tools for multi-hop
                                 (and (empty? pending) (:llm/follow-up? event))
-                                (assoc :llm/invoke {:messages (assemble-for db')})))
+                                (assoc :llm/invoke {:messages (assemble-for db')
+                                                    :opts     {:tools (tools/advertise)}})))
                             base))))

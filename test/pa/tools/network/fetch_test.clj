@@ -129,6 +129,19 @@
       (is (ifn? (:fn spec)))
       (is (= [:url] (get-in spec [:schema :required]))))))
 
+(deftest dry-run-skips-http-call
+  (testing "dry-run returns :dry-run status without touching the HTTP client"
+    (let [no-http (reify http/HttpClient
+                    (fetch [_ _ _] (throw (AssertionError. "HTTP must not be called in dry-run")))
+                    (post  [_ _ _] (throw (AssertionError. "HTTP must not be called in dry-run"))))
+          ctx {:http no-http :ssrf-check no-ssrf :dispatch! (fn [ev] (swap! dispatched conj ev))}]
+      (executor/execute-effect :tool/invoke
+                               {:tool/name     :network/fetch-page
+                                :tool/args     {:url "https://example.com"}
+                                :tool/dry-run? true}
+                               ctx)
+      (is (= :dry-run (:tool/status (first @dispatched)))))))
+
 (deftest schema-validation-rejects-missing-url
   (testing "executor emits :tool/invalid-args when :url is missing"
     (let [ctx {:http       (fake-http fixture-html)

@@ -104,6 +104,19 @@
       (is (ifn? (:fn spec)))
       (is (= [:query] (get-in spec [:schema :required]))))))
 
+(deftest dry-run-skips-http-call
+  (testing "dry-run returns :dry-run status without touching the HTTP client"
+    (let [no-http (reify http/HttpClient
+                    (fetch [_ _ _] (throw (AssertionError. "HTTP must not be called in dry-run")))
+                    (post  [_ _ _] (throw (AssertionError. "HTTP must not be called in dry-run"))))
+          ctx {:http no-http :dispatch! (fn [ev] (swap! dispatched conj ev))}]
+      (executor/execute-effect :tool/invoke
+                               {:tool/name     :network/web-search
+                                :tool/args     {:query "test"}
+                                :tool/dry-run? true}
+                               ctx)
+      (is (= :dry-run (:tool/status (first @dispatched)))))))
+
 (deftest schema-validation-rejects-missing-query
   (testing "executor emits :tool/invalid-args when :query is missing"
     (let [ctx {:http      (fake-http ddg-html-no-results)

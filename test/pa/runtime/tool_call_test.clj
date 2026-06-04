@@ -1,6 +1,6 @@
 (ns pa.runtime.tool-call-test
-  "The single-hop LLM tool-call path: :user/message -> :llm/invoke ->
-  :assistant/tool-call -> :tool/invoke -> :tool/result -> follow-up :llm/invoke
+  "LLM tool-call path: :user/message -> :llm/invoke -> :assistant/tool-call ->
+  :tool/invoke -> :tool/result -> follow-up :llm/invoke (with tools) -> ...
   -> :assistant/response. Handlers are tested as pure functions; the effect
   branch is tested with a stub provider; replay proves the whole turn
   reconstructs from events with no LLM or tool execution."
@@ -53,10 +53,10 @@
         (is (= :tool (:role turn)))
         (is (= "call_1" (:tool-call-id turn)))
         (is (string? (:content turn)))))
-    (testing "it re-invokes the LLM with no tools advertised (single hop)"
+    (testing "it re-invokes the LLM with tools re-advertised (multi-hop enabled)"
       (is (vector? (get-in fx [:llm/invoke :messages])))
-      (is (not (contains? (:llm/invoke fx) :opts))
-          "follow-up advertises no tools, so the model must answer in text"))))
+      (is (vector? (get-in fx [:llm/invoke :opts :tools]))
+          "follow-up re-advertises tools so the model can chain calls"))))
 
 (deftest tool-result-direct-invocation-only-records
   (let [event {:event/type :tool/result :tool/name :fs/read-file :tool/args {}
@@ -105,7 +105,7 @@
           fx    ((h :tool/result) {:db db :event event})]
       (is (not (contains? fx :tool/invoke)) "no more calls to fire")
       (is (vector? (get-in fx [:llm/invoke :messages])) "LLM re-invoked")
-      (is (not (contains? (:llm/invoke fx) :opts)) "follow-up advertises no tools"))))
+      (is (vector? (get-in fx [:llm/invoke :opts :tools])) "follow-up re-advertises tools"))))
 
 ;; ---------------------------------------------------------------------------
 ;; :llm/invoke effect — branches on tool calls

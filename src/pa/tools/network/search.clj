@@ -68,7 +68,7 @@
 
 (registry/reg-tool :network/web-search
   {:fn          web-search
-   :description "Search the web using DuckDuckGo. Returns a list of results with title, URL, and snippet."
+   :description "Search the web using DuckDuckGo. Returns a list of results with title, URL, and a short snippet only — use fetch-page to read the full content of a result."
    :schema      {:type       "object"
                  :properties {:query {:type "string" :description "The search query."}}
                  :required   [:query]}})

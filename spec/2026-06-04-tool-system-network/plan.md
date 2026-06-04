@@ -40,10 +40,10 @@
 
 ### Group 4 — End-to-end validation
 
-- [ ] Run the app and conduct a live turn where the LLM calls `web-search` and
+- [x] Run the app and conduct a live turn where the LLM calls `web-search` and
       `fetch-page` in sequence (search → pick a URL → retrieve the page → answer)
-- [ ] Confirm dry-run mode still works for both new tools (no HTTP calls)
-- [ ] Confirm existing Phase 4 filesystem tools and single-hop tool use are unaffected
+- [x] Confirm dry-run mode still works for both new tools (no HTTP calls)
+- [x] Confirm existing Phase 4 filesystem tools and single-hop tool use are unaffected
       (run the full test suite; no regressions)
 
 ## Notes
