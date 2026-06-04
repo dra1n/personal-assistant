@@ -867,11 +867,11 @@ Phase 4b so this phase can ship without HTTP concerns.
 
 Infrastructure:
 
-- [ ] Define tool registry: a map of `tool-name → {:fn, :schema, :description}`
-- [ ] Implement tool invocation as an effect type (`{:effect/type :tool/invoke, :tool/name ..., :tool/args ...}`)
-- [ ] Add dry-run mode: log effect descriptor without executing
-- [ ] Add structured logging for every tool invocation (tool, args, result, duration)
-- [ ] Wire tool results back into the event bus as `:tool/result` events
+- [x] Define tool registry: a map of `tool-name → {:fn, :schema, :description}`
+- [x] Implement tool invocation as an effect type (`{:effect/type :tool/invoke, :tool/name ..., :tool/args ...}`)
+- [x] Add dry-run mode: log effect descriptor without executing
+- [x] Add structured logging for every tool invocation (tool, args, result, duration)
+- [x] Wire tool results back into the event bus as `:tool/result` events
 
 Filesystem access policy:
 
@@ -898,19 +898,19 @@ is the single source of truth for what the filesystem tools may touch.
 
 Tasks:
 
-- [ ] Backfill the Phase 2 bootstrap gap: `system/tools.md` was never added to first-startup template generation, so extend bootstrap to write a default `assistant-data/system/tools.md` whose allowlist grants `read write` on a dedicated `workspace/` sandbox only (the assistant's own identity/events/sqlite stay non-tool-writable; safe default-deny baseline)
-- [ ] Parse the allowlist (roots + capability flags) out of `system/tools.md` at startup into an in-memory policy structure
-- [ ] Implement a path resolver: canonicalize the requested path, find the longest-prefix matching root, and return the granted capability set (honoring `deny`-wins and default-deny)
-- [ ] Implement `read-file` (path → contents, with schema) — requires `read` on the resolved path
-- [ ] Implement `list-dir` (path → entries, with schema) — requires `read` on the resolved path
-- [ ] Implement `write-file` (path + contents → write, with schema) — requires `write` on the resolved path
+- [x] Backfill the Phase 2 bootstrap gap: `system/tools.md` was never added to first-startup template generation, so extend bootstrap to write a default `assistant-data/system/tools.md` whose allowlist grants `read write` on a dedicated `workspace/` sandbox only (the assistant's own identity/events/sqlite stay non-tool-writable; safe default-deny baseline)
+- [x] Parse the allowlist (roots + capability flags) out of `system/tools.md` at startup into an in-memory policy structure
+- [x] Implement a path resolver: canonicalize the requested path, find the longest-prefix matching root, and return the granted capability set (honoring `deny`-wins and default-deny)
+- [x] Implement `read-file` (path → contents, with schema) — requires `read` on the resolved path
+- [x] Implement `list-dir` (path → entries, with schema) — requires `read` on the resolved path
+- [x] Implement `write-file` (path + contents → write, with schema) — requires `write` on the resolved path
 
 Tests:
 
-- [ ] Write tests for each filesystem tool with a mocked/temp filesystem
-- [ ] Write tests for the path resolver: out-of-root paths, `..` traversal, and symlink escape are all rejected
-- [ ] Write tests for per-root capabilities: a `read`-only root rejects `write-file`/refuses writes; a `deny` root rejects reads even if a broader root would allow them; longest-prefix root wins
-- [ ] Write tests for dry-run mode: assert no side effects occur, correct effect descriptor is logged
+- [x] Write tests for each filesystem tool with a mocked/temp filesystem
+- [x] Write tests for the path resolver: out-of-root paths, `..` traversal, and symlink escape are all rejected
+- [x] Write tests for per-root capabilities: a `read`-only root rejects `write-file`/refuses writes; a `deny` root rejects reads even if a broader root would allow them; longest-prefix root wins
+- [x] Write tests for dry-run mode: assert no side effects occur, correct effect descriptor is logged
 
 (Tool-argument schema validation — enforcement + property tests — is carried
 into Phase 4b, where LLM-supplied arguments to network tools make it matter
