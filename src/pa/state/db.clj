@@ -16,6 +16,7 @@
   {:conversation  []
    :tasks         {}
    :memories      []
+   :tool/results  []
    :events/recent []
    :ui            {}
    :identity      {}})

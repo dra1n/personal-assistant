@@ -454,6 +454,8 @@ assistant-data/
     heartbeat.md
     tools.md
 
+  workspace/          ; default read+write sandbox for filesystem tools
+
   sqlite/
     assistant.db
 ```
@@ -865,11 +867,11 @@ Phase 4b so this phase can ship without HTTP concerns.
 
 Infrastructure:
 
-- [ ] Define tool registry: a map of `tool-name → {:fn, :schema, :description}`
-- [ ] Implement tool invocation as an effect type (`{:effect/type :tool/invoke, :tool/name ..., :tool/args ...}`)
-- [ ] Add dry-run mode: log effect descriptor without executing
-- [ ] Add structured logging for every tool invocation (tool, args, result, duration)
-- [ ] Wire tool results back into the event bus as `:tool/result` events
+- [x] Define tool registry: a map of `tool-name → {:fn, :schema, :description}`
+- [x] Implement tool invocation as an effect type (`{:effect/type :tool/invoke, :tool/name ..., :tool/args ...}`)
+- [x] Add dry-run mode: log effect descriptor without executing
+- [x] Add structured logging for every tool invocation (tool, args, result, duration)
+- [x] Wire tool results back into the event bus as `:tool/result` events
 
 Filesystem access policy:
 
@@ -896,30 +898,48 @@ is the single source of truth for what the filesystem tools may touch.
 
 Tasks:
 
-- [ ] Backfill the Phase 2 bootstrap gap: `system/tools.md` was never added to first-startup template generation, so extend bootstrap to write a default `assistant-data/system/tools.md` whose allowlist grants `read write` on `assistant-data/` only (safe default-deny baseline)
-- [ ] Parse the allowlist (roots + capability flags) out of `system/tools.md` at startup into an in-memory policy structure
-- [ ] Implement a path resolver: canonicalize the requested path, find the longest-prefix matching root, and return the granted capability set (honoring `deny`-wins and default-deny)
-- [ ] Implement `read-file` (path → contents, with schema) — requires `read` on the resolved path
-- [ ] Implement `list-dir` (path → entries, with schema) — requires `read` on the resolved path
-- [ ] Implement `write-file` (path + contents → write, with schema) — requires `write` on the resolved path
+- [x] Backfill the Phase 2 bootstrap gap: `system/tools.md` was never added to first-startup template generation, so extend bootstrap to write a default `assistant-data/system/tools.md` whose allowlist grants `read write` on a dedicated `workspace/` sandbox only (the assistant's own identity/events/sqlite stay non-tool-writable; safe default-deny baseline)
+- [x] Parse the allowlist (roots + capability flags) out of `system/tools.md` at startup into an in-memory policy structure
+- [x] Implement a path resolver: canonicalize the requested path, find the longest-prefix matching root, and return the granted capability set (honoring `deny`-wins and default-deny)
+- [x] Implement `read-file` (path → contents, with schema) — requires `read` on the resolved path
+- [x] Implement `list-dir` (path → entries, with schema) — requires `read` on the resolved path
+- [x] Implement `write-file` (path + contents → write, with schema) — requires `write` on the resolved path
+- [x] Follow-on tools (the initial three were too sparse): `make-dir`, `delete` (recursive behind a flag; refuses to delete an allowlist root), `move`/rename (needs `write` on both ends), `file-info` (exists/type/size). All gated under existing `read`/`write` capabilities.
 
 Tests:
 
-- [ ] Write tests for each filesystem tool with a mocked/temp filesystem
-- [ ] Write tests for the path resolver: out-of-root paths, `..` traversal, and symlink escape are all rejected
-- [ ] Write tests for per-root capabilities: a `read`-only root rejects `write-file`/refuses writes; a `deny` root rejects reads even if a broader root would allow them; longest-prefix root wins
-- [ ] Write tests for dry-run mode: assert no side effects occur, correct effect descriptor is logged
-- [ ] Write property-based tests for tool schema validation
+- [x] Write tests for each filesystem tool with a mocked/temp filesystem
+- [x] Write tests for the path resolver: out-of-root paths, `..` traversal, and symlink escape are all rejected
+- [x] Write tests for per-root capabilities: a `read`-only root rejects `write-file`/refuses writes; a `deny` root rejects reads even if a broader root would allow them; longest-prefix root wins
+- [x] Write tests for dry-run mode: assert no side effects occur, correct effect descriptor is logged
+
+LLM tool use (single hop):
+
+- [x] Let the LLM call a tool and continue the turn in one hop — a scope addition beyond the original Phase 4 list. The provider protocol returns `{:content :tool-calls}`; `:user/message` advertises the registered tools; a tool request becomes `:assistant/tool-call → :tool/invoke → :tool/result → ` a follow-up `:llm/invoke` with **no tools advertised**, so the model must answer in text (single hop enforced structurally). Multiple tool calls in one turn run sequentially, with the follow-up deferred until all have results. Streamed `tool_calls` are assembled in the OpenAI provider. The recursive multi-step tool loop remains Phase 7.
+
+(Tool-argument schema validation — enforcement + property tests — is carried
+into Phase 4b, where LLM-supplied arguments to network tools make it matter
+most. Phase 4 registers each tool's `:schema` and advertises it to the LLM but
+does not yet validate args against it.)
 
 ---
 
 ## Phase 4b — Tool System (Network)
 
 Goal: Extend the Phase 4 tool machinery with network-backed tools, reusing the
-registry, effect type, dry-run, logging, and event-bus wiring already in place.
+registry, effect type, dry-run, logging, and event-bus wiring already in place —
+and harden the shared machinery with argument-schema validation carried over
+from Phase 4.
+
+Shared machinery:
+
+- [ ] Enforce tool-argument schemas in `:tool/invoke`: validate `:tool/args` against the registered `:schema` before executing; on failure emit a `:tool/result` error (`:type :tool/invalid-args`) and do not run the tool. Applies to all tools, filesystem and network.
+- [ ] Write property-based (test.check) tests for tool schema validation
+
+Network tools:
 
 - [ ] Implement web search tool (DuckDuckGo or similar, no API key required initially)
-- [ ] Implement webpage retrieval tool (fetch + extract readable text)
+- [ ] Implement webpage retrieval tool (fetch + extract readable text), with the domain/IP allow-deny + SSRF guard from the design notes (resolve host → reject private/link-local ranges)
 - [ ] Implement YouTube transcript tool (yt-dlp or transcript API)
 - [ ] Write tests for each tool with mocked HTTP
 

@@ -2,6 +2,7 @@
   (:require [clojure.core.async :as async]
             [pa.llm.provider :as provider]
             [pa.state.db :as db]
+            [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
 
 ;; ---------------------------------------------------------------------------
@@ -59,7 +60,7 @@
 ;; params: {:message str, ...extra keys passed as context}
 
 (defmethod execute-effect :log/info [_ {:keys [message] :as params} _ctx]
-  (log/info (dissoc params :message) message))
+  (log/info message (dissoc params :message)))
 
 ;; --- :trace ------------------------------------------------------------
 ;;
@@ -121,14 +122,80 @@
   (if llm-provider
     (future
       (try
-        (let [text (provider/stream llm-provider messages (or opts {})
-                                    (fn [delta] (when emit-delta! (emit-delta! delta))))]
-          (dispatch! {:event/type :assistant/response :content text}))
+        (let [{:keys [content tool-calls]}
+              (provider/stream llm-provider messages (or opts {})
+                               (fn [delta] (when emit-delta! (emit-delta! delta))))]
+          (if (seq tool-calls)
+            ;; The model requested tools — hand off to the tool-call path.
+            (dispatch! {:event/type :assistant/tool-call :content content :tool-calls tool-calls})
+            (dispatch! {:event/type :assistant/response :content content})))
         (catch Throwable e
           (log/error e "LLM stream failed")
           (dispatch! {:event/type :assistant/response
                       :content (str "⚠ LLM error: " (.getMessage e))}))))
     (log/warn ":llm/invoke called but no :llm-provider in ctx — is :llm/provider wired?")))
+
+;; --- :tool/invoke -------------------------------------------------------
+;;
+;; params: {:tool/name <qualified-kw>, :tool/args <map>, :tool/dry-run? <bool>?}
+;; ctx is the runtime capability map; it must contain :dispatch!. The tool fn is
+;; called as (tool-fn args ctx), so a tool reaches its capabilities (the access
+;; policy added in Group 2, dispatch!, etc.) through the same ctx.
+;;
+;; Resolves the tool from the global registry, times the call, emits a
+;; structured log line, and dispatches exactly one :tool/result event carrying
+;; the outcome. Like :llm/invoke, the side effect is the impure hop and is never
+;; replayed; the dispatched :tool/result is the persisted, replayable record.
+;;
+;; Dry-run (params :tool/dry-run?) logs the descriptor and emits a :tool/result
+;; with status :dry-run WITHOUT calling the tool fn, so no side effect occurs.
+
+(defn- elapsed-ms [start-nanos]
+  (quot (- (System/nanoTime) start-nanos) 1000000))
+
+(defmethod execute-effect :tool/invoke
+  [_ {tool-name :tool/name args :tool/args dry-run? :tool/dry-run?
+      call-id :tool/call-id follow-up? :llm/follow-up?}
+   {:keys [dispatch!] :as ctx}]
+  (let [tool    (tools/get-tool tool-name)
+        ;; Echo correlation/routing keys back on the result so the
+        ;; :tool/result handler can match an LLM tool call and continue the turn.
+        result! (fn [m] (dispatch! (merge {:event/type :tool/result
+                                           :tool/name  tool-name
+                                           :tool/args  args}
+                                          (when call-id {:tool/call-id call-id})
+                                          (when follow-up? {:llm/follow-up? true})
+                                          m)))]
+    (cond
+      (nil? tool)
+      (do (log/warn ":tool/invoke for unknown tool — ignoring" {:tool/name tool-name})
+          (result! {:tool/status :error
+                    :tool/error  {:type :unknown-tool :tool/name tool-name}}))
+
+      dry-run?
+      (do (log/info "tool dry-run — side effect skipped"
+                    {:tool/name tool-name :tool/args args :tool/dry-run true})
+          (result! {:tool/status :dry-run}))
+
+      :else
+      (let [start (System/nanoTime)]
+        (try
+          (let [output ((:fn tool) args ctx)
+                ms     (elapsed-ms start)]
+            (log/info "tool invoked"
+                      {:tool/name tool-name :tool/args args :tool/duration-ms ms})
+            (result! {:tool/status :ok :tool/output output :tool/duration-ms ms}))
+          (catch Throwable e
+            (let [ms       (elapsed-ms start)
+                  ;; Preserve a thrown ex-info's data (e.g. :tool/access-denied
+                  ;; from policy/check) so the result is distinguishable, not a
+                  ;; generic :exception. Plain throwables fall back to :exception.
+                  ex-data' (when (instance? clojure.lang.ExceptionInfo e) (ex-data e))]
+              (log/error e "tool invocation failed" {:tool/name tool-name :tool/args args})
+              (result! {:tool/status      :error
+                        :tool/duration-ms ms
+                        :tool/error       (merge {:type :exception :message (.getMessage e)}
+                                                 ex-data')}))))))))
 
 ;; --- default -----------------------------------------------------------
 
