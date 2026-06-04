@@ -47,6 +47,14 @@ Tools live in `src/pa/tools/fs.clj`; each pulls `:tool.fs/policy` from ctx and c
 - [ ] `test.check` property tests for tool argument-schema validation (schema validation is not yet enforced in `:tool/invoke` — pairs with that)
 - [x] Single-hop round-trip test with a stub provider (`tool_call_test`): the `:llm/invoke` tool-call branch, the `:assistant/tool-call` and `:tool/result` handlers, and a replay proving the four-event turn (`:user/message` → `:assistant/tool-call` → `:tool/result` → `:assistant/response`) reconstructs the conversation with no LLM or tool execution
 
+### Group 6 — Expanded fs toolset (follow-on)
+The initial three tools were too sparse — the model improvised silly workarounds (emptying a file to "delete" it, dropping a `.placeholder` to "create" a folder). Add the missing primitives, all gated under the existing `write`/`read` capabilities (no new capability).
+- [x] `make-dir` (mkdir -p, idempotent) — requires `write`
+- [x] `delete` — requires `write`; a non-empty dir needs `recursive true`; refuses to delete an allowlist root (`policy/root-path?`); idempotent on a missing path
+- [x] `move` / rename — requires `write` on **both** source and destination (can't smuggle data out of the allowlist); creates dest parents; refuses to overwrite an existing destination
+- [x] `file-info` (exists/type/size) — requires `read`; stats without reading contents
+- [x] Register all four; tests cover each plus the destructive guards (recursive requirement, root refusal, write-on-both-ends for move)
+
 ## Notes
 
 - **Sequencing:** Group 2's resolver is a hard dependency of every Group 3 tool — build the policy + resolver before the tools. Group 1's machinery underpins all groups and should land first. Group 4 depends on Groups 1–3 being in place. Group 5 is written alongside each group, not deferred to the end (the done bar is adversarial, so resolver/capability tests should track the resolver's implementation closely).

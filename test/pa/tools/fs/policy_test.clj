@@ -122,6 +122,14 @@
            (policy/check p (at "projects" ".." "projects" "a.txt") :read))
         "check returns the canonicalized path, not the raw argument")))
 
+(deftest root-path-detects-allowlist-roots
+  (mkdirs "ws")
+  (let [p (pol "ws read write\n")]
+    (is (policy/root-path? p (.getCanonicalPath (io/file *root* "ws")))
+        "the root itself is a root")
+    (is (not (policy/root-path? p (.getCanonicalPath (io/file *root* "ws" "child"))))
+        "a path under the root is not the root")))
+
 (deftest check-throws-access-denied-on-refusal
   (let [p (pol "projects read\n")]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"access denied"

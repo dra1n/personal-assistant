@@ -87,11 +87,110 @@
                  (fs/list-dir {:path (at "elsewhere")} c)))))
 
 ;; ---------------------------------------------------------------------------
+;; make-dir
+;; ---------------------------------------------------------------------------
+
+(deftest make-dir-creates-nested-and-is-idempotent
+  (let [c (ctx)]
+    (is (true? (:created (fs/make-dir {:path (at "ws" "a" "b" "c")} c))))
+    (is (.isDirectory (io/file *root* "ws" "a" "b" "c")))
+    (is (false? (:created (fs/make-dir {:path (at "ws" "a" "b" "c")} c))) "idempotent")))
+
+(deftest make-dir-denied-on-read-only-root
+  (is (thrown? clojure.lang.ExceptionInfo (fs/make-dir {:path (at "ro" "x")} (ctx)))))
+
+;; ---------------------------------------------------------------------------
+;; delete
+;; ---------------------------------------------------------------------------
+
+(deftest delete-file-and-empty-dir
+  (let [c (ctx)]
+    (spit (io/file *root* "ws" "f.txt") "x")
+    (is (true? (:deleted (fs/delete {:path (at "ws" "f.txt")} c))))
+    (is (not (.exists (io/file *root* "ws" "f.txt"))))
+    (.mkdirs (io/file *root* "ws" "empty"))
+    (is (true? (:deleted (fs/delete {:path (at "ws" "empty")} c))))))
+
+(deftest delete-missing-path-is-idempotent
+  (is (false? (:deleted (fs/delete {:path (at "ws" "nope.txt")} (ctx))))))
+
+(deftest delete-nonempty-dir-requires-recursive
+  (let [c (ctx)]
+    (.mkdirs (io/file *root* "ws" "d"))
+    (spit (io/file *root* "ws" "d" "f.txt") "x")
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not empty"
+                          (fs/delete {:path (at "ws" "d")} c)))
+    (is (.exists (io/file *root* "ws" "d" "f.txt")) "refused delete removes nothing")
+    (is (true? (:deleted (fs/delete {:path (at "ws" "d") :recursive true} c))))
+    (is (not (.exists (io/file *root* "ws" "d"))))))
+
+(deftest delete-refuses-an-allowlist-root
+  (let [c (ctx)]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"allowlist root"
+                          (fs/delete {:path (at "ws") :recursive true} c)))
+    (is (.isDirectory (io/file *root* "ws")) "the sandbox root survives")))
+
+(deftest delete-denied-outside-allowlist
+  (is (thrown? clojure.lang.ExceptionInfo (fs/delete {:path (at "ro" "x")} (ctx)))))
+
+;; ---------------------------------------------------------------------------
+;; move
+;; ---------------------------------------------------------------------------
+
+(deftest move-renames-and-creates-dest-parents
+  (let [c (ctx)]
+    (spit (io/file *root* "ws" "a.txt") "data")
+    (fs/move {:from (at "ws" "a.txt") :to (at "ws" "sub" "b.txt")} c)
+    (is (not (.exists (io/file *root* "ws" "a.txt"))))
+    (is (= "data" (slurp (io/file *root* "ws" "sub" "b.txt"))))))
+
+(deftest move-refuses-existing-destination
+  (let [c (ctx)]
+    (spit (io/file *root* "ws" "a.txt") "1")
+    (spit (io/file *root* "ws" "b.txt") "2")
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"already exists"
+                          (fs/move {:from (at "ws" "a.txt") :to (at "ws" "b.txt")} c)))))
+
+(deftest move-needs-write-on-both-ends
+  (let [c (ctx)]
+    (spit (io/file *root* "ws" "a.txt") "1")
+    (testing "destination outside the allowlist is refused, source preserved"
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (fs/move {:from (at "ws" "a.txt") :to (at "elsewhere" "b.txt")} c)))
+      (is (.exists (io/file *root* "ws" "a.txt"))))
+    (testing "read-only source is refused"
+      (spit (io/file *root* "ro" "r.txt") "1")
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (fs/move {:from (at "ro" "r.txt") :to (at "ws" "r.txt")} c))))))
+
+;; ---------------------------------------------------------------------------
+;; file-info
+;; ---------------------------------------------------------------------------
+
+(deftest file-info-reports-type-and-size
+  (let [c (ctx)]
+    (spit (io/file *root* "ws" "f.txt") "hello")
+    (let [i (fs/file-info {:path (at "ws" "f.txt")} c)]
+      (is (true? (:exists i)))
+      (is (= :file (:type i)))
+      (is (= 5 (:size i))))
+    (let [d (fs/file-info {:path (at "ws")} c)]
+      (is (= :dir (:type d)))
+      (is (nil? (:size d))))
+    (let [m (fs/file-info {:path (at "ws" "nope")} c)]
+      (is (false? (:exists m)))
+      (is (nil? (:type m))))))
+
+(deftest file-info-denied-outside-allowlist
+  (is (thrown? clojure.lang.ExceptionInfo (fs/file-info {:path (at "secret" "x")} (ctx)))))
+
+;; ---------------------------------------------------------------------------
 ;; Registration
 ;; ---------------------------------------------------------------------------
 
 (deftest tools-are-registered
-  (doseq [name [:fs/read-file :fs/list-dir :fs/write-file]]
+  (doseq [name [:fs/read-file :fs/list-dir :fs/write-file
+                :fs/make-dir :fs/delete :fs/move :fs/file-info]]
     (let [t (registry/get-tool name)]
       (is (ifn? (:fn t)) (str name " has a fn"))
       (is (string? (:description t)) (str name " has a description"))

@@ -144,6 +144,13 @@
       (throw (ex-info "filesystem access denied"
                       {:type :tool/access-denied :path p :capability capability})))))
 
+(defn root-path?
+  "True if `canonical-path` is exactly one of the allowlist roots. Destructive
+  tools use this to refuse operating on a root itself (e.g. deleting the
+  workspace sandbox)."
+  [policy canonical-path]
+  (boolean (some #(= canonical-path (:root %)) (:roots policy))))
+
 ;; ---------------------------------------------------------------------------
 ;; Integrant component
 ;; ---------------------------------------------------------------------------

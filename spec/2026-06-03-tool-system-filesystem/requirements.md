@@ -35,7 +35,7 @@ replayable, and tools are never re-executed on replay.
 - **Network-backed tools** — web search, page retrieval, YouTube transcripts (Phase 4b; reuse this phase's registry/effect/dry-run/logging/event-bus machinery).
 - **The autonomous cognition pipeline** (`interpret → retrieve → plan → tool-select → respond`) and any multi-step / recursive tool loop — **Phase 7**. This phase wires a single explicit tool round-trip only.
 - **Tool-result-driven memory extraction/writes** — Phase 5.
-- **Edit-in-place / patch tooling, directory creation/deletion, move/rename** — only `read-file`, `list-dir`, `write-file` this phase.
+- **Edit-in-place / patch tooling and copy** — the toolset is `read-file`, `list-dir`, `write-file`, plus the follow-on `make-dir`, `delete`, `move`, `file-info` (see plan Group 6). In-place/diff editing and copy are still out (copy is read+write; edit-with-diff is its own feature).
 - **Per-tool rate limiting, sandboxing beyond the path allowlist, or content-level secret scanning** — the allowlist (incl. `deny` roots) is the safety surface for now.
 - **A full Anthropic tool-calling implementation** — the Anthropic provider remains a protocol-conforming stub; only OpenAI gets real tool advertisement.
 - **Live-LLM tests in CI** — the single-hop round-trip is validated against a fixture/stub provider, never a real model (per `tech-stack.md`).

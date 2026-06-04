@@ -904,6 +904,7 @@ Tasks:
 - [x] Implement `read-file` (path → contents, with schema) — requires `read` on the resolved path
 - [x] Implement `list-dir` (path → entries, with schema) — requires `read` on the resolved path
 - [x] Implement `write-file` (path + contents → write, with schema) — requires `write` on the resolved path
+- [x] Follow-on tools (the initial three were too sparse): `make-dir`, `delete` (recursive behind a flag; refuses to delete an allowlist root), `move`/rename (needs `write` on both ends), `file-info` (exists/type/size). All gated under existing `read`/`write` capabilities.
 
 Tests:
 
