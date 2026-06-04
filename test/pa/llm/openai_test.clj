@@ -14,9 +14,11 @@
 
 (defrecord FakeClient [captured response]
   http/HttpClient
-  (post [_ url opts]
+  (post  [_ url opts]
     (reset! captured {:url url :opts opts})
-    response))
+    response)
+  (fetch [_ _url _opts]
+    (throw (UnsupportedOperationException. "FakeClient does not implement fetch"))))
 
 (defn- fake-client [captured response]
   (->FakeClient captured response))

@@ -8,13 +8,15 @@
 
 (defprotocol HttpClient
   (post [this url opts]
-    "POST to `url` with a hato-style request opts map (`:headers`, `:body`,
-    `:as`, ...). Returns the response map, at least `{:status :body}`; `:body`
-    honours the requested `:as` coercion (`:string`, `:stream`, ...)."))
+    "POST to `url` with a hato-style opts map. Returns at least `{:status :body}`.")
+  (fetch [this url opts]
+    "GET `url` with a hato-style opts map (`:query-params`, `:headers`, `:as`, ...).
+    Returns at least `{:status :body}`."))
 
 (defrecord HatoClient []
   HttpClient
-  (post [_ url opts] (hato/post url opts)))
+  (post  [_ url opts] (hato/post url opts))
+  (fetch [_ url opts] (hato/get  url opts)))
 
 (defn hato-client
   "Construct the production HTTP client backed by hato."

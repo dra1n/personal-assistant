@@ -16,11 +16,11 @@
 
 ### Group 2 — Web search tool
 
-- [ ] Implement `web-search` tool: accepts a `:query` string, returns a list of
+- [x] Implement `web-search` tool: accepts a `:query` string, returns a list of
       result maps (`{:title :url :snippet}`) via DuckDuckGo (no API key)
-- [ ] Register the tool in the tool registry with a schema and description
-- [ ] Write unit tests with mocked HTTP: fixture response → assert result shape
-- [ ] Confirm schema validation rejects a missing or wrong-type `:query` argument
+- [x] Register the tool in the tool registry with a schema and description
+- [x] Write unit tests with mocked HTTP: fixture response → assert result shape
+- [x] Confirm schema validation rejects a missing or wrong-type `:query` argument
       (covered by Group 1 property tests, but worth an explicit case)
 
 ### Group 3 — Webpage retrieval tool + SSRF guard

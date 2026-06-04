@@ -25,6 +25,7 @@
             pa.tools.schema-test
             pa.tools.fs.policy-test
             pa.tools.fs-test
+            pa.tools.network.search-test
             pa.ui.app-test
             pa.ui.view-test))
 

@@ -1,6 +1,7 @@
 (ns pa.runtime.dispatcher
   (:require [clojure.core.async :as async]
             [integrant.core :as ig]
+            [pa.http :as http]
             [pa.runtime.events :as events]
             [pa.runtime.interceptors :as interceptors]
             [pa.state.db :as db]
@@ -37,6 +38,7 @@
                                   :index-memory!  (:index-memory! indexer)
                                   :llm-provider   llm
                                   :tool.fs/policy policy
+                                  :http           (http/hato-client)
                                   :emit-delta!    emit-delta!}}]
     (async/go-loop []
       (when-let [event (async/<! ch)]
