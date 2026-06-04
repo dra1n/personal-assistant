@@ -157,20 +157,26 @@
   [_ {tool-name :tool/name args :tool/args dry-run? :tool/dry-run?
       call-id :tool/call-id follow-up? :llm/follow-up?}
    {:keys [dispatch!] :as ctx}]
-  (let [tool    (tools/get-tool tool-name)
+  (let [tool         (tools/get-tool tool-name)
+        schema-error (when tool (tools/validate-args (:schema tool) args))
         ;; Echo correlation/routing keys back on the result so the
         ;; :tool/result handler can match an LLM tool call and continue the turn.
-        result! (fn [m] (dispatch! (merge {:event/type :tool/result
-                                           :tool/name  tool-name
-                                           :tool/args  args}
-                                          (when call-id {:tool/call-id call-id})
-                                          (when follow-up? {:llm/follow-up? true})
-                                          m)))]
+        result!      (fn [m] (dispatch! (merge {:event/type :tool/result
+                                                :tool/name  tool-name
+                                                :tool/args  args}
+                                               (when call-id {:tool/call-id call-id})
+                                               (when follow-up? {:llm/follow-up? true})
+                                               m)))]
     (cond
       (nil? tool)
       (do (log/warn ":tool/invoke for unknown tool — ignoring" {:tool/name tool-name})
           (result! {:tool/status :error
                     :tool/error  {:type :unknown-tool :tool/name tool-name}}))
+
+      (some? schema-error)
+      (do (log/warn ":tool/invoke arg validation failed" {:tool/name tool-name :error schema-error})
+          (result! {:tool/status :error
+                    :tool/error  {:type :tool/invalid-args :message schema-error}}))
 
       dry-run?
       (do (log/info "tool dry-run — side effect skipped"

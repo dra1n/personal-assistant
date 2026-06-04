@@ -4,13 +4,13 @@
 
 ### Group 1 — Shared machinery: schema validation
 
-- [ ] Add schema validation to the `:tool/invoke` effect executor: validate
+- [x] Add schema validation to the `:tool/invoke` effect executor: validate
       `:tool/args` against the registered `:schema` before calling the tool's `:fn`
-- [ ] On validation failure, emit a `:tool/result` map with `:type :tool/invalid-args`
+- [x] On validation failure, emit a `:tool/result` map with `:type :tool/invalid-args`
       and a descriptive error message; do not execute the tool
 - [ ] Confirm the validation error travels through the existing
       `:tool/result → LLM follow-up` path and is visible in the chat turn
-- [ ] Write property-based (test.check) tests for schema validation: generate random
+- [x] Write property-based (test.check) tests for schema validation: generate random
       args against each registered tool schema, assert valid args pass and invalid
       args are rejected with the correct error shape
 
