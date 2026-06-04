@@ -57,6 +57,18 @@
       (is (str/includes? with-motd "Carpe diem!") "user's motd shown when set")
       (is (str/includes? fallback "a handy tip") "fallback tip shown when motd unset"))))
 
+(deftest conversation-renders-tool-call-turn
+  (testing "an assistant turn that only calls a tool shows the call, not an empty bubble"
+    (let [out (view/conversation-content
+               {:conversation [{:role       :assistant
+                                :content    ""
+                                :tool-calls [{:id "c1" :name :fs/write-file
+                                              :arguments {:path "workspace/hello.txt"
+                                                          :content "hi"}}]}]}
+               80 nil)]
+      (is (str/includes? out "fs/write-file") "the tool name is shown")
+      (is (str/includes? out "workspace/hello.txt") "the arguments are shown"))))
+
 (deftest conversation-labels-fall-back-on-blank-name
   (testing "a blank identity name falls back to the capitalized default"
     (let [out (view/conversation-content

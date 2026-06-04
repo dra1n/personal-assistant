@@ -52,14 +52,34 @@
        (mapcat #(wrap-line % width))
        (str/join "\n")))
 
-(defn- render-turn [{:keys [role content]} width names]
+(defn- tool-call-line [{:keys [name arguments]}]
+  (str "→ " (subs (str name) 1) " " (pr-str arguments)))
+
+(defn- faint-lines
+  "Word-wrap s to width and apply the faint style per physical line, so the
+  styling survives the line breaks."
+  [s width]
+  (->> (wrap-text s width)
+       str/split-lines
+       (map #(style/styled % :faint true))
+       (str/join "\n")))
+
+(defn- render-turn [{:keys [role content tool-calls]} width names]
   (let [label (case role
                 :user      (style/styled (or (:user names) "You")            :fg accent :bold true)
                 :assistant (style/styled (or (:assistant names) "Assistant") :fg style/green :bold true)
-                (style/styled (name (or role :system)) :faint true))]
+                (style/styled (name (or role :system)) :faint true))
+        ;; An assistant turn that only calls a tool has blank content; show the
+        ;; call(s) faintly instead of an empty bubble. A turn may carry both
+        ;; (some models add commentary alongside a tool call).
+        parts (cond-> []
+                (not (str/blank? content))
+                (conj (wrap-text (str content) (max 1 width)))
+                (seq tool-calls)
+                (conj (faint-lines (str/join "\n" (map tool-call-line tool-calls)) (max 1 width))))]
     ;; One blank line under the label so it stands out as a header; the gap
     ;; between turns (below) is wider, so the label groups with its own body.
-    (str label "\n\n" (wrap-text (str content) (max 1 width)))))
+    (str label "\n\n" (str/join "\n\n" parts))))
 
 (defn conversation-empty?
   "True when there are no committed turns and nothing streaming — the state in
