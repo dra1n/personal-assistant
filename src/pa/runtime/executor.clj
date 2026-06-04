@@ -60,7 +60,7 @@
 ;; params: {:message str, ...extra keys passed as context}
 
 (defmethod execute-effect :log/info [_ {:keys [message] :as params} _ctx]
-  (log/info (dissoc params :message) message))
+  (log/info message (dissoc params :message)))
 
 ;; --- :trace ------------------------------------------------------------
 ;;
@@ -173,8 +173,8 @@
                     :tool/error  {:type :unknown-tool :tool/name tool-name}}))
 
       dry-run?
-      (do (log/info {:tool/name tool-name :tool/args args :tool/dry-run true}
-                    "tool dry-run — side effect skipped")
+      (do (log/info "tool dry-run — side effect skipped"
+                    {:tool/name tool-name :tool/args args :tool/dry-run true})
           (result! {:tool/status :dry-run}))
 
       :else
@@ -182,8 +182,8 @@
         (try
           (let [output ((:fn tool) args ctx)
                 ms     (elapsed-ms start)]
-            (log/info {:tool/name tool-name :tool/args args :tool/duration-ms ms}
-                      "tool invoked")
+            (log/info "tool invoked"
+                      {:tool/name tool-name :tool/args args :tool/duration-ms ms})
             (result! {:tool/status :ok :tool/output output :tool/duration-ms ms}))
           (catch Throwable e
             (let [ms       (elapsed-ms start)
