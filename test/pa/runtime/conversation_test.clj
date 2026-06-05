@@ -26,6 +26,27 @@
       (is (not (contains? fx :memory/write)))
       (is (not (contains? fx :tool/invoke))))))
 
+(deftest user-message-handler-deduplicates-history
+  (let [base-db {:conversation []
+                 :identity     {:identity {:front-matter {:name "Aria"} :prose ""}}}]
+    (testing "new message: appends to :ui/history and emits :history/append"
+      (let [db (assoc base-db :ui/history [{:history/text "old"}])
+            fx ((handler :user/message)
+                {:db db :event {:event/type :user/message :content "hello"}})]
+        (is (= "hello" (:history/text (last (:ui/history (:db fx)))))
+            "entry appended to db history")
+        (is (= "hello" (:history/text (:history/append fx)))
+            ":history/append effect emitted")))
+
+    (testing "duplicate message: skips :ui/history append and omits :history/append"
+      (let [db (assoc base-db :ui/history [{:history/text "hello"}])
+            fx ((handler :user/message)
+                {:db db :event {:event/type :user/message :content "hello"}})]
+        (is (= 1 (count (:ui/history (:db fx))))
+            "history length unchanged")
+        (is (not (contains? fx :history/append))
+            ":history/append effect absent")))))
+
 (deftest assistant-response-handler-commits-turn
   (let [fx ((handler :assistant/response)
             {:db {:conversation [{:role :user :content "hi"}]}
