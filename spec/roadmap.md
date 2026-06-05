@@ -951,10 +951,10 @@ machinery. Split out from the network tools because it leans on a different
 mechanism (a `yt-dlp` subprocess or a transcript API) with its own dependency
 footprint and failure modes (no captions, age/region restrictions).
 
-- [ ] Decide and document the mechanism — `yt-dlp` subprocess vs a transcript API — and its dependency/runtime footprint
-- [ ] Implement the transcript tool: accept a URL or video id, return the transcript text
-- [ ] Surface the no-transcript / unavailable / restricted cases as clean `:tool/result` errors, not crashes
-- [ ] Write tests with the subprocess/HTTP boundary mocked
+- [x] Decide and document the mechanism — `yt-dlp` subprocess vs a transcript API — and its dependency/runtime footprint
+- [x] Implement the transcript tool: accept a URL or video id, return the transcript text
+- [x] Surface the no-transcript / unavailable / restricted cases as clean `:tool/result` errors, not crashes
+- [x] Write tests with the subprocess/HTTP boundary mocked
 
 ---
 

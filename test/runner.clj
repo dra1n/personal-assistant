@@ -28,6 +28,7 @@
             pa.tools.network.search-test
             pa.tools.network.ssrf-test
             pa.tools.network.fetch-test
+            pa.tools.network.youtube-test
             pa.tools.os-test
             pa.ui.app-test
             pa.ui.view-test))
