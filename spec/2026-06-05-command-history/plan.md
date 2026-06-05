@@ -11,10 +11,10 @@
 
 ### Group B — Persistence
 
-- [ ] Implement `:history/append` effect executor: serializes and appends a new history entry to `history.edn`; also `conj`s the entry onto `:ui/history` in the runtime db (via `:db` effect or combined effect)
-- [ ] Register `:history/append` in the effect registry (alongside `:log/info`, `:dispatch`, etc.)
-- [ ] Wire `:history/append` into the `:user/message` handler — emit the effect after the conversation state update
-- [ ] Implement consecutive duplicate suppression in the handler: compare `(:history/text new-entry)` to `(:history/text (last (:ui/history db)))`; omit the effect if equal
+- [x] Implement `:history/append` effect executor: serializes and appends a new history entry to `history.edn`; also `conj`s the entry onto `:ui/history` in the runtime db (via `:db` effect or combined effect)
+- [x] Register `:history/append` in the effect registry (alongside `:log/info`, `:dispatch`, etc.)
+- [x] Wire `:history/append` into the `:user/message` handler — emit the effect after the conversation state update
+- [x] Implement consecutive duplicate suppression in the handler: compare `(:history/text new-entry)` to `(:history/text (last (:ui/history db)))`; omit the effect if equal
 
 ### Group C — UI Navigation
 
