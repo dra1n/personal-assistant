@@ -34,6 +34,7 @@
             [charm.program :as charm]
             [clojure.string :as str]
             [pa.state.db :as db]
+            [pa.ui.input :as input]
             [pa.ui.subscribe :as subscribe]
             [pa.ui.view :as view]))
 
@@ -90,6 +91,8 @@
           :logs-open?   false
           :focus        :input
           :input        ""
+          :nav/index    nil
+          :nav/draft    ""
           :streaming    ""
           :streaming-open? false
           :motd-fallback   (view/random-tip)
@@ -211,9 +214,22 @@
     (msg/key-match? message :escape)
     [(focus-input model) nil]
 
-    ;; Arrow keys scroll the focused region one line at a time.
-    (msg/key-match? message :up)    [(scroll-focused model vp/scroll-up) nil]
-    (msg/key-match? message :down)  [(scroll-focused model vp/scroll-down) nil]
+    ;; ↑/↓ navigate command history when input is focused; otherwise scroll.
+    (msg/key-match? message :up)
+    (if (= :input (:focus model))
+      (let [nav     (select-keys model [:nav/index :nav/draft])
+            history (get-in model [:db :ui/history] [])
+            [nav' text] (input/navigate-back nav history (:input model))]
+        [(merge model nav' {:input text}) nil])
+      [(scroll-focused model vp/scroll-up) nil])
+
+    (msg/key-match? message :down)
+    (if (= :input (:focus model))
+      (let [nav     (select-keys model [:nav/index :nav/draft])
+            history (get-in model [:db :ui/history] [])
+            [nav' text] (input/navigate-forward nav history)]
+        [(merge model nav' {:input text}) nil])
+      [(scroll-focused model vp/scroll-down) nil])
 
     ;; Enter — commit the buffer as a user message (ignored when blank).
     (msg/key-match? message :enter)
@@ -222,7 +238,7 @@
         [(focus-input model) nil]
         ;; Open the stream so the assistant's deltas are accepted into the live
         ;; preview; it closes again when the assistant turn commits.
-        [(focus-input (assoc model :input "" :streaming-open? true))
+        [(focus-input (assoc model :input "" :nav/index nil :nav/draft "" :streaming-open? true))
          (dispatch-user-message (:dispatch! model) text)]))
 
     (msg/key-match? message :backspace)
@@ -233,11 +249,16 @@
     [(focus-input (update model :input str " ")) nil]
 
     ;; Printable characters arrive as a runes string; ignore modified chords.
+    ;; While navigating history, exit navigation and incorporate the typed char.
     (and (msg/key-press? message)
          (string? (:key message))
          (not (msg/ctrl? message))
          (not (msg/alt? message)))
-    [(focus-input (update model :input str (:key message))) nil]
+    (if (some? (:nav/index model))
+      (let [[nav' text] (input/reset-navigation (select-keys model [:nav/index :nav/draft])
+                                                (:key message))]
+        [(focus-input (merge model nav' {:input text})) nil])
+      [(focus-input (update model :input str (:key message))) nil])
 
     :else
     [model nil]))

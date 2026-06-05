@@ -18,11 +18,11 @@
 
 ### Group C — UI Navigation
 
-- [ ] Create `pa.ui.input` namespace; define navigation state shape: `{:nav/index nil, :nav/draft ""}` (`nil` index means not currently navigating)
-- [ ] Implement `navigate-back` fn: if not navigating, snapshot current buffer as draft; decrement index (clamped to 0); return the history entry text at that index
-- [ ] Implement `navigate-forward` fn: increment index; if past the last history entry, restore draft and reset index to `nil`
-- [ ] Implement `reset-navigation` fn: called when a printable character is typed while navigating; resets index to `nil` and prepends the character to the draft (so the typed char is not lost)
-- [ ] Wire `pa.ui.input` into `pa.ui.app` key handling: intercept ↑/↓ before the existing buffer logic; delegate to `pa.ui.input` fns; pass current `:ui/history` from runtime db
+- [x] Create `pa.ui.input` namespace; define navigation state shape: `{:nav/index nil, :nav/draft ""}` (`nil` index means not currently navigating)
+- [x] Implement `navigate-back` fn: if not navigating, snapshot current buffer as draft; decrement index (clamped to 0); return the history entry text at that index
+- [x] Implement `navigate-forward` fn: increment index; if past the last history entry, restore draft and reset index to `nil`
+- [x] Implement `reset-navigation` fn: called when a printable character is typed while navigating; resets index to `nil` and prepends the character to the draft (so the typed char is not lost)
+- [x] Wire `pa.ui.input` into `pa.ui.app` key handling: intercept ↑/↓ before the existing buffer logic; delegate to `pa.ui.input` fns; pass current `:ui/history` from runtime db
 
 ### Group D — Tests
 
