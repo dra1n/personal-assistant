@@ -1041,31 +1041,31 @@ note about a past conversation lives in the daily pool; a permanent fact like
 The assistant writes to `MEMORY.md` deliberately. Phase 6 background cognition
 may also promote distilled wisdom there.
 
-- [ ] Add `assistant-data/memory/memory.md` template to first-startup bootstrap (minimal — just a header, empty content)
-- [ ] Extend `pa.storage.identity/load-all` to parse and return `memory.md` alongside the three identity files
-- [ ] Update `pa.llm.prompt/assemble` to inject `memory.md` content as an always-present system message section
+- [x] Add `assistant-data/memory/memory.md` template to first-startup bootstrap (minimal — just a header, empty content)
+- [x] Extend `pa.storage.identity/load-all` to parse and return `memory.md` alongside the three identity files
+- [x] Update `pa.llm.prompt/assemble` to inject `memory.md` content as an always-present system message section
 
 ### Schema Updates
 
 The `memories` table was created in Phase 2 but is currently empty (smoke-test
 data only), so migrations are free.
 
-- [ ] Change `created_at` column from TEXT to INTEGER (Unix epoch milliseconds) — cleaner for age-based decay arithmetic; update `record->row` and `row->record` in `pa.db.memory` accordingly
-- [ ] Add FTS5 virtual table: `CREATE VIRTUAL TABLE memories_fts USING fts5(id UNINDEXED, title, summary, tags)` in `pa.db.schema/init!`
-- [ ] Update `pa.db.memory/index!` to upsert into `memories_fts` alongside `memories` (use `INSERT OR REPLACE`)
-- [ ] Update `pa.memory.indexer/rebuild-memory-index!` to drop and recreate both `memories` and `memories_fts`
+- [x] Change `created_at` column from TEXT to INTEGER (Unix epoch milliseconds) — cleaner for age-based decay arithmetic; update `record->row` and `row->record` in `pa.db.memory` accordingly
+- [x] Add FTS5 virtual table: `CREATE VIRTUAL TABLE memories_fts USING fts5(id UNINDEXED, title, summary, tags)` in `pa.db.schema/init!`
+- [x] Update `pa.db.memory/index!` to upsert into `memories_fts` alongside `memories` (use `INSERT OR REPLACE`)
+- [x] Update `pa.memory.indexer/rebuild-memory-index!` to drop and recreate both `memories` and `memories_fts`
 
 ### Retrieval Query Schema
 
-- [ ] Define retrieval query spec: `{:query/text <string>, :query/types <keyword-set, optional>, :query/limit <int>}`
+- [x] Define retrieval query spec: `{:query/text <string>, :query/types <keyword-set, optional>, :query/limit <int>}`
 
 ### Retrieval Functions
 
 `pa.db.memory` already has `recent`, `by-type`, and `by-tags`. Add:
 
-- [ ] Implement `by-keyword`: FTS5 full-text search over `title`, `summary`, `tags`; returns records ordered by FTS rank
-- [ ] Implement relevance decay scoring function: `score = match_score * exp(-λ * age_days)`; `match_score` is 1.0 for keyword hits, 0.5 for recency-only; λ is a tunable config constant (start with a 30-day half-life)
-- [ ] Implement combined retrieval: union of recency + keyword result sets → apply decay scoring → deduplicate by id → return top-N
+- [x] Implement `by-keyword`: FTS5 full-text search over `title`, `summary`, `tags`; returns records ordered by FTS rank
+- [x] Implement relevance decay scoring function: `score = match_score * exp(-λ * age_days)`; `match_score` is 1.0 for keyword hits, 0.5 for recency-only; λ is a tunable config constant (start with a 30-day half-life)
+- [x] Implement combined retrieval: union of recency + keyword result sets → apply decay scoring → deduplicate by id → return top-N
 
 ### `:memories` Coeffect
 
@@ -1073,22 +1073,22 @@ Retrieval is a side-effecting operation (SQLite read) and cannot happen inside a
 pure handler. The coeffect injection step runs before the handler, has access to
 the triggering event, and is the right place to call retrieval.
 
-- [ ] Add `:memories` coeffect injector to `pa.runtime.coeffects`: reads the `:event` coeffect for query text (`:content` of a `:user/message` event, empty string otherwise), calls combined retrieval, injects result as `{:memories [...]}` into the coeffect map
-- [ ] Register the `:memories` injector so it runs for `:user/message` events (either globally or as a per-handler interceptor)
+- [x] Add `:memories` coeffect injector to `pa.runtime.coeffects`: reads the `:event` coeffect for query text (`:content` of a `:user/message` event, empty string otherwise), calls combined retrieval, injects result as `{:memories [...]}` into the coeffect map
+- [x] Register the `:memories` injector so it runs for `:user/message` events (either globally or as a per-handler interceptor)
 
 ### Wire into Prompt Assembly
 
-- [ ] Update `assemble-for` in `pa.runtime.handlers` to read `:memories` from the coeffect map instead of hardcoding `[]`
-- [ ] REPL verification: send a message about a topic with a prior memory record → confirm assistant references it without being told to
+- [x] Update `assemble-for` in `pa.runtime.handlers` to read `:memories` from the coeffect map instead of hardcoding `[]`
+- [x] REPL verification: send a message about a topic with a prior memory record → confirm assistant references it without being told to
 
 ### Tests
 
-- [ ] Unit tests for `by-keyword` FTS with fixture memory records inserted into an in-memory SQLite db
-- [ ] Unit tests for combined retrieval: fixture records with varying age and keyword match → assert top-N ordering reflects decay scoring
-- [ ] Tests for relevance decay function: assert a record that is 60 days old scores lower than an identical record that is 1 day old
-- [ ] Test `:memories` coeffect injection: dispatch a `:user/message` event with a query term that matches a fixture record → assert `:memories` in the coeffect map is non-empty before the handler runs
-- [ ] Test `MEMORY.md` loader: fixture `memory.md` file → assert its content appears in the assembled system message
-- [ ] Test schema migration: `init!` creates both `memories` and `memories_fts`; `index!` writes to both; `rebuild-memory-index!` drops and recreates both
+- [x] Unit tests for `by-keyword` FTS with fixture memory records inserted into an in-memory SQLite db
+- [x] Unit tests for combined retrieval: fixture records with varying age and keyword match → assert top-N ordering reflects decay scoring
+- [x] Tests for relevance decay function: assert a record that is 60 days old scores lower than an identical record that is 1 day old
+- [x] Test `:memories` coeffect injection: dispatch a `:user/message` event with a query term that matches a fixture record → assert `:memories` in the coeffect map is non-empty before the handler runs
+- [x] Test `MEMORY.md` loader: fixture `memory.md` file → assert its content appears in the assembled system message
+- [x] Test schema migration: `init!` creates both `memories` and `memories_fts`; `index!` writes to both; `rebuild-memory-index!` drops and recreates both
 
 ---
 
