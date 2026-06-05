@@ -2,7 +2,7 @@
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str])
-  (:import [java.time LocalDate]
+  (:import [java.time Instant LocalDate]
            [java.time.format DateTimeFormatter]))
 
 ;; ---------------------------------------------------------------------------
@@ -36,12 +36,16 @@
        (:memory/summary record) "\n\n"
        separator "\n"))
 
+(defn- normalize-record [record]
+  (update record :memory/created-at
+          #(if (instance? Instant %) % (.toInstant ^java.util.Date %))))
+
 (defn- parse-edn-block [text]
   (let [open-idx  (str/index-of text edn-open)
         close-idx (when open-idx (str/index-of text edn-close (+ open-idx (count edn-open))))]
     (when (and open-idx close-idx)
       (let [raw (str/trim (subs text (+ open-idx (count edn-open)) close-idx))]
-        (edn/read-string raw)))))
+        (normalize-record (edn/read-string raw))))))
 
 (defn- split-records [text]
   (let [sections (str/split text (re-pattern (str "\n" separator "\n?")))]

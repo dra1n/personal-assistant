@@ -13,9 +13,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defn rebuild-memory-index!
-  "Clear the memories table and rebuild it from all daily Markdown files."
+  "Drop and recreate memories and memories_fts, then reindex from Markdown files."
   [ds root]
   (jdbc/execute! ds ["DROP TABLE IF EXISTS memories"])
+  (jdbc/execute! ds ["DROP TABLE IF EXISTS memories_fts"])
   (schema/init! ds)
   (doseq [record (storage-memory/read-all-daily root)]
     (db-memory/index! ds record)))

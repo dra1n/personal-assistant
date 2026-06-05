@@ -1,7 +1,8 @@
 (ns pa.db.memory
   (:require [clojure.edn :as edn]
             [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs]))
+            [next.jdbc.result-set :as rs])
+  (:import [java.time Instant]))
 
 ;; ---------------------------------------------------------------------------
 ;; Row <-> record conversion
@@ -17,7 +18,7 @@
    :title      (:memory/title record)
    :summary    (:memory/summary record)
    :tags       (pr-str (or (:memory/tags record) []))
-   :created_at (str (:memory/created-at record))})
+   :created_at (.toEpochMilli ^Instant (:memory/created-at record))})
 
 (defn- row->record [row]
   {:memory/id         (:id row)
@@ -26,7 +27,7 @@
    :memory/title      (:title row)
    :memory/summary    (:summary row)
    :memory/tags       (edn/read-string (:tags row))
-   :memory/created-at (:created_at row)})
+   :memory/created-at (Instant/ofEpochMilli (:created_at row))})
 
 (def ^:private opts {:builder-fn rs/as-unqualified-lower-maps})
 
@@ -38,14 +39,18 @@
 ;; ---------------------------------------------------------------------------
 
 (defn index!
-  "Insert or replace a memory record's metadata in the memories table."
+  "Insert or replace a memory record's metadata in memories and memories_fts."
   [ds record]
   (let [row (record->row record)]
     (jdbc/execute! ds
       ["INSERT OR REPLACE INTO memories (id, path, type, title, summary, tags, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)"
        (:id row) (:path row) (:type row) (:title row)
-       (:summary row) (:tags row) (:created_at row)])))
+       (:summary row) (:tags row) (:created_at row)])
+    (jdbc/execute! ds ["DELETE FROM memories_fts WHERE id = ?" (:id row)])
+    (jdbc/execute! ds
+      ["INSERT INTO memories_fts (id, title, summary, tags) VALUES (?, ?, ?, ?)"
+       (:id row) (:title row) (:summary row) (:tags row)])))
 
 ;; ---------------------------------------------------------------------------
 ;; Queries

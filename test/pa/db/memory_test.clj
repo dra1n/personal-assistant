@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]
             [pa.db.memory :as db-memory]
             [pa.db.schema :as schema]
             [pa.memory.records :as records]
@@ -9,7 +10,7 @@
             [pa.storage.memory :as storage-memory])
   (:import [java.nio.file Files]
            [java.nio.file.attribute FileAttribute]
-           [java.time LocalDate]))
+           [java.time Instant LocalDate]))
 
 ;; ---------------------------------------------------------------------------
 ;; Fixtures — fresh file-based SQLite db per test (in a temp dir)
@@ -41,6 +42,8 @@
       (f))))
 
 (use-fixtures :each with-tmp-dir with-db)
+
+(def ^:private opts {:builder-fn rs/as-unqualified-lower-maps})
 
 ;; ---------------------------------------------------------------------------
 ;; Helpers
@@ -145,3 +148,50 @@
     (is (= 1 (count (db-memory/recent *ds* 10))))
     (indexer/rebuild-memory-index! *ds* *tmp-root*)
     (is (= 0 (count (db-memory/recent *ds* 10))))))
+
+;; ---------------------------------------------------------------------------
+;; Schema migration — created_at INTEGER, FTS5 table
+;; ---------------------------------------------------------------------------
+
+(defn- table-exists? [ds tname]
+  (seq (jdbc/execute! ds
+         ["SELECT 1 FROM sqlite_master WHERE type='table' AND name=?" tname]
+         opts)))
+
+(deftest init-creates-both-tables
+  (testing "init! creates memories and memories_fts"
+    (is (table-exists? *ds* "memories"))
+    (is (table-exists? *ds* "memories_fts"))))
+
+(deftest created-at-round-trips-as-instant
+  (testing "created_at is stored as epoch ms and returned as Instant"
+    (let [r         (write-and-index! (make-record {}))
+          retrieved (first (db-memory/recent *ds* 1))]
+      (is (instance? Instant (:memory/created-at retrieved)))
+      (is (= (.toEpochMilli ^Instant (:memory/created-at r))
+             (.toEpochMilli ^Instant (:memory/created-at retrieved)))))))
+
+(deftest index-writes-to-fts-table
+  (testing "index! upserts into memories_fts alongside memories"
+    (write-and-index! (make-record {:memory/title "Clojure runtime"}))
+    (let [rows (jdbc/execute! *ds*
+                 ["SELECT id FROM memories_fts WHERE memories_fts MATCH ?"
+                  "Clojure"]
+                 opts)]
+      (is (= 1 (count rows))))))
+
+(deftest index-fts-upserts-on-same-id
+  (testing "indexing the same id twice produces one FTS row, not two"
+    (let [r (write-and-index! (make-record {:memory/title "Original"}))]
+      (db-memory/index! *ds* (assoc r :memory/title "Updated"))
+      (let [rows (jdbc/execute! *ds* ["SELECT id FROM memories_fts"] opts)]
+        (is (= 1 (count rows)))))))
+
+(deftest rebuild-recreates-fts-table
+  (testing "rebuild-memory-index! drops and recreates memories_fts"
+    (let [d (LocalDate/of 2026 5 31)]
+      (storage-memory/write-daily *tmp-root* (make-record {:memory/title "Alpha"}) d)
+      (storage-memory/write-daily *tmp-root* (make-record {:memory/title "Beta"}) d))
+    (indexer/rebuild-memory-index! *ds* *tmp-root*)
+    (is (table-exists? *ds* "memories_fts"))
+    (is (= 2 (count (jdbc/execute! *ds* ["SELECT id FROM memories_fts"] opts))))))
