@@ -11,6 +11,7 @@
             pa.state.queries-test
             pa.state.db-test
             pa.storage.events-test
+            pa.storage.history-test
             pa.storage.identity-test
             pa.memory.records-test
             pa.storage.memory-test
