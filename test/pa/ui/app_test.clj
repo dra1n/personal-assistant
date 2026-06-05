@@ -249,6 +249,49 @@
         (is (= (get-in open [:viewport :y-offset]) (get-in m [:viewport :y-offset]))
             "the unfocused conversation viewport is untouched")))))
 
+(defn- model-with-history
+  "A minimal model with a history vector in :db."
+  [& texts]
+  {:input "" :nav/index nil :nav/draft ""
+   :focus :input
+   :db {:ui/history (mapv #(hash-map :history/text %) texts)}})
+
+(deftest up-arrow-in-input-focus-navigates-history
+  (testing "↑ while input focused steps back through history"
+    (let [model       (model-with-history "git status" "git diff")
+          [m1 _]      (app/update-model model (msg/key-press :up))
+          [m2 _]      (app/update-model m1 (msg/key-press :up))]
+      (is (= "git diff" (:input m1)) "first ↑ shows most recent entry")
+      (is (= "git status" (:input m2)) "second ↑ steps to older entry"))))
+
+(deftest down-arrow-in-input-focus-restores-draft
+  (testing "↓ after navigating back eventually restores the original draft"
+    (let [model  (assoc (model-with-history "git status") :input "my draft")
+          [m1 _] (app/update-model model (msg/key-press :up))
+          [m2 _] (app/update-model m1 (msg/key-press :down))]
+      (is (= "git status" (:input m1)) "↑ shows history entry")
+      (is (= "my draft" (:input m2)) "↓ restores draft"))))
+
+(deftest typing-while-navigating-exits-and-appends
+  (testing "printable char during history navigation exits navigation and appends to draft"
+    (let [model  (assoc (model-with-history "git status") :input "gi")
+          [m1 _] (app/update-model model (msg/key-press :up))
+          [m2 _] (app/update-model m1 (msg/key-press "t"))]
+      (is (= "git status" (:input m1)) "navigating — shows history")
+      (is (= "git" (:input m2)) "exited navigation, draft + char")
+      (is (nil? (:nav/index m2)) "nav index cleared"))))
+
+(deftest enter-resets-navigation-state
+  (testing "submitting resets nav/index and nav/draft"
+    (let [events (atom [])
+          model  (assoc (model-with-history "git status")
+                        :input "hello" :dispatch! #(swap! events conj %))
+          [m1 _] (app/update-model model (msg/key-press :up))
+          [m2 _] (app/update-model (assoc m1 :input "send me") (msg/key-press :enter))]
+      (is (some? (:nav/index m1)) "precondition: navigating")
+      (is (nil? (:nav/index m2)) "nav index cleared after Enter")
+      (is (= "" (:nav/draft m2)) "nav draft cleared after Enter"))))
+
 (deftest focused-conversation-holds-position-against-new-turns
   (testing "scrolled up + focused, a new committed turn does not yank to the bottom"
     (let [conv     (first (app/update-model (model-with-turns 20) (msg/key-press :tab)))

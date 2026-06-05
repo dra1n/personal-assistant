@@ -26,13 +26,13 @@
 
 ### Group D — Tests
 
-- [ ] Load fixture `history.edn` (>50 entries) → assert exactly 50 are loaded and they are the last 50
-- [ ] Submit a message → assert `:history/append` effect is emitted with correct schema fields
-- [ ] Consecutive duplicate suppression: handler called twice with the same text → assert effect emitted only on first call
-- [ ] Navigation state machine — `navigate-back`: assert index decrements and correct entry text returned
-- [ ] Navigation state machine — `navigate-forward` past end: assert draft restored and index reset to `nil`
-- [ ] `reset-navigation`: assert index cleared and character preserved in output
-- [ ] Regression: existing Enter-to-submit path in `pa.ui.app` unchanged; existing input handler tests still pass
+- [x] Load fixture `history.edn` (>50 entries) → assert exactly 50 are loaded and they are the last 50
+- [x] Submit a message → assert `:history/append` effect is emitted with correct schema fields
+- [x] Consecutive duplicate suppression: handler called twice with the same text → assert effect emitted only on first call
+- [x] Navigation state machine — `navigate-back`: assert index decrements and correct entry text returned
+- [x] Navigation state machine — `navigate-forward` past end: assert draft restored and index reset to `nil`
+- [x] `reset-navigation`: assert index cleared and character preserved in output
+- [x] Regression: existing Enter-to-submit path in `pa.ui.app` unchanged; existing input handler tests still pass
 
 ## Notes
 
