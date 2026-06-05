@@ -8,6 +8,7 @@
             [pa.runtime.handlers]
             [pa.storage.events]
             [pa.storage.fs]
+            [pa.storage.history]
             [pa.storage.identity]
             [pa.storage.memory-store]
             [pa.db.sqlite]

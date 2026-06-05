@@ -19,6 +19,7 @@
    :tool/results  []
    :events/recent []
    :ui            {}
+   :ui/history    []
    :identity      {}})
 
 (def db (atom initial-db))
