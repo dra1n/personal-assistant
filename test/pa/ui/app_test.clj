@@ -303,3 +303,68 @@
       (is (= :conversation (:focus scrolled)) "precondition: conversation focused & scrolled up")
       (is (false? (vp/viewport-at-bottom? (:viewport scrolled))))
       (is (= off (get-in m [:viewport :y-offset])) "position held, not pinned to bottom"))))
+
+;; ---------------------------------------------------------------------------
+;; Multiline input — paste, Alt+Enter, submit, regressions
+;; ---------------------------------------------------------------------------
+
+(deftest paste-accumulates-content-with-newlines
+  (testing "characters and :enter events between :paste-start and :paste-end build up the buffer"
+    (let [events  (atom [])
+          m0      {:input "" :pasting? false :dispatch! #(swap! events conj %)}
+          [m1 _]  (app/update-model m0 (msg/key-press :paste-start))
+          [m2 _]  (app/update-model m1 (msg/key-press "H"))
+          [m3 _]  (app/update-model m2 (msg/key-press "i"))
+          [m4 _]  (app/update-model m3 (msg/key-press :enter))   ; \n arriving as :enter in paste
+          [m5 _]  (app/update-model m4 (msg/key-press "w"))
+          [m6 _]  (app/update-model m5 (msg/key-press :paste-end))]
+      (is (true?  (:pasting? m1))  ":paste-start sets pasting? flag")
+      (is (false? (:pasting? m6))  ":paste-end clears pasting? flag")
+      (is (= "Hi\nw" (:input m6))  "multiline content accumulated verbatim")
+      (is (empty? @events)         "no :user/message dispatched during paste"))))
+
+(deftest paste-suppresses-tab-focus-cycle
+  (testing "Tab during paste appends \\t instead of cycling focus"
+    (let [[m1 _] (app/update-model {:input "" :pasting? false :focus :input} (msg/key-press :paste-start))
+          [m2 _] (app/update-model m1 (msg/key-press :tab))]
+      (is (= "\t" (:input m2))   "Tab appended as literal character")
+      (is (= :input (:focus m2)) "focus not changed by Tab during paste"))))
+
+(deftest alt-enter-inserts-newline-without-submitting
+  (testing "Alt+Enter (Option+Return on macOS) inserts \\n without dispatching a :user/message"
+    (let [events  (atom [])
+          model   {:input "line one" :dispatch! #(swap! events conj %)}
+          [m cmd] (app/update-model model (msg/key-press "\r" :alt true))]
+      (is (= "line one\n" (:input m)) "\\n appended to buffer")
+      (is (nil? cmd)                  "no command returned")
+      (is (empty? @events)            "no :user/message dispatched"))))
+
+(deftest enter-on-multiline-buffer-dispatches-full-text
+  (testing "Enter on a buffer with embedded \\n dispatches the whole text as one :user/message"
+    (let [events  (atom [])
+          model   {:input "line one\nline two" :dispatch! #(swap! events conj %)}
+          [m cmd] (app/update-model model (msg/key-press :enter))]
+      (is (= "" (:input m)) "buffer cleared after submit")
+      (is (some? cmd))
+      ((:fn cmd))
+      (is (= [{:event/type :user/message :content "line one\nline two"}] @events)
+          "full multiline text dispatched as a single event"))))
+
+(deftest single-line-enter-submit-regression
+  (testing "single-line Enter submit path is unchanged after multiline changes"
+    (let [events  (atom [])
+          [m cmd] (app/update-model {:input "hello" :dispatch! #(swap! events conj %)}
+                                    (msg/key-press :enter))]
+      (is (= "" (:input m)))
+      ((:fn cmd))
+      (is (= [{:event/type :user/message :content "hello"}] @events)))))
+
+(deftest history-navigation-regression-after-multiline
+  (testing "↑/↓ history navigation works correctly after multiline infrastructure is in place"
+    (let [model  (assoc (model-with-history "git status" "git diff") :pasting? false)
+          [m1 _] (app/update-model model (msg/key-press :up))
+          [m2 _] (app/update-model m1    (msg/key-press :up))
+          [m3 _] (app/update-model m2    (msg/key-press :down))]
+      (is (= "git diff"   (:input m1)) "first ↑ shows most recent entry")
+      (is (= "git status" (:input m2)) "second ↑ shows older entry")
+      (is (= "git diff"   (:input m3)) "↓ steps forward through history"))))

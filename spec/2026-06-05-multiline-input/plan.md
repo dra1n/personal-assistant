@@ -22,12 +22,12 @@
 
 ### Group 4 — Tests
 
-- [ ] Paste simulation unit test: inject a multiline string into the buffer via a synthetic paste event → assert buffer contains full string with `\n`, no submit fired
-- [ ] OS-level clipboard integration test: trigger a real paste in a running app → assert single `:user/message` dispatched, history stores one entry with full text
-- [ ] Shift+Enter unit test: assert `\n` inserted into buffer, no `:user/message` dispatched
-- [ ] Enter-on-multiline unit test: assert full buffer (including `\n`) dispatched as a single `:user/message`
-- [ ] Regression — single-line Enter: assert existing submit path unchanged
-- [ ] Regression — history navigation: assert ↑/↓ still cycle correctly after multiline changes
+- [x] Paste simulation unit test: inject a multiline string into the buffer via a synthetic paste event → assert buffer contains full string with `\n`, no submit fired
+- [ ] OS-level clipboard integration test: trigger a real paste in a running app → assert single `:user/message` dispatched, history stores one entry with full text (manual — requires running app)
+- [x] Alt+Enter unit test: assert `\n` inserted into buffer, no `:user/message` dispatched
+- [x] Enter-on-multiline unit test: assert full buffer (including `\n`) dispatched as a single `:user/message`
+- [x] Regression — single-line Enter: assert existing submit path unchanged
+- [x] Regression — history navigation: assert ↑/↓ still cycle correctly after multiline changes
 
 ## Notes
 
