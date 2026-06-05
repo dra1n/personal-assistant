@@ -187,6 +187,85 @@
       (let [rows (jdbc/execute! *ds* ["SELECT id FROM memories_fts"] opts)]
         (is (= 1 (count rows)))))))
 
+;; ---------------------------------------------------------------------------
+;; by-keyword (FTS5)
+;; ---------------------------------------------------------------------------
+
+(deftest by-keyword-matches-title
+  (testing "by-keyword finds records by a word in the title"
+    (write-and-index! (make-record {:memory/title "Clojure runtime" :memory/summary "event-driven"}))
+    (write-and-index! (make-record {:memory/title "Unrelated topic"  :memory/summary "something else"}))
+    (let [results (db-memory/by-keyword *ds* "Clojure" 10)]
+      (is (= 1 (count results)))
+      (is (= "Clojure runtime" (:memory/title (first results)))))))
+
+(deftest by-keyword-matches-summary
+  (testing "by-keyword finds records by a word in the summary"
+    (write-and-index! (make-record {:memory/title "Note" :memory/summary "persistent assistant in Clojure"}))
+    (is (= 1 (count (db-memory/by-keyword *ds* "persistent" 10))))))
+
+(deftest by-keyword-excludes-non-matching
+  (testing "by-keyword returns only records whose FTS columns match"
+    (write-and-index! (make-record {:memory/title "Alpha" :memory/summary "first"}))
+    (write-and-index! (make-record {:memory/title "Beta"  :memory/summary "second"}))
+    (is (= 0 (count (db-memory/by-keyword *ds* "gamma" 10))))))
+
+(deftest by-keyword-respects-limit
+  (testing "by-keyword respects the n limit"
+    (dotimes [_ 5]
+      (write-and-index! (make-record {:memory/title "matching" :memory/summary "same"})))
+    (is (= 3 (count (db-memory/by-keyword *ds* "matching" 3))))))
+
+;; ---------------------------------------------------------------------------
+;; retrieve — combined retrieval + decay scoring
+;; ---------------------------------------------------------------------------
+
+(defn- index-with-age!
+  "Index a record directly (no Markdown write) with a synthetic created-at age."
+  [record days-ago]
+  (let [ms-ago    (* days-ago 86400000)
+        old-at    (Instant/ofEpochMilli (- (.toEpochMilli (Instant/now)) ms-ago))
+        r         (assoc record :memory/created-at old-at :memory/path "/fake/path.md")]
+    (db-memory/index! *ds* r)
+    r))
+
+(deftest retrieve-decay-orders-by-recency
+  (testing "60-day-old record scores lower than 1-day-old record with same keyword match"
+    (index-with-age! (make-record {:memory/title "Clojure old" :memory/summary "old"}) 60)
+    (index-with-age! (make-record {:memory/title "Clojure new" :memory/summary "new"}) 1)
+    (let [results (db-memory/retrieve *ds* {:query/text "Clojure" :query/limit 10})]
+      (is (= 2 (count results)))
+      (is (= "Clojure new" (:memory/title (first results))) "newer record ranks first"))))
+
+(deftest retrieve-keyword-match-beats-recency-only
+  (testing "keyword-matching record outscores a more-recent recency-only record"
+    (index-with-age! (make-record {:memory/title "Matching term" :memory/summary "relevant"}) 10)
+    (index-with-age! (make-record {:memory/title "Unrelated"     :memory/summary "other"})    1)
+    (let [results (db-memory/retrieve *ds* {:query/text "term" :query/limit 10})]
+      (is (= 2 (count results)))
+      (is (= "Matching term" (:memory/title (first results)))
+          "10-day-old keyword match outscores 1-day-old recency-only"))))
+
+(deftest retrieve-deduplicates-by-id
+  (testing "a record in both keyword and recency results appears only once"
+    (index-with-age! (make-record {:memory/title "Shared" :memory/summary "both"}) 1)
+    (let [results (db-memory/retrieve *ds* {:query/text "Shared" :query/limit 10})]
+      (is (= 1 (count results))))))
+
+(deftest retrieve-respects-limit
+  (testing "retrieve returns at most :query/limit records"
+    (dotimes [i 8]
+      (index-with-age! (make-record {:memory/title (str "item-" i) :memory/summary "content"}) i))
+    (is (= 3 (count (db-memory/retrieve *ds* {:query/text "" :query/limit 3}))))))
+
+(deftest retrieve-filters-by-type
+  (testing ":query/types filters the result set"
+    (index-with-age! (make-record {:memory/type :episodic :memory/title "ep"   :memory/summary "x"}) 1)
+    (index-with-age! (make-record {:memory/type :semantic :memory/title "sem"  :memory/summary "x"}) 1)
+    (let [results (db-memory/retrieve *ds* {:query/text "" :query/limit 10 :query/types #{:semantic}})]
+      (is (= 1 (count results)))
+      (is (= :semantic (:memory/type (first results)))))))
+
 (deftest rebuild-recreates-fts-table
   (testing "rebuild-memory-index! drops and recreates memories_fts"
     (let [d (LocalDate/of 2026 5 31)]

@@ -4,16 +4,16 @@
 
 ### Group 1 — MEMORY.md tier
 
-- [ ] Add `assistant-data/memory/memory.md` to first-startup bootstrap template generation (header-only: `# Memory\n\n`)
-- [ ] Extend `pa.storage.identity/load-all` to read and return `memory.md` content alongside `identity.md`, `user.md`, `agents.md`; handle empty content section gracefully (return empty string, not nil)
-- [ ] Update `pa.llm.prompt/assemble` to inject `memory.md` content as an always-present system message section (unconditional — never gated by retrieval scoring)
+- [x] Add `assistant-data/memory/memory.md` to first-startup bootstrap template generation (header-only: `# Memory\n\n`)
+- [x] Extend `pa.storage.identity/load-all` to read and return `memory.md` content alongside `identity.md`, `user.md`, `agents.md`; handle empty content section gracefully (return empty string, not nil)
+- [x] Update `pa.llm.prompt/assemble` to inject `memory.md` content as an always-present system message section (unconditional — never gated by retrieval scoring)
 
 ### Group 2 — Schema migrations
 
-- [ ] Migrate `created_at` column from TEXT to INTEGER (Unix epoch ms) in `memories` table; update `record->row` and `row->record` in `pa.db.memory`
-- [ ] Add FTS5 virtual table in `pa.db.schema/init!`: `CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(id UNINDEXED, title, summary, tags)`
-- [ ] Update `pa.db.memory/index!` to upsert into `memories_fts` alongside `memories` (use `INSERT OR REPLACE`)
-- [ ] Update `pa.memory.indexer/rebuild-memory-index!` to drop and recreate both `memories` and `memories_fts`
+- [x] Migrate `created_at` column from TEXT to INTEGER (Unix epoch ms) in `memories` table; update `record->row` and `row->record` in `pa.db.memory`
+- [x] Add FTS5 virtual table in `pa.db.schema/init!`: `CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(id UNINDEXED, title, summary, tags)`
+- [x] Update `pa.db.memory/index!` to upsert into `memories_fts` alongside `memories` (use `INSERT OR REPLACE`)
+- [x] Update `pa.memory.indexer/rebuild-memory-index!` to drop and recreate both `memories` and `memories_fts`
 
 ### Group 3 — Retrieval functions
 
