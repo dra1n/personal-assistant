@@ -31,9 +31,10 @@
 (defmethod ig/init-key :memory/indexer [_ {:keys [db fs]}]
   (let [ds   (:datasource db)
         root (:root fs)]
-    {:index-memory! (partial db-memory/index! ds)
-     :rebuild!      (fn [] (rebuild-memory-index! ds root))
-     :root          root
-     :datasource    ds}))
+    {:index-memory!      (partial db-memory/index! ds)
+     :retrieve-memories! (fn [query] (db-memory/retrieve ds query))
+     :rebuild!           (fn [] (rebuild-memory-index! ds root))
+     :root               root
+     :datasource         ds}))
 
 (defmethod ig/halt-key! :memory/indexer [_ _])

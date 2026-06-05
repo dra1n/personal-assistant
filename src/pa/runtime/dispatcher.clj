@@ -35,8 +35,9 @@
                         :runtime {:dispatch!       dispatch!
                                   :store-event!    (:append-event! events)
                                   :append-history! (:append-entry! history)
-                                  :write-memory!   (:write-memory! memory)
-                                  :index-memory!   (:index-memory! indexer)
+                                  :write-memory!       (:write-memory! memory)
+                                  :index-memory!       (:index-memory! indexer)
+                                  :retrieve-memories!  (:retrieve-memories! indexer)
                                   :llm-provider    llm
                                   :tool.fs/policy  policy
                                   :http            (http/hato-client)

@@ -21,6 +21,25 @@
 ;; on every dispatch.
 ;; ---------------------------------------------------------------------------
 
+;; ---------------------------------------------------------------------------
+;; memories-interceptor
+;;
+;; Per-handler interceptor for :user/message events. Calls retrieve-memories!
+;; from system-context.runtime using the event :content as query text, then
+;; injects the results as :memories into the coeffect map. Returns [] when
+;; retrieve-memories! is absent (e.g. tests that don't wire up a datasource).
+;; ---------------------------------------------------------------------------
+
+(def memories-interceptor
+  {:before (fn [ctx]
+             (let [retrieve! (get-in ctx [:system-context :runtime :retrieve-memories!])
+                   text      (get-in ctx [:event :content])
+                   memories  (if (and retrieve! (seq text))
+                               (retrieve! {:query/text text :query/limit 5})
+                               [])]
+               (update ctx :coeffects assoc :memories memories)))
+   :after nil})
+
 (defn inject-coeffects
   "Build and return the coeffect map for event, enriched with system-context.
   system-context must contain :config and :runtime keys."
