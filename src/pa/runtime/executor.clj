@@ -203,6 +203,18 @@
                         :tool/error       (merge {:type :exception :message (.getMessage e)}
                                                  ex-data')}))))))))
 
+;; --- :history/append ----------------------------------------------------
+;;
+;; params: a history entry map (pa.storage.history/make-entry output).
+;; ctx must contain :append-history! fn supplied by :storage/history component.
+;; The in-memory :ui/history update is handled separately via the :db effect
+;; in the handler; this effect is responsible for disk persistence only.
+
+(defmethod execute-effect :history/append [_ entry {:keys [append-history!]}]
+  (if append-history!
+    (append-history! entry)
+    (log/warn ":history/append called but no :append-history! in ctx — is :storage/history wired?")))
+
 ;; --- default -----------------------------------------------------------
 
 (defmethod execute-effect :default [effect-type _params _ctx]

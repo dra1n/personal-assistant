@@ -34,3 +34,6 @@
 
 (defn add-tool-result [db result]
   (update db :tool/results (fnil conj []) result))
+
+(defn append-history [db entry]
+  (update db :ui/history (fnil conj []) entry))

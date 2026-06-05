@@ -3,6 +3,7 @@
             [pa.runtime.events :as events]
             [pa.runtime.registry :as registry]
             [pa.state.transitions :as tr]
+            [pa.storage.history :as history]
             [pa.tools.registry :as tools]))
 
 (defn- assemble-for
@@ -52,11 +53,15 @@
 
 (registry/reg-handler :user/message
                       (fn [{:keys [db event]}]
-                        (let [db' (tr/add-conversation-entry db {:role :user :content (:content event)})]
-                          {:db          db'
-                           :event/store event
-                           :llm/invoke  {:messages (assemble-for db') :opts {:tools (tools/advertise)}}
-                           :trace       {:event/type :user/message}})))
+                        (let [content (:content event)
+                              db'     (tr/add-conversation-entry db {:role :user :content content})
+                              entry   (history/make-entry content)
+                              dedup?  (= content (:history/text (last (:ui/history db))))]
+                          (cond-> {:db          (if dedup? db' (tr/append-history db' entry))
+                                   :event/store event
+                                   :llm/invoke  {:messages (assemble-for db') :opts {:tools (tools/advertise)}}
+                                   :trace       {:event/type :user/message}}
+                            (not dedup?) (assoc :history/append entry)))))
 
 (registry/reg-handler :assistant/tool-call
                       (fn [{:keys [db event]}]
