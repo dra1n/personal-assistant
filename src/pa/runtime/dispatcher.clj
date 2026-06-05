@@ -44,10 +44,9 @@
       (when-let [event (async/<! ch)]
         (process-event! event system-context)
         (recur)))
-    ;; Permitted mutation site 3: boot-time initialisation — set :ui/history
-    ;; from the persisted history file before any events are processed.
-    (when-let [entries (seq (:history history))]
-      (swap! db/db assoc :ui/history (vec entries)))
+    (when (seq (:history history))
+      (dispatch! {:event/type :history/loaded
+                  :entries    (:history history)}))
     (when identity
       (dispatch! {:event/type :system/identity-loaded
                   :identity   (:identity identity)}))

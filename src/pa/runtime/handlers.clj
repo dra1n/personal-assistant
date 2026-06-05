@@ -20,6 +20,10 @@
                       (fn [{:keys [db event]}]
                         {:db (tr/set-identity db (:identity event))}))
 
+(registry/reg-handler :history/loaded
+                      (fn [{:keys [db event]}]
+                        {:db (tr/set-history db (:entries event))}))
+
 ;; ---------------------------------------------------------------------------
 ;; Memory handlers
 ;; ---------------------------------------------------------------------------
