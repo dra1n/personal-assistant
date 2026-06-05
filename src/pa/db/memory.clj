@@ -1,6 +1,7 @@
 (ns pa.db.memory
   (:require [clojure.edn :as edn]
             [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs])
   (:import [java.time Instant]))
@@ -90,18 +91,29 @@
        (filter (fn [r] (every? (set (:memory/tags r)) tags)))
        vec))
 
+(defn- fts5-query
+  "Extract alphanumeric words from text and join with OR for safe FTS5 MATCH.
+  FTS5 treats ':' as a column specifier, so raw user text (e.g. URLs) must be
+  sanitized before passing to MATCH. Returns nil when no valid words remain."
+  [text]
+  (let [words (->> (str/split text #"\W+") (remove str/blank?))]
+    (when (seq words)
+      (str/join " OR " words))))
+
 (defn by-keyword
   "FTS5 full-text search over title, summary, tags. Returns up to n records."
   [ds text n]
-  (mapv row->record
-        (jdbc/execute! ds
-          ["SELECT m.* FROM memories_fts f
-            JOIN memories m ON m.id = f.id
-            WHERE memories_fts MATCH ?
-            ORDER BY f.rank
-            LIMIT ?"
-           text n]
-          opts)))
+  (if-let [q (fts5-query text)]
+    (mapv row->record
+          (jdbc/execute! ds
+            ["SELECT m.* FROM memories_fts f
+              JOIN memories m ON m.id = f.id
+              WHERE memories_fts MATCH ?
+              ORDER BY f.rank
+              LIMIT ?"
+             q n]
+            opts))
+    []))
 
 ;; ---------------------------------------------------------------------------
 ;; Retrieval with relevance decay scoring
