@@ -256,6 +256,7 @@
          (not (msg/alt? message)))
     (if (some? (:nav/index model))
       (let [[nav' text] (input/reset-navigation (select-keys model [:nav/index :nav/draft])
+                                                (:input model)
                                                 (:key message))]
         [(focus-input (merge model nav' {:input text})) nil])
       [(focus-input (update model :input str (:key message))) nil])

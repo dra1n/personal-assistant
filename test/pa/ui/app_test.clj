@@ -273,12 +273,12 @@
       (is (= "my draft" (:input m2)) "↓ restores draft"))))
 
 (deftest typing-while-navigating-exits-and-appends
-  (testing "printable char during history navigation exits navigation and appends to draft"
+  (testing "printable char during history navigation exits navigation and appends to the displayed entry"
     (let [model  (assoc (model-with-history "git status") :input "gi")
           [m1 _] (app/update-model model (msg/key-press :up))
-          [m2 _] (app/update-model m1 (msg/key-press "t"))]
+          [m2 _] (app/update-model m1 (msg/key-press "!"))]
       (is (= "git status" (:input m1)) "navigating — shows history")
-      (is (= "git" (:input m2)) "exited navigation, draft + char")
+      (is (= "git status!" (:input m2)) "exited navigation, history entry + char")
       (is (nil? (:nav/index m2)) "nav index cleared"))))
 
 (deftest enter-resets-navigation-state

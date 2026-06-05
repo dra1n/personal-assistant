@@ -50,14 +50,14 @@
       (is (= "" text)))))
 
 (deftest reset-navigation-exits-and-appends-char
-  (testing "typing a char exits navigation mode and appends it to the saved draft"
-    (let [nav         {:nav/index 1 :nav/draft "git "}
-          [nav' text] (input/reset-navigation nav "s")]
+  (testing "typing a char exits navigation mode and appends it to the displayed history entry"
+    (let [nav         {:nav/index 1 :nav/draft "gi"}
+          [nav' text] (input/reset-navigation nav "git status" "t")]
       (is (nil? (:nav/index nav')) "index cleared")
-      (is (= "git s" text) "char appended to draft"))))
+      (is (= "git statust" text) "char appended to current input"))))
 
-(deftest reset-navigation-on-empty-draft
-  (testing "char alone when draft was empty"
-    (let [[nav' text] (input/reset-navigation {:nav/index 0 :nav/draft ""} "x")]
+(deftest reset-navigation-on-empty-current-input
+  (testing "char alone when current input is empty"
+    (let [[nav' text] (input/reset-navigation {:nav/index 0 :nav/draft ""} "" "x")]
       (is (nil? (:nav/index nav')))
       (is (= "x" text)))))

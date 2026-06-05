@@ -31,7 +31,7 @@
 
 (defn reset-navigation
   "Exit navigation mode when a printable character is typed. Appends char to
-  the saved draft so neither the draft nor the typed character is lost.
+  current-input (the displayed history entry) so the user can edit it inline.
   Returns [new-nav text]."
-  [{:keys [nav/draft]} char]
-  [initial-nav (str draft char)])
+  [_nav current-input char]
+  [initial-nav (str current-input char)])
