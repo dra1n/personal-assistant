@@ -958,6 +958,38 @@ footprint and failure modes (no captions, age/region restrictions).
 
 ---
 
+## Phase 4d — Command History
+
+Goal: Improve terminal UX with persistent, navigable command history — up/down arrows cycle through past commands, history survives restarts.
+
+Storage:
+
+- [ ] Extend first-startup bootstrap to create `assistant-data/history/history.edn` (empty file, same append-only EDN format as `events.edn`)
+- [ ] Define history entry schema: `{:history/id ... :history/text ... :history/timestamp ...}`
+- [ ] Load last 50 entries from `history.edn` at startup into `:ui/history` in runtime state
+
+History persistence:
+
+- [ ] Implement `:history/append` effect type: appends a new entry to `history.edn` and updates `:ui/history` in runtime state
+- [ ] Wire `:history/append` into the `:user/message` handler — every submitted message appends to history
+- [ ] Deduplicate consecutive identical entries (skip append if the new text matches the most recent entry)
+
+UI navigation (ephemeral, UI-local state — not in runtime db):
+
+- [ ] Track a navigation index and a "draft" buffer (text typed before first ↑ press) in UI component state
+- [ ] ↑ arrow: move backward through history, fill input buffer with that entry
+- [ ] ↓ arrow: move forward; when past the most recent entry, restore the saved draft
+- [ ] Any character typed while navigating resets the navigation index (treats it as a new command draft)
+
+Tests:
+
+- [ ] Load fixture `history.edn` → assert entries parsed correctly and last 50 are loaded
+- [ ] Submit message → assert new entry appended to file and `:ui/history` state updated
+- [ ] Consecutive duplicate suppression: submitting the same text twice → assert only one entry added
+- [ ] Navigation state machine: assert ↑/↓ cycle correctly through entries and draft is preserved and restored
+
+---
+
 ## Phase 5 — Memory Retrieval
 
 Goal: Make the assistant context-aware using retrieved memory.
