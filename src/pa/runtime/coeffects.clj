@@ -37,8 +37,7 @@
                    memories  (if (and retrieve! (seq text))
                                (retrieve! {:query/text text :query/limit 5})
                                [])]
-               (tap> {:memories/retrieved memories})
-             (update ctx :coeffects assoc :memories memories)))
+               (update ctx :coeffects assoc :memories memories)))
    :after nil})
 
 (defn inject-coeffects
