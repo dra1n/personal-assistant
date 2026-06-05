@@ -13,9 +13,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defn rebuild-memory-index!
-  "Clear the memories table and rebuild it from all daily Markdown files."
+  "Drop and recreate memories and memories_fts, then reindex from Markdown files."
   [ds root]
   (jdbc/execute! ds ["DROP TABLE IF EXISTS memories"])
+  (jdbc/execute! ds ["DROP TABLE IF EXISTS memories_fts"])
   (schema/init! ds)
   (doseq [record (storage-memory/read-all-daily root)]
     (db-memory/index! ds record)))
@@ -30,9 +31,10 @@
 (defmethod ig/init-key :memory/indexer [_ {:keys [db fs]}]
   (let [ds   (:datasource db)
         root (:root fs)]
-    {:index-memory! (partial db-memory/index! ds)
-     :rebuild!      (fn [] (rebuild-memory-index! ds root))
-     :root          root
-     :datasource    ds}))
+    {:index-memory!      (partial db-memory/index! ds)
+     :retrieve-memories! (fn [query] (db-memory/retrieve ds query))
+     :rebuild!           (fn [] (rebuild-memory-index! ds root))
+     :root               root
+     :datasource         ds}))
 
 (defmethod ig/halt-key! :memory/indexer [_ _])

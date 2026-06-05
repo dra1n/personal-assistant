@@ -1,5 +1,6 @@
 (ns pa.storage.identity-test
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.java.io :as io]
             [pa.storage.identity :as identity]))
 
@@ -20,6 +21,7 @@
               "pa-identity-test-" (make-array java.nio.file.attribute.FileAttribute 0))
         root (str tmp)]
     (.mkdirs (io/file root "identity"))
+    (.mkdirs (io/file root "memory"))
     (binding [*tmp-root* root]
       (try (f) (finally (delete-dir! (io/file root)))))))
 
@@ -92,7 +94,7 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest load-all-returns-all-keys
-  (testing "load-all returns a map with :identity :user :agents keys"
+  (testing "load-all returns a map with :identity :user :agents :memory-wisdom keys"
     (doseq [[f content]
             [["identity.md" "---\nversion: 1\nname: Aria\nrole: assistant\n---"]
              ["user.md"     "---\nname: Alice\ntimezone: UTC\n---"]
@@ -102,6 +104,7 @@
       (is (contains? ctx :identity))
       (is (contains? ctx :user))
       (is (contains? ctx :agents))
+      (is (contains? ctx :memory-wisdom))
       (is (not (contains? ctx :soul))))))
 
 (deftest load-all-merges-front-matter-under-named-keys
@@ -122,3 +125,17 @@
       (is (= {} (get-in ctx [:identity :front-matter])))
       (is (= "" (get-in ctx [:identity :prose])))
       (is (= {} (get-in ctx [:user :front-matter]))))))
+
+(deftest load-all-loads-memory-wisdom-prose
+  (testing ":memory-wisdom contains prose from memory/memory.md"
+    (spit (io/file *tmp-root* "memory" "memory.md")
+          "# Memory\n\n- User is building a personal assistant in Clojure")
+    (let [ctx (identity/load-all *tmp-root*)]
+      (is (str/includes? (get-in ctx [:memory-wisdom :prose])
+                         "User is building a personal assistant in Clojure")))))
+
+(deftest load-all-memory-wisdom-empty-content
+  (testing ":memory-wisdom prose is empty string when memory.md is empty"
+    (spit (io/file *tmp-root* "memory" "memory.md") "")
+    (let [ctx (identity/load-all *tmp-root*)]
+      (is (= "" (get-in ctx [:memory-wisdom :prose]))))))

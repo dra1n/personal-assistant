@@ -62,3 +62,22 @@
 (deftest assemble-empty-yields-no-messages-test
   (testing "no identity, conversation, or memory => empty vector (no system msg)"
     (is (= [] (prompt/assemble {:identity {} :conversation [] :memory-snippets []})))))
+
+(deftest assemble-injects-memory-wisdom-test
+  (testing "memory.md prose appears in the system message under its own section"
+    (let [sys (-> (prompt/assemble
+                   {:identity        {:memory-wisdom {:front-matter {}
+                                                      :prose "- User builds in Clojure"}}
+                    :conversation    []
+                    :memory-snippets []})
+                  first :content)]
+      (is (str/includes? sys "# Permanent memory"))
+      (is (str/includes? sys "User builds in Clojure")))))
+
+(deftest assemble-empty-memory-wisdom-contributes-nothing-test
+  (testing "empty memory.md prose does not add a section to the system message"
+    (let [msgs (prompt/assemble
+                {:identity        {:memory-wisdom {:front-matter {} :prose ""}}
+                 :conversation    []
+                 :memory-snippets []})]
+      (is (= [] msgs) "no system message when only key is empty memory-wisdom"))))

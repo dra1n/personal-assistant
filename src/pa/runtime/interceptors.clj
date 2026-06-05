@@ -1,5 +1,6 @@
 (ns pa.runtime.interceptors
-  (:require [pa.runtime.coeffects :as coeffects]
+  (:require [clojure.set :as set]
+            [pa.runtime.coeffects :as coeffects]
             [pa.runtime.executor :as executor]
             [pa.runtime.registry :as registry]
             [pa.state.db :as db]
@@ -112,7 +113,7 @@
    :after  (fn [ctx]
              (when-let [effects (:effects ctx)]
                (let [known   (set (keys (methods executor/execute-effect)))
-                     unknown (clojure.set/difference (set (keys effects)) known)]
+                     unknown (set/difference (set (keys effects)) known)]
                  (when (seq unknown)
                    (log/warn "unknown effect types will be ignored" {:effect/types unknown}))))
              ctx)})

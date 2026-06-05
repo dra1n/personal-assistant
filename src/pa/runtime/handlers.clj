@@ -1,17 +1,16 @@
 (ns pa.runtime.handlers
   (:require [pa.llm.prompt :as prompt]
+            [pa.runtime.coeffects :as coeffects]
             [pa.runtime.events :as events]
             [pa.runtime.registry :as registry]
             [pa.state.transitions :as tr]
             [pa.storage.history :as history]
             [pa.tools.registry :as tools]))
 
-(defn- assemble-for
-  "Assemble the prompt messages from the current runtime state."
-  [db]
+(defn- assemble-for [db memories]
   (prompt/assemble {:identity        (:identity db)
                     :conversation    (:conversation db)
-                    :memory-snippets []}))
+                    :memory-snippets (or memories [])}))
 
 ;; ---------------------------------------------------------------------------
 ;; System lifecycle handlers
@@ -52,14 +51,15 @@
 ;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :user/message
-                      (fn [{:keys [db event]}]
+                      [coeffects/memories-interceptor]
+                      (fn [{:keys [db event memories]}]
                         (let [content (:content event)
                               db'     (tr/add-conversation-entry db {:role :user :content content})
                               entry   (history/make-entry content)
                               duplicate?  (= content (:history/text (last (:ui/history db))))]
                           (cond-> {:db          (if duplicate? db' (tr/append-history db' entry))
                                    :event/store event
-                                   :llm/invoke  {:messages (assemble-for db') :opts {:tools (tools/advertise)}}
+                                   :llm/invoke  {:messages (assemble-for db' memories) :opts {:tools (tools/advertise)}}
                                    :trace       {:event/type :user/message}}
                             (not duplicate?) (assoc :history/append entry)))))
 
@@ -145,6 +145,6 @@
                                                      :llm/follow-up? (:llm/follow-up? event)})
                                 ;; batch complete — re-invoke the LLM with tools for multi-hop
                                 (and (empty? pending) (:llm/follow-up? event))
-                                (assoc :llm/invoke {:messages (assemble-for db')
+                                (assoc :llm/invoke {:messages (assemble-for db' [])
                                                     :opts     {:tools (tools/advertise)}})))
                             base))))
