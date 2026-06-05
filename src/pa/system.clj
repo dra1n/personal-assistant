@@ -16,6 +16,7 @@
             [pa.tools.fs]
             [pa.tools.network.search]
             [pa.tools.network.fetch]
+            [pa.tools.network.youtube]
             [pa.tools.os]
             [pa.ui.core]))
 
