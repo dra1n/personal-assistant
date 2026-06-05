@@ -434,6 +434,7 @@ assistant-data/
     agents.md
 
   memory/
+    memory.md       ; always-loaded wisdom file (see Phase 5)
     daily/
     semantic/
     episodic/
@@ -1019,28 +1020,84 @@ Tests:
 
 ## Phase 5 — Memory Retrieval
 
-Goal: Make the assistant context-aware using retrieved memory.
+Goal: Make the assistant context-aware using retrieved memory. This phase focuses
+on retrieval (reading) — automatic memory extraction (writing) is a Phase 6
+background cognition concern.
 
-- [ ] Define retrieval query schema (`:query/text`, `:query/types`, `:query/limit`)
-- [ ] Implement recency-based retrieval: fetch N most recent memories by type
-- [ ] Implement keyword-based retrieval: SQLite full-text search over content
-- [ ] Integrate embeddings: generate embedding on memory write, store in SQLite
-- [ ] Implement semantic retrieval: cosine similarity over stored embeddings
-- [ ] Build memory extraction pipeline: after LLM response → extract facts/episodes as new memory records
-- [ ] Build context assembly: retrieval results → prompt snippet injected into Phase 3 prompt pipeline
-- [ ] Add relevance decay: memories older than threshold get lower retrieval weight
-- [ ] Wire retrieval as part of the cognition pipeline (before LLM invocation)
-- [ ] Confirm assistant references past context without being explicitly told to
-- [ ] Write unit tests for recency and keyword retrieval with fixture memory records
-- [ ] Write unit tests for memory extraction pipeline with fixture LLM response text
-- [ ] Write tests for relevance decay: assert older records score lower than recent ones
-- [ ] Write embedding round-trip test: generate embedding, store, retrieve by cosine similarity
+### MEMORY.md — Always-Loaded Wisdom File
+
+The original project vision distinguished two memory tiers:
+
+- `MEMORY.md` — curated, always in context: key facts, decisions, lessons — the
+  assistant's "permanent working memory" about the user and their world
+- `memory/daily/` — high-volume episodic notes, subject to retrieval scoring
+
+The roadmap collapsed these into one pool but they are meaningfully different.
+`MEMORY.md` content should always be injected into the system message alongside
+`identity.md` and `user.md` — never scored out by relevance decay. An episodic
+note about a past conversation lives in the daily pool; a permanent fact like
+"user is building a personal assistant in Clojure" belongs in `MEMORY.md`.
+
+The assistant writes to `MEMORY.md` deliberately. Phase 6 background cognition
+may also promote distilled wisdom there.
+
+- [ ] Add `assistant-data/memory/memory.md` template to first-startup bootstrap (minimal — just a header, empty content)
+- [ ] Extend `pa.storage.identity/load-all` to parse and return `memory.md` alongside the three identity files
+- [ ] Update `pa.llm.prompt/assemble` to inject `memory.md` content as an always-present system message section
+
+### Schema Updates
+
+The `memories` table was created in Phase 2 but is currently empty (smoke-test
+data only), so migrations are free.
+
+- [ ] Change `created_at` column from TEXT to INTEGER (Unix epoch milliseconds) — cleaner for age-based decay arithmetic; update `record->row` and `row->record` in `pa.db.memory` accordingly
+- [ ] Add FTS5 virtual table: `CREATE VIRTUAL TABLE memories_fts USING fts5(id UNINDEXED, title, summary, tags)` in `pa.db.schema/init!`
+- [ ] Update `pa.db.memory/index!` to upsert into `memories_fts` alongside `memories` (use `INSERT OR REPLACE`)
+- [ ] Update `pa.memory.indexer/rebuild-memory-index!` to drop and recreate both `memories` and `memories_fts`
+
+### Retrieval Query Schema
+
+- [ ] Define retrieval query spec: `{:query/text <string>, :query/types <keyword-set, optional>, :query/limit <int>}`
+
+### Retrieval Functions
+
+`pa.db.memory` already has `recent`, `by-type`, and `by-tags`. Add:
+
+- [ ] Implement `by-keyword`: FTS5 full-text search over `title`, `summary`, `tags`; returns records ordered by FTS rank
+- [ ] Implement relevance decay scoring function: `score = match_score * exp(-λ * age_days)`; `match_score` is 1.0 for keyword hits, 0.5 for recency-only; λ is a tunable config constant (start with a 30-day half-life)
+- [ ] Implement combined retrieval: union of recency + keyword result sets → apply decay scoring → deduplicate by id → return top-N
+
+### `:memories` Coeffect
+
+Retrieval is a side-effecting operation (SQLite read) and cannot happen inside a
+pure handler. The coeffect injection step runs before the handler, has access to
+the triggering event, and is the right place to call retrieval.
+
+- [ ] Add `:memories` coeffect injector to `pa.runtime.coeffects`: reads the `:event` coeffect for query text (`:content` of a `:user/message` event, empty string otherwise), calls combined retrieval, injects result as `{:memories [...]}` into the coeffect map
+- [ ] Register the `:memories` injector so it runs for `:user/message` events (either globally or as a per-handler interceptor)
+
+### Wire into Prompt Assembly
+
+- [ ] Update `assemble-for` in `pa.runtime.handlers` to read `:memories` from the coeffect map instead of hardcoding `[]`
+- [ ] REPL verification: send a message about a topic with a prior memory record → confirm assistant references it without being told to
+
+### Tests
+
+- [ ] Unit tests for `by-keyword` FTS with fixture memory records inserted into an in-memory SQLite db
+- [ ] Unit tests for combined retrieval: fixture records with varying age and keyword match → assert top-N ordering reflects decay scoring
+- [ ] Tests for relevance decay function: assert a record that is 60 days old scores lower than an identical record that is 1 day old
+- [ ] Test `:memories` coeffect injection: dispatch a `:user/message` event with a query term that matches a fixture record → assert `:memories` in the coeffect map is non-empty before the handler runs
+- [ ] Test `MEMORY.md` loader: fixture `memory.md` file → assert its content appears in the assembled system message
+- [ ] Test schema migration: `init!` creates both `memories` and `memories_fts`; `index!` writes to both; `rebuild-memory-index!` drops and recreates both
 
 ---
 
 ## Phase 6 — Scheduling & Background Cognition
 
-Goal: Introduce time-based behavior and background work.
+Goal: Introduce time-based behavior and background work. Also introduces automatic
+memory extraction as a background cognition job — the right granularity for
+extraction is a session or time window, not a single message, so it lives here
+rather than inline with every LLM response.
 
 - [ ] Define scheduled task schema (`:task/id`, `:task/cron`, `:task/type`, `:task/payload`)
 - [ ] Implement cron-style scheduler as an Integrant component (fire events on schedule)
@@ -1051,6 +1108,17 @@ Goal: Introduce time-based behavior and background work.
 - [ ] Persist scheduled tasks to `tasks/scheduled/` as EDN files
 - [ ] Move completed tasks to `tasks/completed/`
 - [ ] Expose scheduler state via Portal
+
+Memory extraction (background job):
+
+- [ ] Implement `memory.md` writer: reads current `memory.md` content, merges in new permanent facts (add new bullet items, deduplicate against existing content, optionally remove entries explicitly marked stale), writes back — distinct from the append-only daily writer because `memory.md` is a curated document, not a log
+- [ ] Implement end-of-session memory extraction job: after the conversation reaches N turns (configurable threshold), run an extraction prompt against recent conversation history; the prompt classifies each extracted item as ephemeral (→ `memory/daily/` via `:memory/write` effect) or permanent (→ `memory.md` via the wisdom writer); N is a config parameter (start with 10 turns)
+- [ ] Extraction runs asynchronously and does not block user input or app shutdown — fire-and-forget via `dispatch!` from the scheduler
+- [ ] Write tests for the extraction job: fixture conversation of N turns → assert ephemeral items produce `:memory/write` effects and permanent items are merged into `memory.md`
+- [ ] Write tests for the `memory.md` writer: fixture current content + new items → assert output contains new items, deduplicates exact matches, preserves unrelated existing content
+
+Scheduler tests:
+
 - [ ] Test: schedule a task, let it fire, confirm event appears in log
 - [ ] Write unit tests for scheduler: mock clock, assert tasks fire at correct intervals
 - [ ] Write tests for reflection and consolidation jobs with fixture memory data
@@ -1068,7 +1136,7 @@ Goal: Formalize and make inspectable all cognition stages.
 - [ ] Implement `plan` stage: decide which tools (if any) are needed
 - [ ] Implement `tool-select` stage: emit tool invocation effects (Phase 4)
 - [ ] Implement `respond` stage: assemble final prompt and call LLM (Phase 3)
-- [ ] Implement `extract` stage: extract new memories from the response (Phase 5)
+- [ ] Implement `extract` stage: trigger background extraction if session threshold is met (Phase 6)
 - [ ] Implement `consolidate` stage: trigger background consolidation if thresholds are met
 - [ ] Emit a `:cognition/pipeline-trace` event capturing the full context map at each stage
 - [ ] Make each stage independently testable with fixture context maps
@@ -1085,12 +1153,12 @@ Goal: Evolve the assistant into a durable long-term system.
 - [ ] Define personality schema in `identity.md` (name, traits, communication style, values)
 - [ ] Inject personality into prompt assembly as a stable system prefix
 - [ ] Implement user model evolution: update `user.md` when new facts are extracted
-- [ ] Implement memory decay: lower retrieval weight for memories beyond age/access thresholds
-- [ ] Implement summarization pipeline: distill old episodic memories into semantic memory entries
+- [ ] Implement memory decay: lower retrieval weight for memories beyond age/access thresholds; tune λ against real usage
+- [ ] Implement summarization pipeline: run an LLM summarization pass over old episodic daily memories (older than a configurable age threshold), write distilled summaries as new semantic memory entries in `memory/semantic/`
+- [ ] Implement `memory.md` promotion step in the consolidation job: after summarization, identify key insights worth permanent storage and merge them into `memory.md` via the wisdom writer from Phase 6; this is the bulk/background path complementing the per-session extraction path
 - [ ] Implement reflection system: periodic self-assessment of assistant behavior and user patterns
 - [ ] Store reflections in `cognition/reflections/` and inject top-N into context
 - [ ] Confirm personality remains consistent across sessions with identity reload
-- [ ] Review and tune memory decay parameters against real usage
 - [ ] Write tests for user model evolution: assert `user.md` updates correctly from extracted facts
 - [ ] Write tests for summarization pipeline with fixture episodic memory sets
 - [ ] Write regression tests for personality consistency: fixture session → assert identity fields stable across reload
@@ -1109,3 +1177,18 @@ These are explicitly deferred and not required for a complete system.
 - [ ] Semantic planning (multi-step goal decomposition)
 - [ ] Multi-agent experimentation
 - [ ] Autonomous task execution (self-initiated without user trigger)
+
+Semantic memory retrieval (embeddings):
+
+Embeddings add meaningful retrieval quality but bring significant complexity:
+a new `embed` method on the provider protocol, an OpenAI embeddings API
+dependency separate from the chat API, a BLOB column on the `memories` table,
+and Clojure-side cosine similarity over all stored embeddings (a full table
+scan per LLM call — acceptable at personal scale, but worth noting). Deferred
+until recency + FTS retrieval proves insufficient in practice.
+
+- [ ] Add `embed` method to the LLM provider protocol; implement for OpenAI (`text-embedding-3-small`); Anthropic stub returns nil (no embeddings API)
+- [ ] Add `embedding` BLOB column to the `memories` table; generate and store embedding on every `index!` call
+- [ ] Implement semantic retrieval: load all embeddings from SQLite, compute cosine similarity against the query embedding, apply decay scoring, return top-N
+- [ ] Extend combined retrieval to merge recency + keyword + semantic result sets
+- [ ] Write embedding round-trip test: generate embedding, store, retrieve by cosine similarity with a semantically related query
