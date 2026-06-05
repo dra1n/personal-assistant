@@ -127,12 +127,24 @@
   [logs-open?]
   (if logs-open? (+ 1 log-content-lines 2) 1))
 
+(defn input-line-count
+  "Visual lines occupied by the input buffer. Returns 1 for blank or
+  single-line input; counts each wrapped segment for multiline buffers."
+  [{:keys [input] :as model}]
+  (if (or (str/blank? input) (not (str/includes? input "\n")))
+    1
+    (let [avail (max 1 (- (inner-width model) 5))]
+      (->> (str/split input #"\n" -1)
+           (map #(max 1 (count (wrap-line % avail))))
+           (reduce +)))))
+
 (defn viewport-height
   "Lines available inside the conversation box's viewport: terminal height
   minus fixed chrome (3-row header box + 2 blanks + input box + hint = 9),
-  the log panel, and the conversation box's own two border rows."
-  [{:keys [height logs-open?]}]
-  (max 3 (- (or height 24) (+ 11 (panel-lines logs-open?)))))
+  the log panel, and the conversation box's own two border rows.
+  The input box height is dynamic — it grows when the buffer contains newlines."
+  [{:keys [height logs-open?] :as model}]
+  (max 3 (- (or height 24) (+ 10 (input-line-count model) (panel-lines logs-open?)))))
 
 ;; --- view -------------------------------------------------------------------
 
@@ -230,16 +242,32 @@
     (str "…" (subs s (- (count s) (dec avail))))))
 
 (defn- input-view [{:keys [input focus] :as model}]
-  (let [inner (inner-width model)                 ; full width, flush with the other boxes
-        avail (max 1 (- inner 5))                 ; room for input text + cursor
-        body  (if (str/blank? input)
-                (str (cursor) (style/styled placeholder :faint true))
-                (str (visible-window input avail) (cursor)))]
+  (let [inner (inner-width model)
+        avail (max 1 (- inner 5))
+        prompt (str (style/styled "›" :fg accent :bold true) " ")]
     (style/render
      (style/style :border  (border-for (= :input focus))
                   :padding box-padding
                   :width   inner)
-     (str (style/styled "›" :fg accent :bold true) " " body))))
+     (cond
+       (str/blank? input)
+       (str prompt (cursor) (style/styled placeholder :faint true))
+
+       (not (str/includes? input "\n"))
+       (str prompt (visible-window input avail) (cursor))
+
+       :else
+       ;; Multiline: split on \n, word-wrap each segment, prefix the first
+       ;; wrapped line with "› " and all others with "  " to align.
+       (let [segments (str/split input #"\n" -1)
+             lines    (mapcat #(let [wl (wrap-line % avail)] (if (seq wl) wl [""])) segments)
+             prefixed (map-indexed
+                       (fn [i line] (str (if (zero? i) prompt "  ") line))
+                       lines)]
+         (str (str/join "\n" (butlast prefixed))
+              "\n"
+              (last prefixed)
+              (cursor)))))))
 
 (defn- hint []
   (style/styled "Enter send · Tab/Esc focus · ↑/↓ scroll · ^L logs · ^C quit" :faint true))

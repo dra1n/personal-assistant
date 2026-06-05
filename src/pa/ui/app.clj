@@ -78,6 +78,17 @@
 ;; Init
 ;; ---------------------------------------------------------------------------
 
+(defn- enable-bracketed-paste-cmd
+  "A charm startup command that enables bracketed paste mode in the terminal.
+  Runs after JLine has set up raw mode, so the escape sequence lands correctly."
+  []
+  (charm/cmd
+   (fn []
+     (doto System/out
+       (.print "[?2004h")
+       (.flush))
+     nil)))
+
 (defn init
   "Return a charm init fn. Returns the initial model plus the startup commands."
   [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd delta-ch watch-delta-cmd]}]
@@ -93,6 +104,7 @@
           :input        ""
           :nav/index    nil
           :nav/draft    ""
+          :pasting?     false
           :streaming    ""
           :streaming-open? false
           :motd-fallback   (view/random-tip)
@@ -102,7 +114,7 @@
           :log-viewport (vp/viewport "")}
          refresh-conversation
          refresh-logs)
-     (charm/batch watch-cmd watch-log-cmd watch-delta-cmd)]))
+     (charm/batch (enable-bracketed-paste-cmd) watch-cmd watch-log-cmd watch-delta-cmd)]))
 
 ;; ---------------------------------------------------------------------------
 ;; Update
@@ -207,9 +219,22 @@
            refresh-logs)
        nil])
 
+    ;; Bracketed paste — :paste-start marks the beginning of pasted content.
+    ;; Clear navigation state and enter paste-accumulation mode. All subsequent
+    ;; :enter events (which carry \n/\r from the pasted text) will append "\n"
+    ;; to the buffer instead of submitting, until :paste-end arrives.
+    (msg/key-match? message :paste-start)
+    [(focus-input (assoc model :pasting? true :nav/index nil :nav/draft "")) nil]
+
+    (msg/key-match? message :paste-end)
+    [(refresh-conversation (assoc model :pasting? false)) nil]
+
     ;; Tab cycles focus across regions; Esc returns to the input.
+    ;; While pasting, Tab characters in the clipboard content are appended verbatim.
     (msg/key-match? message :tab)
-    [(-> model (assoc :focus (next-focus model)) refresh-conversation refresh-logs) nil]
+    (if (:pasting? model)
+      [(update model :input str "\t") nil]
+      [(-> model (assoc :focus (next-focus model)) refresh-conversation refresh-logs) nil])
 
     (msg/key-match? message :escape)
     [(focus-input model) nil]
@@ -231,18 +256,27 @@
         [(merge model nav' {:input text}) nil])
       [(scroll-focused model vp/scroll-down) nil])
 
-    ;; Enter — commit the buffer as a user message (ignored when blank).
+    ;; Enter — while pasting, \n/\r arrive as :enter events; append a literal
+    ;; newline into the buffer instead of submitting. Outside paste, commit the
+    ;; buffer as a user message (ignored when blank).
     (msg/key-match? message :enter)
-    (let [text (str/trim (:input model))]
-      (if (str/blank? text)
-        [(focus-input model) nil]
-        ;; Open the stream so the assistant's deltas are accepted into the live
-        ;; preview; it closes again when the assistant turn commits.
-        [(focus-input (assoc model :input "" :nav/index nil :nav/draft "" :streaming-open? true))
-         (dispatch-user-message (:dispatch! model) text)]))
+    (if (:pasting? model)
+      [(update model :input str "\n") nil]
+      (let [text (str/trim (:input model))]
+        (if (str/blank? text)
+          [(focus-input model) nil]
+          ;; Open the stream so the assistant's deltas are accepted into the live
+          ;; preview; it closes again when the assistant turn commits.
+          [(refresh-conversation (focus-input (assoc model :input "" :nav/index nil :nav/draft "" :streaming-open? true)))
+           (dispatch-user-message (:dispatch! model) text)])))
 
     (msg/key-match? message :backspace)
     [(focus-input (update model :input backspace)) nil]
+
+    ;; Alt+Enter — manual newline: insert \n into the buffer without submitting.
+    ;; (Shift+Enter is not detectable in charm.clj on standard terminals.)
+    (and (msg/key-press? message) (msg/alt? message) (= "\r" (:key message)))
+    [(refresh-conversation (focus-input (update model :input str "\n"))) nil]
 
     ;; Space arrives as a special key, not a runes string.
     (msg/key-match? message :space)
