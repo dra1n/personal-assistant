@@ -19,6 +19,7 @@
                 "tasks/active"
                 "tasks/completed"
                 "events"
+                "history"
                 "system"
                 "workspace"
                 "sqlite"
@@ -46,6 +47,11 @@
     (when-not (.exists f)
       (spit f ""))))
 
+(defn- create-history-log! [root]
+  (let [f (io/file root "history" "history.edn")]
+    (when-not (.exists f)
+      (spit f ""))))
+
 (defn pa-home []
   (or (System/getenv "PA_HOME")
       (str (System/getProperty "user.home") "/.config/personal-assistant")))
@@ -54,7 +60,8 @@
   (create-dirs! root)
   (create-identity-templates! root)
   (create-system-templates! root)
-  (create-event-log! root))
+  (create-event-log! root)
+  (create-history-log! root))
 
 (defmethod ig/init-key :storage/fs [_ _]
   (let [root (pa-home)]

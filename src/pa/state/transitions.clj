@@ -11,6 +11,9 @@
 (defn set-identity [db identity]
   (assoc db :identity identity))
 
+(defn set-history [db entries]
+  (assoc db :ui/history (vec entries)))
+
 (defn add-conversation-entry [db entry]
   (update db :conversation conj entry))
 
@@ -31,3 +34,6 @@
 
 (defn add-tool-result [db result]
   (update db :tool/results (fnil conj []) result))
+
+(defn append-history [db entry]
+  (update db :ui/history (fnil conj []) entry))

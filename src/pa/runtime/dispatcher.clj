@@ -23,7 +23,7 @@
   (swap! db/db update :events/recent conj event)
   (interceptors/run-standard-chain event system-context))
 
-(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity memory indexer llm policy deltas]}]
+(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity history memory indexer llm policy deltas]}]
   (let [ch (async/chan 256)
         dispatch! (fn [event-map]
                     (async/put! ch (events/make-event event-map)))
@@ -32,18 +32,22 @@
         ;; accumulated by the :llm/invoke effect, so dropping is harmless.
         emit-delta! (fn [delta] (when deltas (async/offer! deltas delta)))
         system-context {:config  config
-                        :runtime {:dispatch!      dispatch!
-                                  :store-event!   (:append-event! events)
-                                  :write-memory!  (:write-memory! memory)
-                                  :index-memory!  (:index-memory! indexer)
-                                  :llm-provider   llm
-                                  :tool.fs/policy policy
-                                  :http           (http/hato-client)
-                                  :emit-delta!    emit-delta!}}]
+                        :runtime {:dispatch!       dispatch!
+                                  :store-event!    (:append-event! events)
+                                  :append-history! (:append-entry! history)
+                                  :write-memory!   (:write-memory! memory)
+                                  :index-memory!   (:index-memory! indexer)
+                                  :llm-provider    llm
+                                  :tool.fs/policy  policy
+                                  :http            (http/hato-client)
+                                  :emit-delta!     emit-delta!}}]
     (async/go-loop []
       (when-let [event (async/<! ch)]
         (process-event! event system-context)
         (recur)))
+    (when (seq (:history history))
+      (dispatch! {:event/type :history/loaded
+                  :entries    (:history history)}))
     (when identity
       (dispatch! {:event/type :system/identity-loaded
                   :identity   (:identity identity)}))

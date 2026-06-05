@@ -7,6 +7,7 @@
    :storage/fs               {}
    :storage/identity         {:fs (ig/ref :storage/fs)}
    :storage/events           {:fs (ig/ref :storage/fs)}
+   :storage/history          {:fs (ig/ref :storage/fs)}
    :memory/store             {:fs (ig/ref :storage/fs)}
    :db/sqlite                {:fs (ig/ref :storage/fs)}
    :memory/indexer           {:db (ig/ref :db/sqlite) :fs (ig/ref :storage/fs)}
@@ -16,6 +17,7 @@
    :pa.runtime/dispatcher    {:config   {:env :production}
                               :events   (ig/ref :storage/events)
                               :identity (ig/ref :storage/identity)
+                              :history  (ig/ref :storage/history)
                               :memory   (ig/ref :memory/store)
                               :indexer  (ig/ref :memory/indexer)
                               :llm      (ig/ref :llm/provider)

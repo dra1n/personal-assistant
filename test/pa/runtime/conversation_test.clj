@@ -26,6 +26,46 @@
       (is (not (contains? fx :memory/write)))
       (is (not (contains? fx :tool/invoke))))))
 
+(deftest user-message-handler-history-append-schema
+  (testing ":history/append entry has required schema fields"
+    (let [db {:conversation [] :identity {:identity {:front-matter {:name "Aria"} :prose ""}}}
+          fx ((handler :user/message)
+              {:db db :event {:event/type :user/message :content "hello"}})]
+      (is (= "hello" (:history/text (:history/append fx))))
+      (is (uuid? (:history/id (:history/append fx))))
+      (is (inst? (:history/timestamp (:history/append fx)))))))
+
+(deftest user-message-handler-deduplicates-history
+  (let [base-db {:conversation []
+                 :identity     {:identity {:front-matter {:name "Aria"} :prose ""}}}]
+    (testing "new message: appends to :ui/history and emits :history/append"
+      (let [db (assoc base-db :ui/history [{:history/text "old"}])
+            fx ((handler :user/message)
+                {:db db :event {:event/type :user/message :content "hello"}})]
+        (is (= "hello" (:history/text (last (:ui/history (:db fx)))))
+            "entry appended to db history")
+        (is (= "hello" (:history/text (:history/append fx)))
+            ":history/append effect emitted")))
+
+    (testing "duplicate message: skips :ui/history append and omits :history/append"
+      (let [db (assoc base-db :ui/history [{:history/text "hello"}])
+            fx ((handler :user/message)
+                {:db db :event {:event/type :user/message :content "hello"}})]
+        (is (= 1 (count (:ui/history (:db fx))))
+            "history length unchanged")
+        (is (not (contains? fx :history/append))
+            ":history/append effect absent")))
+
+    (testing "consecutive duplicate: second call with same text omits effect"
+      (let [db1 (assoc base-db :ui/history [])
+            fx1 ((handler :user/message)
+                 {:db db1 :event {:event/type :user/message :content "ping"}})
+            db2 (:db fx1)
+            fx2 ((handler :user/message)
+                 {:db db2 :event {:event/type :user/message :content "ping"}})]
+        (is (contains? fx1 :history/append) "first call emits effect")
+        (is (not (contains? fx2 :history/append)) "second call omits effect")))))
+
 (deftest assistant-response-handler-commits-turn
   (let [fx ((handler :assistant/response)
             {:db {:conversation [{:role :user :content "hi"}]}
