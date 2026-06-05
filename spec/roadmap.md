@@ -964,29 +964,56 @@ Goal: Improve terminal UX with persistent, navigable command history — up/down
 
 Storage:
 
-- [ ] Extend first-startup bootstrap to create `assistant-data/history/history.edn` (empty file, same append-only EDN format as `events.edn`)
-- [ ] Define history entry schema: `{:history/id ... :history/text ... :history/timestamp ...}`
-- [ ] Load last 50 entries from `history.edn` at startup into `:ui/history` in runtime state
+- [x] Extend first-startup bootstrap to create `assistant-data/history/history.edn` (empty file, same append-only EDN format as `events.edn`)
+- [x] Define history entry schema: `{:history/id ... :history/text ... :history/timestamp ...}`
+- [x] Load last 50 entries from `history.edn` at startup into `:ui/history` in runtime state
 
 History persistence:
 
-- [ ] Implement `:history/append` effect type: appends a new entry to `history.edn` and updates `:ui/history` in runtime state
-- [ ] Wire `:history/append` into the `:user/message` handler — every submitted message appends to history
-- [ ] Deduplicate consecutive identical entries (skip append if the new text matches the most recent entry)
+- [x] Implement `:history/append` effect type: appends a new entry to `history.edn` and updates `:ui/history` in runtime state
+- [x] Wire `:history/append` into the `:user/message` handler — every submitted message appends to history
+- [x] Deduplicate consecutive identical entries (skip append if the new text matches the most recent entry)
 
 UI navigation (ephemeral, UI-local state — not in runtime db):
 
-- [ ] Track a navigation index and a "draft" buffer (text typed before first ↑ press) in UI component state
-- [ ] ↑ arrow: move backward through history, fill input buffer with that entry
-- [ ] ↓ arrow: move forward; when past the most recent entry, restore the saved draft
-- [ ] Any character typed while navigating resets the navigation index (treats it as a new command draft)
+- [x] Track a navigation index and a "draft" buffer (text typed before first ↑ press) in UI component state
+- [x] ↑ arrow: move backward through history, fill input buffer with that entry
+- [x] ↓ arrow: move forward; when past the most recent entry, restore the saved draft
+- [x] Any character typed while navigating resets the navigation index (treats it as a new command draft)
 
 Tests:
 
-- [ ] Load fixture `history.edn` → assert entries parsed correctly and last 50 are loaded
-- [ ] Submit message → assert new entry appended to file and `:ui/history` state updated
-- [ ] Consecutive duplicate suppression: submitting the same text twice → assert only one entry added
-- [ ] Navigation state machine: assert ↑/↓ cycle correctly through entries and draft is preserved and restored
+- [x] Load fixture `history.edn` → assert entries parsed correctly and last 50 are loaded
+- [x] Submit message → assert new entry appended to file and `:ui/history` state updated
+- [x] Consecutive duplicate suppression: submitting the same text twice → assert only one entry added
+- [x] Navigation state machine: assert ↑/↓ cycle correctly through entries and draft is preserved and restored
+
+---
+
+## Phase 4e — Multiline Input
+
+Goal: Support multiline messages — both pasted from the clipboard and typed manually — without treating embedded newlines as premature submits.
+
+Problems to solve:
+- Pasting a multiline string currently fires one `:user/message` per line, which can cause unintended tool calls (e.g. pasting documentation triggers a cascade of LLM invocations)
+- There is no way to insert a newline manually (e.g. Shift+Enter or Alt+Enter) to compose a multiline message before submitting
+
+Input capture:
+- [ ] Intercept paste events: detect multi-line clipboard content and insert it into the buffer verbatim instead of dispatching each line as a separate submit
+- [ ] Add a manual newline key binding (e.g. Shift+Enter or Alt+Enter): insert `\n` into the input buffer without submitting
+- [ ] Enter alone still submits (existing behaviour preserved)
+
+Buffer display:
+- [ ] Render the input buffer as a multi-line widget when it contains newlines (the input area grows or scrolls to accommodate the content)
+
+Submission:
+- [ ] The full buffer (including embedded newlines) is dispatched as a single `:user/message` event on Enter
+
+Tests:
+- [ ] Paste simulation: inject a multiline string into the buffer → assert single entry in `:ui/history`, single `:user/message` dispatched
+- [ ] Shift+Enter inserts newline without submitting
+- [ ] Enter on a buffer containing newlines dispatches the whole text as one event
+- [ ] Regression: single-line Enter submit path unchanged
 
 ---
 
