@@ -4,10 +4,10 @@
 
 ### Group A — Storage & Bootstrap
 
-- [ ] Define history entry schema: `{:history/id <uuid> :history/text <string> :history/timestamp <inst>}`
-- [ ] Extend first-startup bootstrap to create `assistant-data/history/` directory and an empty `history.edn` file
-- [ ] Implement history file reader: parse `history.edn`, return the last 50 entries as a vector
-- [ ] Wire history loading into system startup: read `history.edn` at boot and set `:ui/history` in the initial runtime db state (via the bootstrap/init path, not a dispatched event)
+- [x] Define history entry schema: `{:history/id <uuid> :history/text <string> :history/timestamp <inst>}`
+- [x] Extend first-startup bootstrap to create `assistant-data/history/` directory and an empty `history.edn` file
+- [x] Implement history file reader: parse `history.edn`, return the last 50 entries as a vector
+- [x] Wire history loading into system startup: read `history.edn` at boot and set `:ui/history` in the initial runtime db state (via the bootstrap/init path, not a dispatched event)
 
 ### Group B — Persistence
 
