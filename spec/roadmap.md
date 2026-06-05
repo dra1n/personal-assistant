@@ -913,9 +913,9 @@ Tests:
 - [x] Write tests for per-root capabilities: a `read`-only root rejects `write-file`/refuses writes; a `deny` root rejects reads even if a broader root would allow them; longest-prefix root wins
 - [x] Write tests for dry-run mode: assert no side effects occur, correct effect descriptor is logged
 
-LLM tool use (single hop):
+LLM tool use (multi-hop as of Phase 4b):
 
-- [x] Let the LLM call a tool and continue the turn in one hop — a scope addition beyond the original Phase 4 list. The provider protocol returns `{:content :tool-calls}`; `:user/message` advertises the registered tools; a tool request becomes `:assistant/tool-call → :tool/invoke → :tool/result → ` a follow-up `:llm/invoke` with **no tools advertised**, so the model must answer in text (single hop enforced structurally). Multiple tool calls in one turn run sequentially, with the follow-up deferred until all have results. Streamed `tool_calls` are assembled in the OpenAI provider. The recursive multi-step tool loop remains Phase 7.
+- [x] Let the LLM call a tool and continue the turn in one hop — a scope addition beyond the original Phase 4 list. The provider protocol returns `{:content :tool-calls}`; `:user/message` advertises the registered tools; a tool request becomes `:assistant/tool-call → :tool/invoke → :tool/result → ` a follow-up `:llm/invoke`. Multiple tool calls in one turn run sequentially, with the follow-up deferred until all have results. Streamed `tool_calls` are assembled in the OpenAI provider. (Phase 4b extended this to re-advertise tools on follow-up, enabling multi-hop chains like search → fetch → answer.)
 
 (Tool-argument schema validation — enforcement + property tests — is carried
 into Phase 4b, where LLM-supplied arguments to network tools make it matter
@@ -933,14 +933,14 @@ from Phase 4.
 
 Shared machinery:
 
-- [ ] Enforce tool-argument schemas in `:tool/invoke`: validate `:tool/args` against the registered `:schema` before executing; on failure emit a `:tool/result` error (`:type :tool/invalid-args`) and do not run the tool. Applies to all tools, filesystem and network.
-- [ ] Write property-based (test.check) tests for tool schema validation
+- [x] Enforce tool-argument schemas in `:tool/invoke`: validate `:tool/args` against the registered `:schema` before executing; on failure emit a `:tool/result` error (`:type :tool/invalid-args`) and do not run the tool. Applies to all tools, filesystem and network.
+- [x] Write property-based (test.check) tests for tool schema validation
 
 Network tools:
 
-- [ ] Implement web search tool (DuckDuckGo or similar, no API key required initially)
-- [ ] Implement webpage retrieval tool: fetch + reduce to readable text/markdown (parse with a small library, not regex — strip scripts/styles/markup; raw HTML behind a `:format` flag; full main-content Readability is a later nice-to-have). Apply the domain/IP allow-deny + SSRF guard from [design-notes.md](design-notes.md) (resolve host → reject private/link-local ranges), which also covers the extraction approach.
-- [ ] Write tests for each tool with mocked HTTP
+- [x] Implement web search tool (DuckDuckGo or similar, no API key required initially)
+- [x] Implement webpage retrieval tool: fetch + reduce to readable text/markdown (parse with a small library, not regex — strip scripts/styles/markup; raw HTML behind a `:format` flag; full main-content Readability is a later nice-to-have). Apply the domain/IP allow-deny + SSRF guard from [design-notes.md](design-notes.md) (resolve host → reject private/link-local ranges), which also covers the extraction approach.
+- [x] Write tests for each tool with mocked HTTP
 
 ---
 
