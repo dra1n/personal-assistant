@@ -24,10 +24,10 @@
 
 ### Group 4 — `:memories` coeffect + prompt wiring
 
-- [ ] Add `:memories` coeffect injector to `pa.runtime.coeffects`: reads `:content` from the triggering `:user/message` event as query text, calls `pa.db.memory/retrieve`, injects result as `{:memories [...]}` into the coeffect map
-- [ ] Register the `:memories` injector for `:user/message` handlers only (per-handler interceptor, not global)
-- [ ] Update `assemble-for` in `pa.runtime.handlers` to read `:memories` from the coeffect map instead of hardcoding `[]`
-- [ ] REPL verification: seed one memory record, send a message on the same topic, confirm `:memories` in coeffect map is non-empty and the assembled prompt includes the snippet
+- [x] Add `:memories` coeffect injector to `pa.runtime.coeffects`: reads `:content` from the triggering `:user/message` event as query text, calls `pa.db.memory/retrieve`, injects result as `{:memories [...]}` into the coeffect map
+- [x] Register the `:memories` injector for `:user/message` handlers only (per-handler interceptor, not global)
+- [x] Update `assemble-for` in `pa.runtime.handlers` to read `:memories` from the coeffect map instead of hardcoding `[]`
+- [x] REPL verification: seed one memory record, send a message on the same topic, confirm `:memories` in coeffect map is non-empty and the assembled prompt includes the snippet
 
 ## Notes
 
