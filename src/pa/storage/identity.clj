@@ -68,20 +68,21 @@
    ["user.md"     :user]
    ["agents.md"   :agents]])
 
+(defn- load-ctx [path]
+  (select-keys (load-identity-file path) [:front-matter :prose]))
+
 (defn load-all
-  "Load identity.md, user.md, agents.md from root/identity/.
-  Returns a merged context map keyed by file, each value carrying both the
-  parsed front-matter and the prose body:
-    {:identity {:front-matter <map> :prose <string>}
-     :user     {:front-matter <map> :prose <string>}
-     :agents   {:front-matter <map> :prose <string>}}"
+  "Load identity.md, user.md, agents.md from root/identity/, and memory.md
+  from root/memory/. Returns a merged context map:
+    {:identity      {:front-matter <map> :prose <string>}
+     :user          {:front-matter <map> :prose <string>}
+     :agents        {:front-matter <map> :prose <string>}
+     :memory-wisdom {:front-matter {} :prose <string>}}"
   [root]
-  (into {}
-        (map (fn [[filename key]]
-               (let [{:keys [front-matter prose]}
-                     (load-identity-file (str root "/identity/" filename))]
-                 [key {:front-matter front-matter :prose prose}]))
-             identity-files)))
+  (-> (into {} (map (fn [[filename k]]
+                      [k (load-ctx (str root "/identity/" filename))])
+                    identity-files))
+      (assoc :memory-wisdom (load-ctx (str root "/memory/memory.md")))))
 
 ;; ---------------------------------------------------------------------------
 ;; Integrant component

@@ -5,6 +5,9 @@
 (def ^:private identity-template-files
   ["identity.md" "user.md" "agents.md"])
 
+(def ^:private memory-template-files
+  ["memory.md"])
+
 (def ^:private system-template-files
   ["tools.md"])
 
@@ -39,6 +42,9 @@
 (defn- create-identity-templates! [root]
   (create-templates! root "identity" identity-template-files))
 
+(defn- create-memory-templates! [root]
+  (create-templates! root "memory" memory-template-files))
+
 (defn- create-system-templates! [root]
   (create-templates! root "system" system-template-files))
 
@@ -59,6 +65,7 @@
 (defn bootstrap! [root]
   (create-dirs! root)
   (create-identity-templates! root)
+  (create-memory-templates! root)
   (create-system-templates! root)
   (create-event-log! root)
   (create-history-log! root))

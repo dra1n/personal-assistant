@@ -54,6 +54,13 @@
       (is (pos? (.length f)) "system/tools.md should not be empty")
       (is (re-find #"(?m)```allowlist" (slurp f)) "ships with an allowlist block"))))
 
+(deftest bootstrap-creates-memory-wisdom-template
+  (testing "memory/memory.md is created with content"
+    (fs/bootstrap! *tmp-root*)
+    (let [f (io/file *tmp-root* "memory" "memory.md")]
+      (is (.exists f) "memory/memory.md should exist")
+      (is (pos? (.length f)) "memory/memory.md should not be empty"))))
+
 (deftest bootstrap-creates-event-log
   (testing "empty events.edn is created"
     (fs/bootstrap! *tmp-root*)

@@ -58,9 +58,10 @@
 ;; ---------------------------------------------------------------------------
 
 (def ^:private identity-sections
-  [[:identity "Assistant identity"]
-   [:user     "About the user"]
-   [:agents   "Operating guidelines"]])
+  [[:identity      "Assistant identity"]
+   [:user          "About the user"]
+   [:agents        "Operating guidelines"]
+   [:memory-wisdom "Permanent memory"]])
 
 (defn- render-memories [snippets]
   (when (seq snippets)
