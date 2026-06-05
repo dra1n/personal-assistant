@@ -64,4 +64,6 @@
   (async/close! db-ch)
   (when log-ch (async/close! log-ch))
   (quit!)
+  ;; Disable bracketed paste mode so the terminal is clean after exit.
+  (doto System/out (.print "[?2004l") (.flush))
   (log/info "terminal UI stopped"))

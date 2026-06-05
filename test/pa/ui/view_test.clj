@@ -1,5 +1,6 @@
 (ns pa.ui.view-test
-  (:require [clojure.string :as str]
+  (:require [charm.components.viewport :as vp]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [pa.ui.view :as view]))
 
@@ -40,12 +41,42 @@
       (is (str/includes? out "Aria"))
       (is (not (str/includes? out "Assistant")) "name replaces the default label"))))
 
+(deftest input-line-count-single-line
+  (testing "blank or single-line input always reports 1 visual line"
+    (is (= 1 (view/input-line-count {})))
+    (is (= 1 (view/input-line-count {:input ""})))
+    (is (= 1 (view/input-line-count {:input "hello" :width 80})))))
+
+(deftest input-line-count-multiline
+  (testing "counts visual lines for buffers with embedded newlines"
+    (is (= 2 (view/input-line-count {:input "line one\nline two" :width 80})))
+    (is (= 3 (view/input-line-count {:input "a\nb\nc" :width 80})))
+    ;; trailing newline adds a blank visual line
+    (is (= 2 (view/input-line-count {:input "hello\n" :width 80})))))
+
 (deftest viewport-height-reserves-conversation-border-rows
-  (testing "fixed chrome (incl. the 3-row header) and border rows are subtracted"
-    ;; 24 − fixed chrome (11) − collapsed log panel (1) = 12
+  (testing "fixed chrome (header + blanks + 1-line input + hint + borders) are subtracted"
+    ;; 24 − (10 + input-line-count(1) + collapsed-panel(1)) = 12
     (is (= 12 (view/viewport-height {:height 24 :logs-open? false})))
-    ;; 24 − 11 − expanded log panel (11) = 2 → clamped to the 3-row minimum
+    ;; 24 − (10 + 1 + expanded-panel(11)) = 2 → clamped to the 3-row minimum
     (is (= 3 (view/viewport-height {:height 24 :logs-open? true})))))
+
+(deftest viewport-height-shrinks-for-multiline-input
+  (testing "each additional input line reduces the conversation viewport by one row"
+    (let [single (view/viewport-height {:height 30 :logs-open? false :input "one line"  :width 80})
+          double (view/viewport-height {:height 30 :logs-open? false :input "a\nb"       :width 80})
+          triple (view/viewport-height {:height 30 :logs-open? false :input "a\nb\nc"    :width 80})]
+      (is (= 1 (- single double)) "2-line input shrinks viewport by 1")
+      (is (= 1 (- double triple)) "3-line input shrinks viewport by another 1"))))
+
+(deftest frame-height-unchanged-with-multiline-input
+  (testing "the rendered frame is still exactly terminal height when input is multiline"
+    (let [m (-> {:input "line one\nline two" :width 40 :height 30
+                 :db {:conversation []} :logs [] :logs-open? false :focus :input
+                 :streaming "" :motd-fallback "tip" :viewport (vp/viewport "")}
+                view/view)]
+      (is (= 30 (count (str/split-lines m)))
+          "multiline input grows the input box and shrinks the conversation to compensate"))))
 
 (deftest header-shows-motd-or-fallback-tip
   (testing "the header wordmark plus the user's motd, or a fallback tip"

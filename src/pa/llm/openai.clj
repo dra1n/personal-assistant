@@ -54,9 +54,9 @@
               content (:content delta)
               tcs     (:tool_calls delta)]
           (cond
-            (and content (not (str/blank? content))) {:delta content}
-            (seq tcs)                                {:tool-calls tcs}
-            :else                                    nil))))))
+            (not-empty content) {:delta content}
+            (seq tcs)           {:tool-calls tcs}
+            :else               nil))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Request building

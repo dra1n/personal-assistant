@@ -999,21 +999,21 @@ Problems to solve:
 - There is no way to insert a newline manually (e.g. Shift+Enter or Alt+Enter) to compose a multiline message before submitting
 
 Input capture:
-- [ ] Intercept paste events: detect multi-line clipboard content and insert it into the buffer verbatim instead of dispatching each line as a separate submit
-- [ ] Add a manual newline key binding (e.g. Shift+Enter or Alt+Enter): insert `\n` into the input buffer without submitting
-- [ ] Enter alone still submits (existing behaviour preserved)
+- [x] Intercept paste events: detect multi-line clipboard content and insert it into the buffer verbatim instead of dispatching each line as a separate submit
+- [x] Add a manual newline key binding (Alt+Enter / Option+Return): insert `\n` into the input buffer without submitting
+- [x] Enter alone still submits (existing behaviour preserved)
 
 Buffer display:
-- [ ] Render the input buffer as a multi-line widget when it contains newlines (the input area grows or scrolls to accommodate the content)
+- [x] Render the input buffer as a multi-line widget when it contains newlines (the input area grows or scrolls to accommodate the content)
 
 Submission:
-- [ ] The full buffer (including embedded newlines) is dispatched as a single `:user/message` event on Enter
+- [x] The full buffer (including embedded newlines) is dispatched as a single `:user/message` event on Enter
 
 Tests:
-- [ ] Paste simulation: inject a multiline string into the buffer → assert single entry in `:ui/history`, single `:user/message` dispatched
-- [ ] Shift+Enter inserts newline without submitting
-- [ ] Enter on a buffer containing newlines dispatches the whole text as one event
-- [ ] Regression: single-line Enter submit path unchanged
+- [x] Paste simulation: inject a multiline string into the buffer → assert single entry in `:ui/history`, single `:user/message` dispatched
+- [x] Alt+Enter inserts newline without submitting
+- [x] Enter on a buffer containing newlines dispatches the whole text as one event
+- [x] Regression: single-line Enter submit path unchanged
 
 ---
 

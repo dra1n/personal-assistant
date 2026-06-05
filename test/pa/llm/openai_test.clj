@@ -49,6 +49,9 @@
         "role-only opening chunk carries no content")
     (is (nil? (openai/parse-sse-line "data: {\"choices\":[{\"delta\":{\"content\":\"\"}}]}"))
         "empty-string content is skipped")
+    (is (= {:delta "\n"}
+           (openai/parse-sse-line "data: {\"choices\":[{\"delta\":{\"content\":\"\\n\"}}]}"))
+        "newline-only delta is kept — str/blank? would wrongly drop it")
     (is (nil? (openai/parse-sse-line "")) "blank line")
     (is (nil? (openai/parse-sse-line ": keep-alive")) "SSE comment / keep-alive")
     (is (nil? (openai/parse-sse-line "data: ")) "empty data payload")))
