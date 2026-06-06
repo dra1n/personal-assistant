@@ -1099,8 +1099,56 @@ memory extraction as a background cognition job — the right granularity for
 extraction is a session or time window, not a single message, so it lives here
 rather than inline with every LLM response.
 
+### Architecture: session-lifecycle engine (not a daemon)
+
+This is a **session-based app** — the user launches it, works, and closes it. The
+scheduler is an Integrant component like any other: `ig/init-key` fires overdue
+jobs and starts the ticker loop; `ig/halt-key!` flushes end-of-session jobs and
+stops the loop. No special decoupling needed — Integrant's own lifecycle is the
+contract.
+
+```text
+ig/init-key :scheduler  → fire overdue/missed jobs, start in-session ticker
+ig/halt-key! :scheduler → flush end-of-session jobs (extraction, consolidation)
+```
+
+### Migration path to a background daemon (future, not Phase 6)
+
+When real-time reminders while the app is closed become necessary, the migration
+is straightforward — Integrant's component model already gives the right shape:
+
+1. Add a `daemon-config` to `pa.config` — same `:scheduler`, `:storage/*`, and
+   `:db/sqlite` components, just without `:pa.ui/terminal` and `:llm/provider`
+2. Enable SQLite WAL mode for safe concurrent reads/writes from two processes
+3. Add file locking around `events.edn` appends
+4. Optionally add IPC if live notifications to an open session are needed —
+   without it, overdue reminders still surface at next startup
+
+No redesign of the scheduler component itself required.
+
+> **Do now (Phase 6):** Enable SQLite WAL mode (`PRAGMA journal_mode=WAL`) in
+> `pa.db.schema/init!`. No downside at single-process scale; avoids a schema
+> change later.
+
+Bootstrap prerequisites (gaps carried forward from earlier phases):
+
+- [ ] Add `tasks/scheduled/` to `pa.storage.fs/create-dirs!` — Phase 6 persists
+      scheduled task EDN files there but the directory is not currently created at startup
+- [ ] Add `HEARTBEAT.md` to the system template set: extend `system-template-files`
+      in `pa.storage.fs` and add a starter template at `resources/templates/system/heartbeat.md`
+- [ ] Enable SQLite WAL mode: add `PRAGMA journal_mode=WAL` to `pa.db.schema/init!`
+
+Scheduler:
+
 - [ ] Define scheduled task schema (`:task/id`, `:task/cron`, `:task/type`, `:task/payload`)
-- [ ] Implement cron-style scheduler as an Integrant component (fire events on schedule)
+- [ ] Implement scheduler as an Integrant component; add `:scheduler` to
+      `pa.config/system-config` and wire it into `:pa.runtime/dispatcher` context;
+      startup catch-up and in-session ticker live in `ig/init-key`; end-of-session
+      flush lives in `ig/halt-key!`
+- [ ] Implement startup catch-up: on `ig/init-key :scheduler`, scan `tasks/scheduled/`
+      for any tasks whose next-fire time has passed and dispatch their events immediately
+- [ ] Implement in-session ticker: a core.async loop that fires task events as their
+      wall-clock time arrives while the app is running
 - [ ] Implement reminder task type: emit a `:reminder/due` event at scheduled time
 - [ ] Implement periodic reflection job: summarize recent memory into `cognition/reflections/`
 - [ ] Implement memory consolidation job: merge daily memory files into longer-term summaries
@@ -1111,11 +1159,32 @@ rather than inline with every LLM response.
 
 Memory extraction (background job):
 
-- [ ] Implement `memory.md` writer: reads current `memory.md` content, merges in new permanent facts (add new bullet items, deduplicate against existing content, optionally remove entries explicitly marked stale), writes back — distinct from the append-only daily writer because `memory.md` is a curated document, not a log
-- [ ] Implement end-of-session memory extraction job: after the conversation reaches N turns (configurable threshold), run an extraction prompt against recent conversation history; the prompt classifies each extracted item as ephemeral (→ `memory/daily/` via `:memory/write` effect) or permanent (→ `memory.md` via the wisdom writer); N is a config parameter (start with 10 turns)
-- [ ] Extraction runs asynchronously and does not block user input or app shutdown — fire-and-forget via `dispatch!` from the scheduler
-- [ ] Write tests for the extraction job: fixture conversation of N turns → assert ephemeral items produce `:memory/write` effects and permanent items are merged into `memory.md`
-- [ ] Write tests for the `memory.md` writer: fixture current content + new items → assert output contains new items, deduplicates exact matches, preserves unrelated existing content
+> **Note on the `memory.md` writer:** `pa.storage.memory` (the existing daily writer) is
+> append-only and targets `memory/daily/YYYY-MM-DD.md`. The wisdom writer below is a
+> separate, new namespace — it reads the full `memory.md` file, merges new items, and
+> writes it back. `pa.storage.identity/load-all` already reads `memory.md`; there is
+> currently no write path for it.
+
+- [ ] Implement `memory.md` wisdom writer (e.g. `pa.storage.memory-wisdom`): reads current
+      `memory.md` content, merges in new permanent facts (add new bullet items, deduplicate
+      against existing content, optionally remove entries explicitly marked stale), writes
+      back — distinct from the append-only daily writer in `pa.storage.memory` because
+      `memory.md` is a curated document, not a log
+- [ ] Add session turn counter: `:conversation` in runtime state exists but there is no
+      N-turn threshold or session boundary concept yet; derive turn count from
+      `(count (:conversation db))` and emit a `:session/threshold-reached` event when the
+      count hits a configurable multiple of N (start with N=10)
+- [ ] Implement end-of-session memory extraction job: triggered by `:session/threshold-reached`,
+      run an extraction prompt against recent conversation history; the prompt classifies each
+      extracted item as ephemeral (→ `memory/daily/` via `:memory/write` effect) or permanent
+      (→ `memory.md` via the wisdom writer); N is a config parameter (start with 10 turns)
+- [ ] Extraction runs asynchronously and does not block user input or app shutdown —
+      fire-and-forget via `:dispatch` from the threshold handler
+- [ ] Write tests for the extraction job: fixture conversation of N turns → assert ephemeral
+      items produce `:memory/write` effects and permanent items are merged into `memory.md`
+- [ ] Write tests for the `memory.md` wisdom writer: fixture current content + new items →
+      assert output contains new items, deduplicates exact matches, preserves unrelated
+      existing content
 
 Scheduler tests:
 
