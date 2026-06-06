@@ -104,13 +104,13 @@
 
 (defn- decode-entities [s]
   (-> s
-      (str/replace #"&#(\d+);"           #(str (char (Integer/parseInt (second %)))))
-      (str/replace #"&#x([0-9a-fA-F]+);" #(str (char (Integer/parseInt (second %) 16))))
       (str/replace "&amp;"  "&")
       (str/replace "&lt;"   "<")
       (str/replace "&gt;"   ">")
       (str/replace "&quot;" "\"")
-      (str/replace "&apos;" "'")))
+      (str/replace "&apos;" "'")
+      (str/replace #"&#(\d+);"           #(str (char (Integer/parseInt (second %)))))
+      (str/replace #"&#x([0-9a-fA-F]+);" #(str (char (Integer/parseInt (second %) 16))))))
 
 (defn- parse-transcript-xml [body]
   (->> (re-seq #"(?s)<text[^>]*>(.*?)</text>" body)
