@@ -26,8 +26,13 @@
            vec)
       [])))
 
+(defn- kw->id [kw]
+  (if-let [ns (namespace kw)]
+    (str ns "/" (name kw))
+    (name kw)))
+
 (defn- job->task [job]
-  {:task/id          (name (:job/type job))
+  {:task/id          (kw->id (:job/type job))
    :task/type        (:job/type job)
    :task/payload     {}
    :task/fire-at     (.toEpochMilli (Instant/now))
@@ -39,6 +44,6 @@
   [root existing-tasks]
   (let [existing-ids (set (map :task/id existing-tasks))]
     (doseq [job  (load-jobs root)
-            :let [id (name (:job/type job))]
+            :let [id (kw->id (:job/type job))]
             :when (not (existing-ids id))]
       (tasks/write-task! root (job->task job)))))

@@ -6,7 +6,8 @@
 
 ;; Task schema:
 ;;   :task/id          — string UUID (or stable name for heartbeat jobs)
-;;   :task/type        — keyword (:reminder | :periodic-reflection | :memory-consolidation)
+;;   :task/type        — qualified keyword; doubles as the dispatched event type
+;;                       e.g. :reminder/due | :scheduler/periodic-reflection
 ;;   :task/payload     — map (task-type-specific data)
 ;;   :task/fire-at     — Unix epoch ms (long)
 ;;   :task/interval-ms — long for repeating tasks, nil for one-shots
@@ -18,11 +19,14 @@
    :task/fire-at     fire-at
    :task/interval-ms interval-ms})
 
+(defn- safe-filename [id]
+  (str/replace id "/" "_"))
+
 (defn- task-file [root id]
-  (io/file root "tasks" "scheduled" (str id ".edn")))
+  (io/file root "tasks" "scheduled" (str (safe-filename id) ".edn")))
 
 (defn- completed-file [root id]
-  (io/file root "tasks" "completed" (str id ".edn")))
+  (io/file root "tasks" "completed" (str (safe-filename id) ".edn")))
 
 (defn write-task!
   "Persist a task EDN to tasks/scheduled/<id>.edn. Returns the task."

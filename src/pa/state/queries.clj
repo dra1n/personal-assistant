@@ -62,3 +62,18 @@
   "Return the tool-result records recorded this session."
   [db]
   (:tool/results db))
+
+(defn scheduled-tasks
+  "Return the scheduled-task vector."
+  [db]
+  (:tasks/scheduled db))
+
+(defn due-tasks
+  "Return tasks whose :task/fire-at is at or before now-ms."
+  [db now-ms]
+  (filterv #(<= (:task/fire-at %) now-ms) (:tasks/scheduled db)))
+
+(defn notifications
+  "Return the pending UI notifications vector."
+  [db]
+  (:ui/notifications db))

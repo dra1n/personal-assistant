@@ -68,6 +68,52 @@
            (queries/ui-prefs populated-db)))))
 
 ;; ---------------------------------------------------------------------------
+;; queries/scheduled-tasks
+;; ---------------------------------------------------------------------------
+
+(deftest scheduled-tasks-returns-empty-on-initial-db
+  (testing "returns empty vector for initial state"
+    (is (= [] (queries/scheduled-tasks base-db)))))
+
+(deftest scheduled-tasks-returns-vector
+  (testing "returns the :tasks/scheduled vector"
+    (let [tasks [{:task/id "a" :task/fire-at 0} {:task/id "b" :task/fire-at 1}]
+          db    (assoc base-db :tasks/scheduled tasks)]
+      (is (= tasks (queries/scheduled-tasks db))))))
+
+;; ---------------------------------------------------------------------------
+;; queries/due-tasks
+;; ---------------------------------------------------------------------------
+
+(deftest due-tasks-returns-only-tasks-at-or-before-now
+  (testing "filters to tasks whose :task/fire-at <= now-ms"
+    (let [db (assoc base-db :tasks/scheduled
+                    [{:task/id "past"   :task/fire-at 100}
+                     {:task/id "now"    :task/fire-at 500}
+                     {:task/id "future" :task/fire-at 900}])]
+      (is (= #{"past" "now"}
+             (set (map :task/id (queries/due-tasks db 500))))))))
+
+(deftest due-tasks-returns-empty-when-none-due
+  (testing "returns empty vector when all tasks are in the future"
+    (let [db (assoc base-db :tasks/scheduled [{:task/id "later" :task/fire-at 9999}])]
+      (is (= [] (queries/due-tasks db 0))))))
+
+;; ---------------------------------------------------------------------------
+;; queries/notifications
+;; ---------------------------------------------------------------------------
+
+(deftest notifications-returns-nil-on-initial-db
+  (testing "returns nil when key is absent"
+    (is (nil? (queries/notifications base-db)))))
+
+(deftest notifications-returns-vector
+  (testing "returns the :ui/notifications vector"
+    (let [notifs [{:id "a" :type :reminder}]
+          db     (assoc base-db :ui/notifications notifs)]
+      (is (= notifs (queries/notifications db))))))
+
+;; ---------------------------------------------------------------------------
 ;; Grep check: no swap!/reset! in pa.ui
 ;; ---------------------------------------------------------------------------
 

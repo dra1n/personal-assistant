@@ -6,6 +6,7 @@
             [pa.scheduler.heartbeat :as heartbeat]
             [pa.scheduler.tasks :as tasks]
             [pa.state.db :as db]
+            [pa.state.queries :as queries]
             [taoensso.timbre :as log])
   (:import [java.time Instant]))
 
@@ -17,14 +18,11 @@
 ;; Task dispatch — task type IS the event type (must be a qualified keyword)
 ;; ---------------------------------------------------------------------------
 
-(defn- fire-task! [dispatch! task]
-  (dispatch! (merge {:event/type (:task/type task)} task)))
-
 (defn- process-task!
   "Fire task via event system; advance or complete on disk, update db via events."
   [root dispatch! task]
   (log/info "scheduler: firing" {:task/id (:task/id task) :task/type (:task/type task)})
-  (fire-task! dispatch! task)
+  (dispatch! (merge {:event/type (:task/type task)} task))
   (if (:task/interval-ms task)
     (dispatch! {:event/type :task/advanced :task (tasks/advance-task! root task)})
     (do
@@ -36,16 +34,13 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- run-due! [root dispatch!]
-  (let [now (now-ms)
-        due (filterv #(<= (:task/fire-at %) now)
-                     (:tasks/scheduled @db/db))]
-    (doseq [task due]
-      (process-task! root dispatch! task))))
+  (doseq [task (queries/due-tasks (db/current-db) (now-ms))]
+    (process-task! root dispatch! task)))
 
 (defn- emit-state! []
   (tap> {:scheduler/tick
          {:tasks     (mapv #(select-keys % [:task/id :task/type :task/fire-at])
-                           (:tasks/scheduled @db/db))
+                           (queries/scheduled-tasks (db/current-db)))
           :ticked-at (str (Instant/now))}}))
 
 (defn- start-ticker! [root dispatch! control-ch]
@@ -71,10 +66,12 @@
     (effects/register! {:root root})
 
     (dispatch! {:event/type :tasks/loaded :tasks loaded})
-    ;; Catch-up: fire overdue tasks immediately. :tasks/loaded is still queued,
-    ;; so we use the freshly-loaded list rather than db state.
+    ;; Catch-up: fire overdue tasks immediately using the freshly-loaded list
+    ;; (db not yet populated — :tasks/loaded is still queued). process-task! is
+    ;; safe here: it dispatches :task/advanced/:task/completed events which are
+    ;; enqueued after :tasks/loaded and process once db is populated.
     (doseq [task (filterv #(<= (:task/fire-at %) now) loaded)]
-      (fire-task! dispatch! task))
+      (process-task! root dispatch! task))
     (emit-state!)
     (start-ticker! root dispatch! control-ch)
 

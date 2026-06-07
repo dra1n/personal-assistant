@@ -13,14 +13,15 @@
 ;; ---------------------------------------------------------------------------
 
 (def initial-db
-  {:conversation  []
-   :tasks         {}
-   :memories      []
-   :tool/results  []
-   :events/recent []
-   :ui            {}
-   :ui/history    []
-   :identity      {}})
+  {:conversation      []
+   :tasks             {}
+   :tasks/scheduled   []
+   :memories          []
+   :tool/results      []
+   :events/recent     []
+   :ui                {}
+   :ui/history        []
+   :identity          {}})
 
 (def db (atom initial-db))
 
