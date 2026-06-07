@@ -9,7 +9,7 @@
   ["memory.md"])
 
 (def ^:private system-template-files
-  ["tools.md"])
+  ["tools.md" "heartbeat.md"])
 
 (defn- create-dirs! [root]
   (doseq [path ["identity"
@@ -21,6 +21,7 @@
                 "cognition/plans"
                 "tasks/active"
                 "tasks/completed"
+                "tasks/scheduled"
                 "events"
                 "history"
                 "system"
