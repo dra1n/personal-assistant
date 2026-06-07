@@ -1,6 +1,7 @@
 (ns pa.runtime.scheduler-handlers-test
   (:require [clojure.test :refer [deftest is testing]]
             [pa.runtime.handlers]
+            [pa.scheduler.handlers]
             [pa.runtime.registry :as registry]
             [pa.state.db :as db]))
 
@@ -29,8 +30,8 @@
   (testing "multiple reminders accumulate rather than overwrite"
     (let [fire! (fn [db task-id text]
                   (let [event {:event/type   :reminder/due
-                                :task/id      task-id
-                                :task/payload {:text text}}]
+                               :task/id      task-id
+                               :task/payload {:text text}}]
                     (:db ((handler :reminder/due) {:db db :event event}))))
           db1   (fire! (base-db) "task-1" "Buy milk")
           db2   (fire! db1       "task-2" "Call dentist")]
@@ -85,3 +86,65 @@
           event  {:event/type :notification/dismiss :notification/id "missing"}
           fx     ((handler :notification/dismiss) {:db db :event event})]
       (is (= notifs (get-in fx [:db :ui/notifications]))))))
+
+;; ---------------------------------------------------------------------------
+;; Task lifecycle handlers
+;; ---------------------------------------------------------------------------
+
+(defn- task [id] {:task/id id :task/type :reminder/due :task/payload {} :task/fire-at 0})
+
+(deftest tasks-loaded-sets-scheduled
+  (testing ":tasks/loaded replaces :tasks/scheduled with the given list"
+    (let [tasks [(task "a") (task "b")]
+          fx    ((handler :tasks/loaded) {:db (base-db) :event {:tasks tasks}})]
+      (is (= tasks (get-in fx [:db :tasks/scheduled]))))))
+
+(deftest task-advanced-updates-fire-at
+  (testing ":task/advanced replaces the task in-place with the updated version"
+    (let [original (assoc (task "r") :task/fire-at 1000)
+          advanced (assoc original :task/fire-at 2000)
+          db       (assoc (base-db) :tasks/scheduled [original])
+          fx       ((handler :task/advanced) {:db db :event {:task advanced}})]
+      (is (= 1 (count (get-in fx [:db :tasks/scheduled]))))
+      (is (= 2000 (get-in fx [:db :tasks/scheduled 0 :task/fire-at]))))))
+
+(deftest task-completed-removes-from-scheduled
+  (testing ":task/completed removes the task just like cancel"
+    (let [db (assoc (base-db) :tasks/scheduled [(task "done") (task "pending")])
+          fx ((handler :task/completed) {:db db :event {:task/id "done"}})]
+      (is (= 1 (count (get-in fx [:db :tasks/scheduled]))))
+      (is (= "pending" (:task/id (first (get-in fx [:db :tasks/scheduled]))))))))
+
+;; ---------------------------------------------------------------------------
+;; Scheduling command handlers
+;; ---------------------------------------------------------------------------
+
+(deftest task-schedule-returns-write-effect-and-updates-db
+  (testing ":task/schedule returns :task/write effect and registers task in db"
+    (let [spec {:type :reminder/due :fire-at 9999 :payload {:text "hi"}}
+          fx   ((handler :task/schedule) {:db (base-db) :event {:spec spec}})]
+      (is (map? (:task/write fx)))
+      (is (= :reminder/due (get-in fx [:task/write :task/type])))
+      (is (= 9999 (get-in fx [:task/write :task/fire-at])))
+      (is (= 1 (count (get-in fx [:db :tasks/scheduled])))))))
+
+(deftest task-schedule-does-not-touch-disk
+  (testing ":task/schedule is pure — no disk I/O, only effect descriptors"
+    (let [spec {:type :reminder/due :fire-at 0 :payload {}}
+          fx   ((handler :task/schedule) {:db (base-db) :event {:spec spec}})]
+      (is (contains? fx :task/write))
+      (is (contains? fx :db))
+      (is (= 2 (count fx))))))
+
+(deftest task-cancel-returns-delete-effect-and-updates-db
+  (testing ":task/cancel returns :task/delete effect and removes task from db"
+    (let [db (assoc (base-db) :tasks/scheduled [(task "gone") (task "keep")])
+          fx ((handler :task/cancel) {:db db :event {:task/id "gone"}})]
+      (is (= "gone" (:task/delete fx)))
+      (is (= 1 (count (get-in fx [:db :tasks/scheduled]))))
+      (is (= "keep" (:task/id (first (get-in fx [:db :tasks/scheduled]))))))))
+
+(deftest periodic-reflection-returns-run-effect
+  (testing ":scheduler/periodic-reflection returns only a :reflection/run effect"
+    (let [fx ((handler :scheduler/periodic-reflection) {:db (base-db)})]
+      (is (= {:reflection/run {}} fx)))))

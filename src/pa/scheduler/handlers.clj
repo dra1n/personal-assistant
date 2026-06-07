@@ -1,0 +1,38 @@
+(ns pa.scheduler.handlers
+  (:require [pa.runtime.registry :as registry]
+            [pa.scheduler.tasks :as tasks]
+            [pa.state.transitions :as tr]))
+
+;; ---------------------------------------------------------------------------
+;; Scheduling commands — pure handlers, disk I/O delegated to effects
+;; ---------------------------------------------------------------------------
+
+(registry/reg-handler :task/schedule
+                      (fn [{:keys [db event]}]
+                        (let [task (tasks/make-task (:spec event))]
+                          {:task/write task
+                           :db         (tr/register-scheduled-task db task)})))
+
+(registry/reg-handler :task/cancel
+                      (fn [{:keys [db event]}]
+                        {:task/delete (:task/id event)
+                         :db          (tr/remove-scheduled-task db (:task/id event))}))
+
+(registry/reg-handler :scheduler/periodic-reflection
+                      (fn [_] {:reflection/run {}}))
+
+;; ---------------------------------------------------------------------------
+;; Task lifecycle — state transitions driven by the ticker
+;; ---------------------------------------------------------------------------
+
+(registry/reg-handler :tasks/loaded
+                      (fn [{:keys [db event]}]
+                        {:db (tr/load-scheduled-tasks db (:tasks event))}))
+
+(registry/reg-handler :task/advanced
+                      (fn [{:keys [db event]}]
+                        {:db (tr/replace-scheduled-task db (:task event))}))
+
+(registry/reg-handler :task/completed
+                      (fn [{:keys [db event]}]
+                        {:db (tr/remove-scheduled-task db (:task/id event))}))

@@ -218,22 +218,18 @@
 ;; --- :task/schedule -----------------------------------------------------
 ;;
 ;; params: {:type kw, :payload map, :fire-at long, :interval-ms long|nil}
-;; ctx must contain :schedule-task! fn from :scheduler component.
+;; Dispatches :task/schedule event; handler registered in pa.scheduler.core.
 
-(defmethod execute-effect :task/schedule [_ spec {:keys [schedule-task!]}]
-  (if schedule-task!
-    (schedule-task! spec)
-    (log/warn ":task/schedule called but no :schedule-task! in ctx — is :scheduler wired?")))
+(defmethod execute-effect :task/schedule [_ spec {:keys [dispatch!]}]
+  (dispatch! {:event/type :task/schedule :spec spec}))
 
 ;; --- :task/cancel -------------------------------------------------------
 ;;
 ;; params: {:task/id string}
-;; ctx must contain :cancel-task! fn from :scheduler component.
+;; Dispatches :task/cancel event; handler registered in pa.scheduler.core.
 
-(defmethod execute-effect :task/cancel [_ {:keys [task/id]} {:keys [cancel-task!]}]
-  (if cancel-task!
-    (cancel-task! id)
-    (log/warn ":task/cancel called but no :cancel-task! in ctx — is :scheduler wired?")))
+(defmethod execute-effect :task/cancel [_ {:keys [task/id]} {:keys [dispatch!]}]
+  (dispatch! {:event/type :task/cancel :task/id id}))
 
 ;; --- default -----------------------------------------------------------
 

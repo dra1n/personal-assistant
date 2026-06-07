@@ -23,7 +23,7 @@
   (swap! db/db update :events/recent conj event)
   (interceptors/run-standard-chain event system-context))
 
-(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity history memory indexer llm policy scheduler deltas]}]
+(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity history memory indexer llm policy deltas]}]
   (let [ch (async/chan 256)
         dispatch! (fn [event-map]
                     (async/put! ch (events/make-event event-map)))
@@ -41,15 +41,11 @@
                                   :llm-provider       llm
                                   :tool.fs/policy     policy
                                   :http               (http/hato-client)
-                                  :emit-delta!        emit-delta!
-                                  :schedule-task!     (:schedule! scheduler)
-                                  :cancel-task!       (:cancel! scheduler)}}]
+                                  :emit-delta!        emit-delta!}}]
     (async/go-loop []
       (when-let [event (async/<! ch)]
         (process-event! event system-context)
         (recur)))
-    (when scheduler
-      ((:start! scheduler) dispatch!))
     (when (seq (:history history))
       (dispatch! {:event/type :history/loaded
                   :entries    (:history history)}))

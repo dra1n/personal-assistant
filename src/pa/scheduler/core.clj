@@ -1,138 +1,85 @@
 (ns pa.scheduler.core
   (:require [clojure.core.async :as async]
-            [clojure.java.io :as io]
-            [clojure.string :as str]
             [integrant.core :as ig]
-            [pa.llm.provider :as provider]
+            [pa.scheduler.effects :as effects]
+            [pa.scheduler.handlers]
             [pa.scheduler.heartbeat :as heartbeat]
             [pa.scheduler.tasks :as tasks]
-            [pa.storage.memory :as memory]
+            [pa.state.db :as db]
             [taoensso.timbre :as log])
-  (:import [java.time Instant LocalDate]
-           [java.time.format DateTimeFormatter]))
+  (:import [java.time Instant]))
 
 (def ^:private tick-ms 60000)
 
 (defn- now-ms [] (.toEpochMilli (Instant/now)))
 
 ;; ---------------------------------------------------------------------------
-;; Job implementations — run in futures so the ticker go-loop never blocks
+;; Task dispatch — task type IS the event type (must be a qualified keyword)
 ;; ---------------------------------------------------------------------------
 
-(defn- parse-date [f]
-  (try (LocalDate/parse (str/replace (.getName f) ".md" ""))
-       (catch Exception _ nil)))
-
-(defn- record->text [r]
-  (str "## " (:memory/title r) "\n\n" (:memory/summary r)))
-
-(defn- run-reflection! [root llm-provider]
-  (let [dir (io/file root "memory" "daily")]
-    (when (.isDirectory dir)
-      (let [records (->> (.listFiles dir)
-                         (filter #(str/ends-with? (.getName %) ".md"))
-                         (sort-by #(.getName %))
-                         (take-last 7)
-                         (keep parse-date)
-                         (mapcat #(memory/read-daily root %)))]
-        (when (seq records)
-          (let [content  (str/join "\n\n---\n\n" (map record->text records))
-                messages [{:role    :system
-                           :content "Summarize the key themes, decisions, and insights from these memory notes in 3–5 bullet points."}
-                          {:role :user :content content}]
-                {:keys [content]} (provider/stream llm-provider messages {} (fn [_]))]
-            (when (seq content)
-              (let [date (.format (LocalDate/now) (DateTimeFormatter/ofPattern "yyyy-MM-dd"))
-                    path (str root "/cognition/reflections/" date ".md")]
-                (io/make-parents (io/file path))
-                (spit path content)
-                (log/info "scheduler: reflection written" {:path path})))))))))
-
-;; ---------------------------------------------------------------------------
-;; Task dispatch — runs on the ticker go-loop thread; long jobs go to futures
-;; ---------------------------------------------------------------------------
-
-(defn- fire-task! [{:keys [root llm dispatch!]} task]
-  (case (:task/type task)
-    :reminder
-    (dispatch! {:event/type   :reminder/due
-                :task/id      (:task/id task)
-                :task/payload (:task/payload task)})
-
-    :periodic-reflection
-    (future
-      (try (run-reflection! root llm)
-           (catch Throwable e (log/error e "periodic reflection failed"))))
-
-    (log/warn "scheduler: unknown task type" {:task/type (:task/type task)})))
+(defn- fire-task! [dispatch! task]
+  (dispatch! (merge {:event/type (:task/type task)} task)))
 
 (defn- process-task!
-  "Fire task, advance or complete it on disk, return updated task for repeating tasks or nil."
-  [ctx task]
+  "Fire task via event system; advance or complete on disk, update db via events."
+  [root dispatch! task]
   (log/info "scheduler: firing" {:task/id (:task/id task) :task/type (:task/type task)})
-  (fire-task! ctx task)
+  (fire-task! dispatch! task)
   (if (:task/interval-ms task)
-    (tasks/advance-task! (:root ctx) task)
-    (do (tasks/complete-task! (:root ctx) task) nil)))
+    (dispatch! {:event/type :task/advanced :task (tasks/advance-task! root task)})
+    (do
+      (tasks/complete-task! root task)
+      (dispatch! {:event/type :task/completed :task/id (:task/id task)}))))
 
 ;; ---------------------------------------------------------------------------
-;; Ticker
+;; Ticker — reads task state from db/db
 ;; ---------------------------------------------------------------------------
 
-(defn- run-due! [ctx tasks-atom]
+(defn- run-due! [root dispatch!]
   (let [now (now-ms)
-        due (filterv #(<= (:task/fire-at %) now) @tasks-atom)]
+        due (filterv #(<= (:task/fire-at %) now)
+                     (:tasks/scheduled @db/db))]
     (doseq [task due]
-      (let [updated (process-task! ctx task)]
-        (swap! tasks-atom
-               (fn [ts]
-                 (if updated
-                   (mapv #(if (= (:task/id %) (:task/id task)) updated %) ts)
-                   (filterv #(not= (:task/id %) (:task/id task)) ts))))))))
+      (process-task! root dispatch! task))))
 
-(defn- emit-state! [tasks-atom]
-  (tap> {:scheduler/tick {:tasks     (mapv #(select-keys % [:task/id :task/type :task/fire-at])
-                                           @tasks-atom)
-                          :ticked-at (str (Instant/now))}}))
+(defn- emit-state! []
+  (tap> {:scheduler/tick
+         {:tasks     (mapv #(select-keys % [:task/id :task/type :task/fire-at])
+                           (:tasks/scheduled @db/db))
+          :ticked-at (str (Instant/now))}}))
 
-(defn- start-ticker! [ctx tasks-atom control-ch]
+(defn- start-ticker! [root dispatch! control-ch]
   (async/go-loop []
     (let [[_ ch] (async/alts! [control-ch (async/timeout tick-ms)])]
       (when (not= ch control-ch)
-        (run-due! ctx tasks-atom)
-        (emit-state! tasks-atom)
+        (run-due! root dispatch!)
+        (emit-state!)
         (recur)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Integrant component
-;;
-;; ig/init-key loads tasks and registers heartbeat jobs, but does not start
-;; the ticker. The dispatcher calls :start! after wiring its own dispatch!.
 ;; ---------------------------------------------------------------------------
 
-(defmethod ig/init-key :pa/scheduler [_ {:keys [fs llm]}]
+(defmethod ig/init-key :pa/scheduler [_ {:keys [fs dispatcher]}]
   (let [root       (:root fs)
+        dispatch!  (:dispatch! dispatcher)
         loaded     (tasks/load-tasks root)
         _          (heartbeat/register-if-missing! root loaded)
-        all-tasks  (tasks/load-tasks root)
-        tasks-atom (atom all-tasks)
-        control-ch (async/chan 1)]
-    (log/info "scheduler: loaded" {:task-count (count all-tasks)})
-    {:root       root
-     :control-ch control-ch
-     :tasks-atom tasks-atom
-     :schedule!  (fn [spec]
-                   (let [task (tasks/write-task! root (tasks/make-task spec))]
-                     (swap! tasks-atom conj task)
-                     task))
-     :cancel!    (fn [id]
-                   (tasks/delete-task! root id)
-                   (swap! tasks-atom filterv #(not= (:task/id %) id)))
-     :start!     (fn [dispatch!]
-                   (let [ctx {:root root :llm llm :dispatch! dispatch!}]
-                     (run-due! ctx tasks-atom)
-                     (emit-state! tasks-atom)
-                     (start-ticker! ctx tasks-atom control-ch)))}))
+        control-ch (async/chan 1)
+        now        (now-ms)]
+
+    (effects/register! {:root root})
+
+    (dispatch! {:event/type :tasks/loaded :tasks loaded})
+    ;; Catch-up: fire overdue tasks immediately. :tasks/loaded is still queued,
+    ;; so we use the freshly-loaded list rather than db state.
+    (doseq [task (filterv #(<= (:task/fire-at %) now) loaded)]
+      (fire-task! dispatch! task))
+    (emit-state!)
+    (start-ticker! root dispatch! control-ch)
+
+    (log/info "scheduler: initialized")
+    {:control-ch control-ch}))
 
 (defmethod ig/halt-key! :pa/scheduler [_ {:keys [control-ch]}]
   (async/close! control-ch)

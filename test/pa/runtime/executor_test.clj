@@ -123,6 +123,28 @@
     (is (nil? (executor/execute-effect :event/store {:event/type :test/ping} (make-ctx))))))
 
 ;; ---------------------------------------------------------------------------
+;; :task/schedule effect
+;; ---------------------------------------------------------------------------
+
+(deftest task-schedule-dispatches-event
+  (testing ":task/schedule dispatches a :task/schedule event with :spec"
+    (executor/execute-effect :task/schedule {:type :reminder :fire-at 0} (make-ctx))
+    (is (= 1 (count @dispatched)))
+    (is (= :task/schedule (get-in (first @dispatched) [:event/type])))
+    (is (= {:type :reminder :fire-at 0} (get-in (first @dispatched) [:spec])))))
+
+;; ---------------------------------------------------------------------------
+;; :task/cancel effect
+;; ---------------------------------------------------------------------------
+
+(deftest task-cancel-dispatches-event
+  (testing ":task/cancel dispatches a :task/cancel event with :task/id"
+    (executor/execute-effect :task/cancel {:task/id "abc"} (make-ctx))
+    (is (= 1 (count @dispatched)))
+    (is (= :task/cancel (get-in (first @dispatched) [:event/type])))
+    (is (= "abc" (get-in (first @dispatched) [:task/id])))))
+
+;; ---------------------------------------------------------------------------
 ;; Unknown effect type
 ;; ---------------------------------------------------------------------------
 

@@ -13,7 +13,6 @@
    :memory/indexer           {:db (ig/ref :db/sqlite) :fs (ig/ref :storage/fs)}
    :llm/provider             {:provider :openai}
    :tool.fs/policy           {:fs (ig/ref :storage/fs)}
-   :pa/scheduler                {:fs (ig/ref :storage/fs) :llm (ig/ref :llm/provider)}
    :ui/deltas                {}
    :pa.runtime/dispatcher    {:config    {:env :production}
                               :events    (ig/ref :storage/events)
@@ -23,7 +22,7 @@
                               :indexer   (ig/ref :memory/indexer)
                               :llm       (ig/ref :llm/provider)
                               :policy    (ig/ref :tool.fs/policy)
-                              :pa/scheduler (ig/ref :pa/scheduler)
                               :deltas    (ig/ref :ui/deltas)}
+   :pa/scheduler             {:fs (ig/ref :storage/fs) :dispatcher (ig/ref :pa.runtime/dispatcher)}
    :pa.ui/terminal           {:dispatcher (ig/ref :pa.runtime/dispatcher)
                               :deltas     (ig/ref :ui/deltas)}})
