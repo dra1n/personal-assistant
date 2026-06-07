@@ -215,22 +215,6 @@
     (append-history! entry)
     (log/warn ":history/append called but no :append-history! in ctx — is :storage/history wired?")))
 
-;; --- :task/schedule -----------------------------------------------------
-;;
-;; params: {:type kw, :payload map, :fire-at long, :interval-ms long|nil}
-;; Dispatches :task/schedule event; handler registered in pa.scheduler.core.
-
-(defmethod execute-effect :task/schedule [_ spec {:keys [dispatch!]}]
-  (dispatch! {:event/type :task/schedule :spec spec}))
-
-;; --- :task/cancel -------------------------------------------------------
-;;
-;; params: {:task/id string}
-;; Dispatches :task/cancel event; handler registered in pa.scheduler.core.
-
-(defmethod execute-effect :task/cancel [_ {:keys [task/id]} {:keys [dispatch!]}]
-  (dispatch! {:event/type :task/cancel :task/id id}))
-
 ;; --- default -----------------------------------------------------------
 
 (defmethod execute-effect :default [effect-type _params _ctx]

@@ -7,19 +7,6 @@
 ;; Reminder handlers
 ;; ---------------------------------------------------------------------------
 
-(registry/reg-handler :reminder/due
-                      (fn [{:keys [db event]}]
-                        (let [notification {:id      (:task/id event)
-                                            :type    :reminder
-                                            :payload (:task/payload event)}]
-                          {:db    (tr/add-notification db notification)
-                           :tap   {:reminder/due notification}
-                           :trace {:event/type :reminder/due :task/id (:task/id event)}})))
-
-;; ---------------------------------------------------------------------------
-;; Scheduling commands — pure handlers, disk I/O delegated to effects
-;; ---------------------------------------------------------------------------
-
 (registry/reg-handler :reminder/create
                       (fn [{:keys [event now]}]
                         (let [{:keys [text fire-at]} event
@@ -30,7 +17,21 @@
                             {:task/schedule {:type    :reminder/due
                                              :payload {:text text}
                                              :fire-at fire-at}
-                             :tap           {:reminder/created {:text text :fire-at fire-at}}}))))
+                             :tap           {:reminder/created {:text text :fire-at fire-at}}
+                             :trace         {:event/type :reminder/create :fire-at fire-at}}))))
+
+(registry/reg-handler :reminder/due
+                      (fn [{:keys [db event]}]
+                        (let [notification {:id      (:task/id event)
+                                            :type    :reminder
+                                            :payload (:task/payload event)}]
+                          {:db    (tr/add-notification db notification)
+                           :tap   {:reminder/due notification}
+                           :trace {:event/type :reminder/due :task/id (:task/id event)}})))
+
+;; ---------------------------------------------------------------------------
+;; Task commands
+;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :task/schedule
                       (fn [{:keys [db event]}]

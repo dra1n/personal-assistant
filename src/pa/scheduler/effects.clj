@@ -55,6 +55,12 @@
 ;; Effect implementations
 ;; ---------------------------------------------------------------------------
 
+(defmethod executor/execute-effect :task/schedule [_ spec {:keys [dispatch!]}]
+  (dispatch! {:event/type :task/schedule :spec spec}))
+
+(defmethod executor/execute-effect :task/cancel [_ {:keys [task/id]} {:keys [dispatch!]}]
+  (dispatch! {:event/type :task/cancel :task/id id}))
+
 (defmethod executor/execute-effect :task/write [_ task _ctx]
   (let [{:keys [root]} @caps]
     (tasks/write-task! root task)))
