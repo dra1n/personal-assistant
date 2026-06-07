@@ -1,7 +1,8 @@
 (ns pa.scheduler.heartbeat
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [pa.scheduler.tasks :as tasks])
+            [pa.scheduler.tasks :as tasks]
+            [taoensso.timbre :as log])
   (:import [java.time Instant]))
 
 ;; Parses HEARTBEAT.md checklist items of the form:
@@ -14,7 +15,9 @@
     (let [type-kw  (keyword (str/trim type))
           interval (some-> (re-find #"interval=(\d+)" kv-str) second Long/parseLong)]
       (when interval
-        {:job/type type-kw :job/interval-ms interval}))))
+        (if (qualified-keyword? type-kw)
+          {:job/type type-kw :job/interval-ms interval}
+          (log/warn "heartbeat: skipping job with unqualified type — use namespace/name format" {:type type-kw}))))))
 
 (defn load-jobs
   "Parse enabled job descriptors from system/heartbeat.md."
