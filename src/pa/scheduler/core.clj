@@ -58,8 +58,8 @@
 (defmethod ig/init-key :pa/scheduler [_ {:keys [fs dispatcher]}]
   (let [root       (:root fs)
         dispatch!  (:dispatch! dispatcher)
+        _          (heartbeat/register-if-missing! root (tasks/load-tasks root))
         loaded     (tasks/load-tasks root)
-        _          (heartbeat/register-if-missing! root loaded)
         control-ch (async/chan 1)
         now        (now-ms)]
 

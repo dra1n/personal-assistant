@@ -2,43 +2,43 @@
 
 ## Task groups
 
-### Group 1 — Bootstrap prerequisites
+### Group 1 — Bootstrap prerequisites ✓
 
-- [ ] Add `tasks/scheduled/` to `pa.storage.fs/create-dirs!`
-- [ ] Add `HEARTBEAT.md` to `system-template-files` in `pa.storage.fs` and write
+- [x] Add `tasks/scheduled/` to `pa.storage.fs/create-dirs!`
+- [x] Add `HEARTBEAT.md` to `system-template-files` in `pa.storage.fs` and write
       a starter template at `resources/templates/system/heartbeat.md`
-- [ ] Enable SQLite WAL mode: add `PRAGMA journal_mode=WAL` to `pa.db.schema/init!`
+- [x] Enable SQLite WAL mode: add `PRAGMA journal_mode=WAL` to `pa.db.schema/init!`
 
-### Group 2 — Scheduler component
+### Group 2 — Scheduler component ✓
 
-- [ ] Define scheduled task schema:
+- [x] Define scheduled task schema:
       `{:task/id, :task/type, :task/payload, :task/fire-at, :task/interval-ms}`
       (`:task/fire-at` is a Unix epoch ms timestamp; `:task/interval-ms` is set
       for repeating tasks, nil for one-shots)
-- [ ] Implement task EDN persistence: write/read tasks to/from `tasks/scheduled/`
+- [x] Implement task EDN persistence: write/read tasks to/from `tasks/scheduled/`
       as individual EDN files (one file per task, named by `:task/id`)
-- [ ] Implement scheduler as an Integrant component (`:scheduler`): on
+- [x] Implement scheduler as an Integrant component (`:scheduler`): on
       `ig/init-key` load all tasks from `tasks/scheduled/`, fire any whose
       `:task/fire-at` has already passed (catch-up), then start an in-session
       ticker loop (core.async `go-loop` + `timeout`)
-- [ ] Wire `:scheduler` into `pa.config/system-config` and into the
+- [x] Wire `:scheduler` into `pa.config/system-config` and into the
       `:pa.runtime/dispatcher` context so effect executors can schedule/cancel tasks
-- [ ] Implement `ig/halt-key! :scheduler`: stop the ticker loop cleanly (close
+- [x] Implement `ig/halt-key! :scheduler`: stop the ticker loop cleanly (close
       the control channel); halt must not block shutdown
-- [ ] Implement `HEARTBEAT.md` loader: parse the static checklist from
+- [x] Implement `HEARTBEAT.md` loader: parse the static checklist from
       `system/heartbeat.md` into a sequence of job descriptors; execute on startup
       catch-up pass
-- [ ] Implement reminder task type: when a reminder task fires, dispatch
+- [x] Implement reminder task type: when a reminder task fires, dispatch
       `:reminder/due` with the payload; the handler emits a visible UI notification
       and moves the task EDN to `tasks/completed/`
-- [ ] Implement periodic reflection job: on fire, run a summarization prompt over
+- [x] Implement periodic reflection job: on fire, run a summarization prompt over
       recent `cognition/` content and write output to `cognition/reflections/`
-- [ ] Implement memory consolidation job: on fire, merge daily memory files older
+- [x] Implement memory consolidation job: on fire, merge daily memory files older
       than a configurable age threshold into a summary entry
-- [ ] Move completed/fired one-shot tasks from `tasks/scheduled/` to
+- [x] Move completed/fired one-shot tasks from `tasks/scheduled/` to
       `tasks/completed/`; update `:task/fire-at` for repeating tasks and rewrite
       the EDN file
-- [ ] Expose scheduler state (loaded tasks, last-fired timestamps) via `tap>` after
+- [x] Expose scheduler state (loaded tasks, last-fired timestamps) via `tap>` after
       each tick
 
 ### Group 2a — Reminder creation
