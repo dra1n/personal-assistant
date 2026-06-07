@@ -7,6 +7,18 @@
 ;; Scheduling commands — pure handlers, disk I/O delegated to effects
 ;; ---------------------------------------------------------------------------
 
+(registry/reg-handler :reminder/create
+                      (fn [{:keys [event]}]
+                        (let [{:keys [text fire-at]} event
+                              now (System/currentTimeMillis)]
+                          (if (or (nil? fire-at) (<= fire-at now))
+                            {:tap {:reminder/rejected {:reason  "fire-at is missing or in the past"
+                                                       :fire-at fire-at}}}
+                            {:task/schedule {:type    :reminder/due
+                                             :payload {:text text}
+                                             :fire-at fire-at}
+                             :tap           {:reminder/created {:text text :fire-at fire-at}}}))))
+
 (registry/reg-handler :task/schedule
                       (fn [{:keys [db event]}]
                         (let [task (tasks/make-task (:spec event))]

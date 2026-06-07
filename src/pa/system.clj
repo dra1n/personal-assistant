@@ -20,6 +20,7 @@
             [pa.tools.network.fetch]
             [pa.tools.network.youtube]
             [pa.tools.os]
+            [pa.tools.reminder]
             [pa.ui.core]))
 
 (defonce ^:private state (atom nil))

@@ -38,6 +38,31 @@
       (is (= "pending" (:task/id (first (get-in fx [:db :tasks/scheduled]))))))))
 
 ;; ---------------------------------------------------------------------------
+;; Reminder creation handler
+;; ---------------------------------------------------------------------------
+
+(deftest reminder-create-emits-task-schedule
+  (testing ":reminder/create emits :task/schedule with correct type, payload, and fire-at"
+    (let [fire-at (+ (System/currentTimeMillis) 60000)
+          fx      ((handler :reminder/create)
+                   {:db (base-db) :event {:text "buy milk" :fire-at fire-at}})]
+      (is (= :reminder/due (get-in fx [:task/schedule :type])))
+      (is (= {:text "buy milk"} (get-in fx [:task/schedule :payload])))
+      (is (= fire-at (get-in fx [:task/schedule :fire-at]))))))
+
+(deftest reminder-create-rejects-past-fire-at
+  (testing ":reminder/create does not emit :task/schedule when fire-at is in the past"
+    (let [fx ((handler :reminder/create)
+              {:db (base-db) :event {:text "old" :fire-at 1}})]
+      (is (not (contains? fx :task/schedule))))))
+
+(deftest reminder-create-rejects-missing-fire-at
+  (testing ":reminder/create does not emit :task/schedule when fire-at is absent"
+    (let [fx ((handler :reminder/create)
+              {:db (base-db) :event {:text "no time"}})]
+      (is (not (contains? fx :task/schedule))))))
+
+;; ---------------------------------------------------------------------------
 ;; Scheduling command handlers
 ;; ---------------------------------------------------------------------------
 
