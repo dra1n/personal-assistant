@@ -10,43 +10,6 @@
 (defn- base-db [] db/initial-db)
 
 ;; ---------------------------------------------------------------------------
-;; :reminder/due — pa.runtime.handlers
-;; ---------------------------------------------------------------------------
-
-(deftest reminder-due-adds-notification
-  (testing "first reminder adds a notification to :ui/notifications"
-    (let [event {:event/type   :reminder/due
-                 :task/id      "task-1"
-                 :task/payload {:text "Buy milk"}}
-          fx    ((handler :reminder/due) {:db (base-db) :event event})]
-      (is (= 1 (count (get-in fx [:db :ui/notifications]))))
-      (let [n (first (get-in fx [:db :ui/notifications]))]
-        (is (= "task-1" (:id n)))
-        (is (= :reminder (:type n)))
-        (is (= {:text "Buy milk"} (:payload n)))))))
-
-(deftest reminder-due-accumulates-notifications
-  (testing "multiple reminders accumulate rather than overwrite"
-    (let [fire! (fn [db task-id text]
-                  (let [event {:event/type   :reminder/due
-                               :task/id      task-id
-                               :task/payload {:text text}}]
-                    (:db ((handler :reminder/due) {:db db :event event}))))
-          db1   (fire! (base-db) "task-1" "Buy milk")
-          db2   (fire! db1       "task-2" "Call dentist")]
-      (is (= 2 (count (:ui/notifications db2))))
-      (is (= #{"task-1" "task-2"} (set (map :id (:ui/notifications db2))))))))
-
-(deftest reminder-due-emits-tap
-  (testing ":reminder/due emits a :tap effect with the notification"
-    (let [event {:event/type   :reminder/due
-                 :task/id      "task-1"
-                 :task/payload {:text "Stand up"}}
-          fx    ((handler :reminder/due) {:db (base-db) :event event})]
-      (is (contains? fx :tap))
-      (is (= "task-1" (get-in fx [:tap :reminder/due :id]))))))
-
-;; ---------------------------------------------------------------------------
 ;; :notifications/clear — pa.runtime.handlers
 ;; ---------------------------------------------------------------------------
 

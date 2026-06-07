@@ -4,14 +4,27 @@
             [pa.state.transitions :as tr]))
 
 ;; ---------------------------------------------------------------------------
+;; Reminder handlers
+;; ---------------------------------------------------------------------------
+
+(registry/reg-handler :reminder/due
+                      (fn [{:keys [db event]}]
+                        (let [notification {:id      (:task/id event)
+                                            :type    :reminder
+                                            :payload (:task/payload event)}]
+                          {:db    (tr/add-notification db notification)
+                           :tap   {:reminder/due notification}
+                           :trace {:event/type :reminder/due :task/id (:task/id event)}})))
+
+;; ---------------------------------------------------------------------------
 ;; Scheduling commands — pure handlers, disk I/O delegated to effects
 ;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :reminder/create
-                      (fn [{:keys [event]}]
+                      (fn [{:keys [event now]}]
                         (let [{:keys [text fire-at]} event
-                              now (System/currentTimeMillis)]
-                          (if (or (nil? fire-at) (<= fire-at now))
+                              now-ms (.toEpochMilli now)]
+                          (if (or (nil? fire-at) (<= fire-at now-ms))
                             {:tap {:reminder/rejected {:reason  "fire-at is missing or in the past"
                                                        :fire-at fire-at}}}
                             {:task/schedule {:type    :reminder/due

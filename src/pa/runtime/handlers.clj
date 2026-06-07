@@ -12,19 +12,6 @@
                     :conversation    (:conversation db)
                     :memory-snippets (or memories [])}))
 
-;; ---------------------------------------------------------------------------
-;; Scheduler handlers
-;; ---------------------------------------------------------------------------
-
-(registry/reg-handler :reminder/due
-                      (fn [{:keys [db event]}]
-                        (let [notification {:id      (:task/id event)
-                                            :type    :reminder
-                                            :payload (:task/payload event)}]
-                          {:db    (tr/add-notification db notification)
-                           :tap   {:reminder/due notification}
-                           :trace {:event/type :reminder/due :task/id (:task/id event)}})))
-
 (registry/reg-handler :notifications/clear
                       (fn [{:keys [db]}]
                         {:db (tr/clear-notifications db)}))
