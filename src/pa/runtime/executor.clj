@@ -215,6 +215,26 @@
     (append-history! entry)
     (log/warn ":history/append called but no :append-history! in ctx — is :storage/history wired?")))
 
+;; --- :task/schedule -----------------------------------------------------
+;;
+;; params: {:type kw, :payload map, :fire-at long, :interval-ms long|nil}
+;; ctx must contain :schedule-task! fn from :scheduler component.
+
+(defmethod execute-effect :task/schedule [_ spec {:keys [schedule-task!]}]
+  (if schedule-task!
+    (schedule-task! spec)
+    (log/warn ":task/schedule called but no :schedule-task! in ctx — is :scheduler wired?")))
+
+;; --- :task/cancel -------------------------------------------------------
+;;
+;; params: {:task/id string}
+;; ctx must contain :cancel-task! fn from :scheduler component.
+
+(defmethod execute-effect :task/cancel [_ {:keys [task/id]} {:keys [cancel-task!]}]
+  (if cancel-task!
+    (cancel-task! id)
+    (log/warn ":task/cancel called but no :cancel-task! in ctx — is :scheduler wired?")))
+
 ;; --- default -----------------------------------------------------------
 
 (defmethod execute-effect :default [effect-type _params _ctx]

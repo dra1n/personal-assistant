@@ -37,3 +37,12 @@
 
 (defn append-history [db entry]
   (update db :ui/history (fnil conj []) entry))
+
+(defn add-notification [db notification]
+  (update db :ui/notifications (fnil conj []) notification))
+
+(defn clear-notifications [db]
+  (assoc db :ui/notifications []))
+
+(defn dismiss-notification [db id]
+  (update db :ui/notifications (fnil #(filterv (fn [n] (not= (:id n) id)) %) [])))
