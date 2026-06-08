@@ -41,14 +41,14 @@
 - [x] Expose scheduler state (loaded tasks, last-fired timestamps) via `tap>` after
       each tick
 
-### Group 2a — Reminder creation
+### Group 2a — Reminder creation ✓
 
-- [ ] Implement `:reminder/create` handler: receives `{:text "..." :fire-at <epoch-ms>}`
+- [x] Implement `:reminder/create` handler: receives `{:text "..." :fire-at <epoch-ms>}`
       from the LLM tool call, emits `:task/schedule` effect with `{:type :reminder
       :payload {:text "..."} :fire-at <epoch-ms>}`; returns a confirmation tap
-- [ ] Register a `set-reminder` tool in the tool registry so the LLM can invoke it
+- [x] Register a `set-reminder` tool in the tool registry so the LLM can invoke it
       with natural-language time already resolved to epoch ms by the assistant
-- [ ] Write tests:
+- [x] Write tests:
       - `:reminder/create` handler: assert `:task/schedule` effect is emitted with
         correct type, payload, and fire-at
       - Confirm no task is written when fire-at is missing or in the past
