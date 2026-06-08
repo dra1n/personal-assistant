@@ -21,6 +21,7 @@
             [pa.tools.network.youtube]
             [pa.tools.os]
             [pa.tools.reminder]
+            [pa.tools.time]
             [pa.ui.core]))
 
 (defonce ^:private state (atom nil))
