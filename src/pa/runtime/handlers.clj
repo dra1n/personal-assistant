@@ -105,10 +105,11 @@
 ;; outcome is also appended to the conversation as a :role :tool turn. The model
 ;; may have requested several tools in one turn; they run sequentially —
 ;; whenever a result lands, the next unresolved call in the batch is fired, and
-;; only once every call has a result does the LLM get re-invoked (no tools) to
-;; finish. This keeps the assistant message's N tool_calls matched by N tool
-;; results, as the API requires. A result with no :tool/call-id (a
-;; directly-invoked tool) only records.
+;; only once every call has a result (and the event carries :llm/follow-up? true)
+;; does the LLM get re-invoked (with tools, enabling multi-hop) to continue.
+;; This keeps the assistant message's N tool_calls matched by N tool results, as
+;; the API requires. A result with no :tool/call-id (a directly-invoked tool)
+;; only records.
 ;; ---------------------------------------------------------------------------
 
 (defn- tool-result->content
