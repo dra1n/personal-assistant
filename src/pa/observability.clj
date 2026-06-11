@@ -3,13 +3,15 @@
             [portal.api :as portal]
             [taoensso.timbre :as log]))
 
-(defmethod ig/init-key :pa.observability/portal [_ _opts]
-  (let [p (portal/open {:launcher :vs-code})]
-    (add-tap #'portal/submit)
-    (log/info "portal initialized")
-    {:instance p}))
+(defmethod ig/init-key :pa.observability/portal [_ {:keys [enabled? launcher]}]
+  (when enabled?
+    (let [p (portal/open {:launcher (keyword launcher)})]
+      (add-tap #'portal/submit)
+      (log/info "portal initialized" {:launcher launcher})
+      {:instance p})))
 
-(defmethod ig/halt-key! :pa.observability/portal [_ {:keys [instance]}]
-  (remove-tap #'portal/submit)
-  (portal/close instance)
-  (log/info "portal closed"))
+(defmethod ig/halt-key! :pa.observability/portal [_ state]
+  (when state
+    (remove-tap #'portal/submit)
+    (portal/close (:instance state))
+    (log/info "portal closed")))
