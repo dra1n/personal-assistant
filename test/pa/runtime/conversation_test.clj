@@ -133,9 +133,9 @@
       (is (= {:event/type :session/threshold-reached :turn-count 3} (:dispatch (nth fxs 2))))
       (is (= {:event/type :session/threshold-reached :turn-count 6} (:dispatch (nth fxs 5)))))))
 
-(deftest session-threshold-default-is-ten
-  (testing "default threshold of 10 fires at turn 10 when config is absent"
-    (let [fxs (run-messages 10 nil)]
+(deftest session-threshold-ten-fires-at-turn-ten
+  (testing "threshold of 10 fires at turn 10"
+    (let [fxs (run-messages 10 {:session/extraction-threshold 10})]
       (is (every? nil? (map :dispatch (take 9 fxs))) "no dispatch before turn 10")
       (is (= {:event/type :session/threshold-reached :turn-count 10}
              (:dispatch (last fxs)))))))

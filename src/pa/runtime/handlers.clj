@@ -66,14 +66,14 @@
                               entry      (history/make-entry content)
                               duplicate? (= content (:history/text (last (:ui/history db))))
                               turn-count (count (:conversation db'))
-                              threshold  (get config :session/extraction-threshold 10)]
+                              threshold  (get config :session/extraction-threshold)]
                           (cond-> {:db          (if duplicate? db' (tr/append-history db' entry))
                                    :event/store event
                                    :llm/invoke  {:messages (assemble-for db' memories) :opts {:tools (tools/advertise)}}
                                    :trace       {:event/type :user/message}}
                             (not duplicate?)
                             (assoc :history/append entry)
-                            (and (pos? turn-count) (zero? (mod turn-count threshold)))
+                            (and threshold (pos? turn-count) (zero? (mod turn-count threshold)))
                             (assoc :dispatch {:event/type :session/threshold-reached
                                               :turn-count turn-count})))))
 

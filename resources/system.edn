@@ -1,7 +1,7 @@
 {:pa.logging/timbre       {}
 
  :pa.observability/portal {:enabled? #boolean #or [#env PORTAL_ENABLED false]
-                            :launcher #or [#env PORTAL_LAUNCHER "vs-code"]}
+                           :launcher #or [#env PORTAL_LAUNCHER "vs-code"]}
 
  :storage/fs              {}
  :storage/identity        {:fs #ig/ref :storage/fs}
@@ -14,18 +14,19 @@
  :tool.fs/policy          {:fs #ig/ref :storage/fs}
  :ui/deltas               {}
 
- :pa.runtime/dispatcher   {:config   {:env :production}
-                            :events   #ig/ref :storage/events
-                            :identity #ig/ref :storage/identity
-                            :history  #ig/ref :storage/history
-                            :memory   #ig/ref :memory/store
-                            :indexer  #ig/ref :memory/indexer
-                            :llm      #ig/ref :llm/provider
-                            :policy   #ig/ref :tool.fs/policy
-                            :deltas   #ig/ref :ui/deltas}
+ :pa.runtime/dispatcher   {:config   {:env :production
+                                      :session/extraction-threshold 10}
+                           :events   #ig/ref :storage/events
+                           :identity #ig/ref :storage/identity
+                           :history  #ig/ref :storage/history
+                           :memory   #ig/ref :memory/store
+                           :indexer  #ig/ref :memory/indexer
+                           :llm      #ig/ref :llm/provider
+                           :policy   #ig/ref :tool.fs/policy
+                           :deltas   #ig/ref :ui/deltas}
 
  :pa/scheduler            {:fs         #ig/ref :storage/fs
-                            :dispatcher #ig/ref :pa.runtime/dispatcher}
+                           :dispatcher #ig/ref :pa.runtime/dispatcher}
 
  :pa.ui/terminal          {:dispatcher #ig/ref :pa.runtime/dispatcher
-                            :deltas     #ig/ref :ui/deltas}}
+                           :deltas     #ig/ref :ui/deltas}}
