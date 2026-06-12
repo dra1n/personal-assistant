@@ -179,6 +179,9 @@
                       (fn [{:keys [event]}]
                         {:wisdom/merge (:items event)}))
 
+;; Exception to the no-side-effects rule: delivers the halt coordination
+;; promise so ig/halt-key! unblocks and closes the channel. This is
+;; infrastructure glue, not domain logic — the promise never touches db state.
 (registry/reg-handler :extraction/done
                       (fn [{:keys [event]}]
                         (when-let [p (:done event)]
