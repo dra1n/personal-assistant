@@ -219,33 +219,44 @@
 
 ;; --- :extraction/classify -----------------------------------------------
 ;;
-;; params: {:turns <conversation vector>}
-;; Calls the LLM synchronously with a classification prompt, then routes:
-;;   ephemeral items → write-memory! (daily journal records)
-;;   permanent items → merge-wisdom! (memory/memory.md bullet list)
-;; Runs synchronously so the write completes before the dispatcher go-loop exits.
+;; params: {:turns <conversation vector> :done <promise or nil>}
+;; Calls the LLM synchronously, then dispatches results as events so they flow
+;; through the normal pipeline (indexing, db updates, etc.). Dispatches
+;; :extraction/done last — the go-loop's FIFO ordering guarantees it runs only
+;; after all write/merge events have been processed.
 
-(defmethod execute-effect :extraction/classify [_ {:keys [turns]} {:keys [llm-provider merge-wisdom!] :as ctx}]
-  (if-not llm-provider
-    (log/warn ":extraction/classify skipped — no :llm-provider in ctx")
-    (try
-      (let [messages             (extraction/classify-messages turns)
-            {:keys [content]}    (provider/invoke llm-provider messages {})
-            {:keys [ephemeral
-                    permanent]}  (extraction/parse-response content)]
-        (doseq [{:keys [title summary]} ephemeral]
-          (when (and (seq title) (seq summary))
-            (execute-effect :memory/write
-                            (records/make {:memory/type    :episodic
-                                          :memory/title   title
-                                          :memory/summary summary})
-                            ctx)))
-        (when (and merge-wisdom! (seq permanent))
-          (merge-wisdom! permanent))
-        (log/info "extraction complete" {:ephemeral (count ephemeral)
-                                         :permanent (count permanent)}))
-      (catch Exception e
-        (log/warn e ":extraction/classify failed")))))
+(defmethod execute-effect :extraction/classify [_ {:keys [turns done]} {:keys [llm-provider dispatch!]}]
+  (letfn [(finish [] (dispatch! {:event/type :extraction/done :done done}))]
+    (if-not llm-provider
+      (do (log/warn ":extraction/classify skipped — no :llm-provider in ctx") (finish))
+      (try
+        (let [messages            (extraction/classify-messages turns)
+              {:keys [content]}   (provider/invoke llm-provider messages {})
+              {:keys [ephemeral
+                      permanent]} (extraction/parse-response content)]
+          (doseq [{:keys [title summary]} ephemeral]
+            (when (and (seq title) (seq summary))
+              (dispatch! {:event/type :extraction/write-memory
+                          :record     (records/make {:memory/type    :episodic
+                                                     :memory/title   title
+                                                     :memory/summary summary})})))
+          (when (seq permanent)
+            (dispatch! {:event/type :extraction/merge-wisdom :items permanent}))
+          (log/info "extraction complete" {:ephemeral (count ephemeral)
+                                           :permanent (count permanent)})
+          (finish))
+        (catch Exception e
+          (log/warn e ":extraction/classify failed") (finish))))))
+
+;; --- :wisdom/merge -------------------------------------------------------
+;;
+;; params: a seq of plain-string fact items.
+;; ctx must contain :merge-wisdom! fn supplied by :memory/store component.
+
+(defmethod execute-effect :wisdom/merge [_ items {:keys [merge-wisdom!]}]
+  (if merge-wisdom!
+    (merge-wisdom! items)
+    (log/warn ":wisdom/merge called but no :merge-wisdom! in ctx — is :memory/store wired?")))
 
 ;; --- default -----------------------------------------------------------
 

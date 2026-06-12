@@ -58,6 +58,8 @@
      :dispatch! dispatch!}))
 
 (defmethod ig/halt-key! :pa.runtime/dispatcher [_ {:keys [channel dispatch!]}]
-  (dispatch! {:event/type :extraction/run})
+  (let [done (promise)]
+    (dispatch! {:event/type :extraction/run :done done})
+    (deref done 10000 nil))
   (async/close! channel)
   (log/info "dispatcher stopped"))

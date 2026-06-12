@@ -17,16 +17,59 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest extraction-run-emits-classify-effect
-  (testing "emits :extraction/classify with the full conversation"
-    (let [fx ((handler :extraction/run)
-              {:db {:conversation sample-turns} :event {:event/type :extraction/run}})]
-      (is (= sample-turns (get-in fx [:extraction/classify :turns]))))))
+  (testing "emits :extraction/classify with conversation and done when non-empty"
+    (let [done (promise)
+          fx   ((handler :extraction/run)
+                {:db {:conversation sample-turns}
+                 :event {:event/type :extraction/run :done done}})]
+      (is (= sample-turns (get-in fx [:extraction/classify :turns])))
+      (is (= done (get-in fx [:extraction/classify :done]))))))
 
-(deftest extraction-run-skips-empty-conversation
-  (testing "returns nil when conversation is empty"
-    (let [fx ((handler :extraction/run)
-              {:db {:conversation []} :event {:event/type :extraction/run}})]
-      (is (nil? fx)))))
+(deftest extraction-run-dispatches-done-when-empty
+  (testing "dispatches :extraction/done directly when conversation is empty"
+    (let [done (promise)
+          fx   ((handler :extraction/run)
+                {:db {:conversation []}
+                 :event {:event/type :extraction/run :done done}})]
+      (is (= {:event/type :extraction/done :done done} (:dispatch fx))))))
+
+;; ---------------------------------------------------------------------------
+;; :extraction/write-memory handler
+;; ---------------------------------------------------------------------------
+
+(deftest extraction-write-memory-emits-memory-write
+  (testing "returns :memory/write effect with the record"
+    (let [record {:memory/type :episodic :memory/title "T" :memory/summary "S"}
+          fx     ((handler :extraction/write-memory)
+                  {:db {} :event {:event/type :extraction/write-memory :record record}})]
+      (is (= record (:memory/write fx))))))
+
+;; ---------------------------------------------------------------------------
+;; :extraction/merge-wisdom handler
+;; ---------------------------------------------------------------------------
+
+(deftest extraction-merge-wisdom-emits-wisdom-merge
+  (testing "returns :wisdom/merge effect with the items"
+    (let [fx ((handler :extraction/merge-wisdom)
+              {:db {} :event {:event/type :extraction/merge-wisdom :items ["fact"]}})]
+      (is (= ["fact"] (:wisdom/merge fx))))))
+
+;; ---------------------------------------------------------------------------
+;; :extraction/done handler
+;; ---------------------------------------------------------------------------
+
+(deftest extraction-done-delivers-promise
+  (testing "delivers the :done promise when present"
+    (let [p (promise)]
+      ((handler :extraction/done)
+       {:db {} :event {:event/type :extraction/done :done p}})
+      (is (realized? p))
+      (is (= :ok @p)))))
+
+(deftest extraction-done-tolerates-nil-promise
+  (testing "does not throw when :done is absent"
+    (is (= {} ((handler :extraction/done)
+               {:db {} :event {:event/type :extraction/done}})))))
 
 ;; ---------------------------------------------------------------------------
 ;; :extraction/classify effect
@@ -37,36 +80,43 @@
     (invoke [_ _ _] (provider/text-result response-json))
     (stream [_ _ _ _] (provider/text-result response-json))))
 
-(deftest classify-effect-writes-ephemeral-and-permanent
-  (testing "routes ephemeral items through :memory/write and permanent to merge-wisdom!"
-    (let [written  (atom [])
-          merged   (atom nil)
-          json     "{\"ephemeral\":[{\"title\":\"T\",\"summary\":\"S\"}],\"permanent\":[\"User likes Clojure\"]}"
-          ctx      {:llm-provider  (stub-llm json)
-                    :write-memory! #(do (swap! written conj %) %)
-                    :dispatch!     (constantly nil)
-                    :merge-wisdom! #(reset! merged %)}]
-      (executor/execute-effect :extraction/classify {:turns sample-turns} ctx)
-      (is (= 1 (count @written)))
-      (is (= :episodic (:memory/type (first @written))))
-      (is (= "T" (:memory/title (first @written))))
-      (is (= ["User likes Clojure"] @merged)))))
+(deftest classify-effect-dispatches-write-and-merge-events
+  (testing "dispatches :extraction/write-memory, :extraction/merge-wisdom, then :extraction/done"
+    (let [dispatched (atom [])
+          json       "{\"ephemeral\":[{\"title\":\"T\",\"summary\":\"S\"}],\"permanent\":[\"fact\"]}"
+          ctx        {:llm-provider (stub-llm json)
+                      :dispatch!    #(swap! dispatched conj %)}]
+      (executor/execute-effect :extraction/classify {:turns sample-turns :done nil} ctx)
+      (is (= :extraction/write-memory (:event/type (first @dispatched))))
+      (is (= :episodic (get-in @dispatched [0 :record :memory/type])))
+      (is (= :extraction/merge-wisdom  (:event/type (second @dispatched))))
+      (is (= ["fact"] (:items (second @dispatched))))
+      (is (= :extraction/done (:event/type (last @dispatched)))))))
 
-(deftest classify-effect-handles-empty-response
-  (testing "does not call write-memory! or merge-wisdom! when model extracts nothing"
-    (let [written  (atom [])
-          merged   (atom :untouched)
-          ctx      {:llm-provider  (stub-llm "{\"ephemeral\":[],\"permanent\":[]}")
-                    :dispatch!     (constantly nil)
-                    :write-memory! #(swap! written conj %)
-                    :merge-wisdom! #(reset! merged %)}]
-      (executor/execute-effect :extraction/classify {:turns sample-turns} ctx)
-      (is (= [] @written))
-      (is (= :untouched @merged)))))
+(deftest classify-effect-dispatches-done-on-empty-response
+  (testing "dispatches :extraction/done even when model extracts nothing"
+    (let [dispatched (atom [])
+          ctx        {:llm-provider (stub-llm "{\"ephemeral\":[],\"permanent\":[]}")
+                      :dispatch!    #(swap! dispatched conj %)}]
+      (executor/execute-effect :extraction/classify {:turns sample-turns :done nil} ctx)
+      (is (= 1 (count @dispatched)))
+      (is (= :extraction/done (:event/type (first @dispatched)))))))
 
-(deftest classify-effect-skips-without-llm-provider
-  (testing "no-ops silently when :llm-provider is absent"
-    (let [written (atom [])]
-      (executor/execute-effect :extraction/classify {:turns sample-turns}
-                               {:write-memory! #(swap! written conj %)})
-      (is (= [] @written)))))
+(deftest classify-effect-dispatches-done-without-llm
+  (testing "dispatches :extraction/done even when :llm-provider is absent"
+    (let [dispatched (atom [])
+          ctx        {:dispatch! #(swap! dispatched conj %)}]
+      (executor/execute-effect :extraction/classify {:turns sample-turns :done nil} ctx)
+      (is (= 1 (count @dispatched)))
+      (is (= :extraction/done (:event/type (first @dispatched)))))))
+
+;; ---------------------------------------------------------------------------
+;; :wisdom/merge effect
+;; ---------------------------------------------------------------------------
+
+(deftest wisdom-merge-effect-calls-merge-wisdom
+  (testing ":wisdom/merge effect calls merge-wisdom! with the items"
+    (let [merged (atom nil)
+          ctx    {:merge-wisdom! #(reset! merged %)}]
+      (executor/execute-effect :wisdom/merge ["fact one" "fact two"] ctx)
+      (is (= ["fact one" "fact two"] @merged)))))

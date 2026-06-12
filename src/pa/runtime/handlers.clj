@@ -164,7 +164,23 @@
 ;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :extraction/run
-                      (fn [{:keys [db]}]
-                        (let [turns (:conversation db)]
-                          (when (seq turns)
-                            {:extraction/classify {:turns turns}}))))
+                      (fn [{:keys [db event]}]
+                        (let [turns (:conversation db)
+                              done  (:done event)]
+                          (if (seq turns)
+                            {:extraction/classify {:turns turns :done done}}
+                            {:dispatch {:event/type :extraction/done :done done}}))))
+
+(registry/reg-handler :extraction/write-memory
+                      (fn [{:keys [event]}]
+                        {:memory/write (:record event)}))
+
+(registry/reg-handler :extraction/merge-wisdom
+                      (fn [{:keys [event]}]
+                        {:wisdom/merge (:items event)}))
+
+(registry/reg-handler :extraction/done
+                      (fn [{:keys [event]}]
+                        (when-let [p (:done event)]
+                          (deliver p :ok))
+                        {}))
