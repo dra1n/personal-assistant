@@ -158,3 +158,13 @@
                                 (assoc :llm/invoke {:messages (assemble-for db' [])
                                                     :opts     {:tools (tools/advertise)}})))
                             base))))
+
+;; ---------------------------------------------------------------------------
+;; Memory extraction
+;; ---------------------------------------------------------------------------
+
+(registry/reg-handler :extraction/run
+                      (fn [{:keys [db]}]
+                        (let [turns (:conversation db)]
+                          (when (seq turns)
+                            {:extraction/classify {:turns turns}}))))

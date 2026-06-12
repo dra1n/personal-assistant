@@ -59,10 +59,10 @@
       current `memory.md`, merge in new permanent facts as bullet items, deduplicate
       against existing content, write back — distinct from the append-only daily
       writer in `pa.storage.memory`
-- [ ] Implement extraction job handler: call LLM with a classification prompt over
+- [x] Implement extraction job handler: call LLM with a classification prompt over
       the last N turns; route ephemeral items to `:memory/write` effect (daily
       notes) and permanent items to the wisdom writer
-- [ ] Trigger `:extraction/run` on session end: dispatch from
+- [x] Trigger `:extraction/run` on session end: dispatch from
       `ig/halt-key! :pa.runtime/dispatcher` so every session extracts regardless
       of length
 - [ ] Write tests — scheduler:

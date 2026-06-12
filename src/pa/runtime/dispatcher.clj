@@ -36,6 +36,7 @@
                                   :store-event!       (:append-event! events)
                                   :append-history!    (:append-entry! history)
                                   :write-memory!      (:write-memory! memory)
+                                  :merge-wisdom!      (:merge-wisdom! memory)
                                   :index-memory!      (:index-memory! indexer)
                                   :retrieve-memories! (:retrieve-memories! indexer)
                                   :llm-provider       llm

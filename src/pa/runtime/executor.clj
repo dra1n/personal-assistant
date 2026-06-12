@@ -1,6 +1,8 @@
 (ns pa.runtime.executor
   (:require [clojure.core.async :as async]
             [pa.llm.provider :as provider]
+            [pa.memory.extraction :as extraction]
+            [pa.memory.records :as records]
             [pa.state.db :as db]
             [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
@@ -214,6 +216,34 @@
   (if append-history!
     (append-history! entry)
     (log/warn ":history/append called but no :append-history! in ctx — is :storage/history wired?")))
+
+;; --- :extraction/classify -----------------------------------------------
+;;
+;; params: {:turns <conversation vector>}
+;; Calls the LLM synchronously with a classification prompt, then routes:
+;;   ephemeral items → write-memory! (daily journal records)
+;;   permanent items → merge-wisdom! (memory/memory.md bullet list)
+;; Runs synchronously so the write completes before the dispatcher go-loop exits.
+
+(defmethod execute-effect :extraction/classify [_ {:keys [turns]} {:keys [llm-provider write-memory! merge-wisdom!]}]
+  (if-not llm-provider
+    (log/warn ":extraction/classify skipped — no :llm-provider in ctx")
+    (try
+      (let [messages             (extraction/classify-messages turns)
+            {:keys [content]}    (provider/invoke llm-provider messages {})
+            {:keys [ephemeral
+                    permanent]}  (extraction/parse-response content)]
+        (doseq [{:keys [title summary]} ephemeral]
+          (when (and write-memory! (seq title) (seq summary))
+            (write-memory! (records/make {:memory/type    :episodic
+                                          :memory/title   title
+                                          :memory/summary summary}))))
+        (when (and merge-wisdom! (seq permanent))
+          (merge-wisdom! permanent))
+        (log/info "extraction complete" {:ephemeral (count ephemeral)
+                                         :permanent (count permanent)}))
+      (catch Exception e
+        (log/warn e ":extraction/classify failed")))))
 
 ;; --- default -----------------------------------------------------------
 
