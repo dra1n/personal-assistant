@@ -1172,7 +1172,7 @@ Scheduler tests:
 
 ---
 
-## Phase 8 — Personality & Long-Term Evolution
+## Phase 7 — Personality & Long-Term Evolution
 
 Goal: Evolve the assistant into a durable long-term system.
 
@@ -1191,7 +1191,7 @@ Goal: Evolve the assistant into a durable long-term system.
 
 ---
 
-## Phase 9 — Optional Advanced Features
+## Phase 8 — Optional Advanced Features
 
 These are explicitly deferred and not required for a complete system.
 
@@ -1221,7 +1221,7 @@ until recency + FTS retrieval proves insufficient in practice.
 
 ---
 
-## Phase 7 — Explicit Cognitive Pipeline
+## Phase 9 — Explicit Cognitive Pipeline
 
 Goal: Formalize and make inspectable all cognition stages.
 
