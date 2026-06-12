@@ -220,33 +220,33 @@
 ;; --- :extraction/classify -----------------------------------------------
 ;;
 ;; params: {:turns <conversation vector> :done <promise or nil>}
-;; Calls the LLM synchronously, then dispatches results as events so they flow
-;; through the normal pipeline (indexing, db updates, etc.). Dispatches
-;; :extraction/done last — the go-loop's FIFO ordering guarantees it runs only
-;; after all write/merge events have been processed.
+;; Runs the LLM call on a background thread (like :llm/invoke) so the
+;; go-loop is never blocked. Events are dispatched in order within the
+;; future, so channel FIFO ordering is preserved.
 
 (defmethod execute-effect :extraction/classify [_ {:keys [turns done]} {:keys [llm-provider dispatch!]}]
   (letfn [(finish [] (dispatch! {:event/type :extraction/done :done done}))]
     (if-not llm-provider
       (do (log/warn ":extraction/classify skipped — no :llm-provider in ctx") (finish))
-      (try
-        (let [messages            (extraction/classify-messages turns)
-              {:keys [content]}   (provider/invoke llm-provider messages {})
-              {:keys [ephemeral
-                      permanent]} (extraction/parse-response content)]
-          (doseq [{:keys [title summary]} ephemeral]
-            (when (and (seq title) (seq summary))
-              (dispatch! {:event/type :extraction/write-memory
-                          :record     (records/make {:memory/type    :episodic
-                                                     :memory/title   title
-                                                     :memory/summary summary})})))
-          (when (seq permanent)
-            (dispatch! {:event/type :extraction/merge-wisdom :items permanent}))
-          (log/info "extraction complete" {:ephemeral (count ephemeral)
-                                           :permanent (count permanent)})
-          (finish))
-        (catch Exception e
-          (log/warn e ":extraction/classify failed") (finish))))))
+      (future
+        (try
+          (let [messages            (extraction/classify-messages turns)
+                {:keys [content]}   (provider/invoke llm-provider messages {})
+                {:keys [ephemeral
+                        permanent]} (extraction/parse-response content)]
+            (doseq [{:keys [title summary]} ephemeral]
+              (when (and (seq title) (seq summary))
+                (dispatch! {:event/type :extraction/write-memory
+                            :record     (records/make {:memory/type    :episodic
+                                                       :memory/title   title
+                                                       :memory/summary summary})})))
+            (when (seq permanent)
+              (dispatch! {:event/type :extraction/merge-wisdom :items permanent}))
+            (log/info "extraction complete" {:ephemeral (count ephemeral)
+                                             :permanent (count permanent)})
+            (finish))
+          (catch Exception e
+            (log/warn e ":extraction/classify failed") (finish)))))))
 
 ;; --- :wisdom/merge -------------------------------------------------------
 ;;

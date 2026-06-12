@@ -60,6 +60,7 @@
 (defmethod ig/halt-key! :pa.runtime/dispatcher [_ {:keys [channel dispatch!]}]
   (let [done (promise)]
     (dispatch! {:event/type :extraction/run :done done})
-    (deref done 10000 nil))
+    (when-not (deref done 60000 nil)
+      (log/warn "extraction timed out — session memories may not have been saved")))
   (async/close! channel)
   (log/info "dispatcher stopped"))

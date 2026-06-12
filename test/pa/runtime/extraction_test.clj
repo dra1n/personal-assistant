@@ -80,6 +80,16 @@
     (invoke [_ _ _] (provider/text-result response-json))
     (stream [_ _ _ _] (provider/text-result response-json))))
 
+(defn- await-done
+  "Synchronize on the :extraction/done event dispatched by the future."
+  [dispatched]
+  (let [deadline (+ (System/currentTimeMillis) 5000)]
+    (loop []
+      (cond
+        (some #(= :extraction/done (:event/type %)) @dispatched) :ok
+        (> (System/currentTimeMillis) deadline)                   :timeout
+        :else (do (Thread/sleep 10) (recur))))))
+
 (deftest classify-effect-dispatches-write-and-merge-events
   (testing "dispatches :extraction/write-memory, :extraction/merge-wisdom, then :extraction/done"
     (let [dispatched (atom [])
@@ -87,6 +97,7 @@
           ctx        {:llm-provider (stub-llm json)
                       :dispatch!    #(swap! dispatched conj %)}]
       (executor/execute-effect :extraction/classify {:turns sample-turns :done nil} ctx)
+      (await-done dispatched)
       (is (= :extraction/write-memory (:event/type (first @dispatched))))
       (is (= :episodic (get-in @dispatched [0 :record :memory/type])))
       (is (= :extraction/merge-wisdom  (:event/type (second @dispatched))))
@@ -99,6 +110,7 @@
           ctx        {:llm-provider (stub-llm "{\"ephemeral\":[],\"permanent\":[]}")
                       :dispatch!    #(swap! dispatched conj %)}]
       (executor/execute-effect :extraction/classify {:turns sample-turns :done nil} ctx)
+      (await-done dispatched)
       (is (= 1 (count @dispatched)))
       (is (= :extraction/done (:event/type (first @dispatched)))))))
 
@@ -107,6 +119,7 @@
     (let [dispatched (atom [])
           ctx        {:dispatch! #(swap! dispatched conj %)}]
       (executor/execute-effect :extraction/classify {:turns sample-turns :done nil} ctx)
+      (await-done dispatched)
       (is (= 1 (count @dispatched)))
       (is (= :extraction/done (:event/type (first @dispatched)))))))
 
