@@ -1132,65 +1132,43 @@ No redesign of the scheduler component itself required.
 
 Bootstrap prerequisites (gaps carried forward from earlier phases):
 
-- [ ] Add `tasks/scheduled/` to `pa.storage.fs/create-dirs!` — Phase 6 persists
-      scheduled task EDN files there but the directory is not currently created at startup
-- [ ] Add `HEARTBEAT.md` to the system template set: extend `system-template-files`
-      in `pa.storage.fs` and add a starter template at `resources/templates/system/heartbeat.md`
-- [ ] Enable SQLite WAL mode: add `PRAGMA journal_mode=WAL` to `pa.db.schema/init!`
+- [x] Add `tasks/scheduled/` to `pa.storage.fs/create-dirs!`
+- [x] Add `HEARTBEAT.md` to the system template set
+- [x] Enable SQLite WAL mode: `PRAGMA journal_mode=WAL` in `pa.db.schema/init!`
 
 Scheduler:
 
-- [ ] Define scheduled task schema (`:task/id`, `:task/cron`, `:task/type`, `:task/payload`)
-- [ ] Implement scheduler as an Integrant component; add `:scheduler` to
-      `pa.config/system-config` and wire it into `:pa.runtime/dispatcher` context;
-      startup catch-up and in-session ticker live in `ig/init-key`; end-of-session
-      flush lives in `ig/halt-key!`
-- [ ] Implement startup catch-up: on `ig/init-key :scheduler`, scan `tasks/scheduled/`
-      for any tasks whose next-fire time has passed and dispatch their events immediately
-- [ ] Implement in-session ticker: a core.async loop that fires task events as their
-      wall-clock time arrives while the app is running
-- [ ] Implement reminder task type: emit a `:reminder/due` event at scheduled time
-- [ ] Implement periodic reflection job: summarize recent memory into `cognition/reflections/`
-- [ ] Implement memory consolidation job: merge daily memory files into longer-term summaries
-- [ ] Integrate `HEARTBEAT.md` as a checklist loaded and executed by the scheduler
-- [ ] Persist scheduled tasks to `tasks/scheduled/` as EDN files
-- [ ] Move completed tasks to `tasks/completed/`
-- [ ] Expose scheduler state via Portal
+- [x] Define scheduled task schema (`{:task/id :task/type :task/payload :task/fire-at :task/interval-ms}`)
+- [x] Implement scheduler as an Integrant component; wired into dispatcher context
+- [x] Implement startup catch-up: fire any tasks whose `:task/fire-at` has passed on `ig/init-key`
+- [x] Implement in-session ticker: injectable `tick-ch-fn` for testability; defaults to `(async/timeout 60000)`
+- [x] Implement reminder task type and `:reminder/create` tool
+- [x] Implement periodic reflection job (`scheduler/periodic-reflection`, 24h heartbeat)
+- [x] Integrate `HEARTBEAT.md` as a checklist loaded and registered on init
+- [x] Persist scheduled tasks to `tasks/scheduled/` as EDN files
+- [x] Move completed one-shot tasks to `tasks/completed/`; advance repeating tasks in-place
+- [x] Expose scheduler state via `tap>` after each tick
 
 Memory extraction (background job):
 
-> **Note on the `memory.md` writer:** `pa.storage.memory` (the existing daily writer) is
-> append-only and targets `memory/daily/YYYY-MM-DD.md`. The wisdom writer below is a
-> separate, new namespace — it reads the full `memory.md` file, merges new items, and
-> writes it back. `pa.storage.identity/load-all` already reads `memory.md`; there is
-> currently no write path for it.
-
-- [ ] Implement `memory.md` wisdom writer (e.g. `pa.storage.memory-wisdom`): reads current
-      `memory.md` content, merges in new permanent facts (add new bullet items, deduplicate
-      against existing content, optionally remove entries explicitly marked stale), writes
-      back — distinct from the append-only daily writer in `pa.storage.memory` because
-      `memory.md` is a curated document, not a log
-- [ ] Add session turn counter: `:conversation` in runtime state exists but there is no
-      N-turn threshold or session boundary concept yet; derive turn count from
-      `(count (:conversation db))` and emit a `:session/threshold-reached` event when the
-      count hits a configurable multiple of N (start with N=10)
-- [ ] Implement end-of-session memory extraction job: triggered by `:session/threshold-reached`,
-      run an extraction prompt against recent conversation history; the prompt classifies each
-      extracted item as ephemeral (→ `memory/daily/` via `:memory/write` effect) or permanent
-      (→ `memory.md` via the wisdom writer); N is a config parameter (start with 10 turns)
-- [ ] Extraction runs asynchronously and does not block user input or app shutdown —
-      fire-and-forget via `:dispatch` from the threshold handler
-- [ ] Write tests for the extraction job: fixture conversation of N turns → assert ephemeral
-      items produce `:memory/write` effects and permanent items are merged into `memory.md`
-- [ ] Write tests for the `memory.md` wisdom writer: fixture current content + new items →
-      assert output contains new items, deduplicates exact matches, preserves unrelated
-      existing content
+- [x] Implement `memory.md` wisdom writer (`pa.storage.memory-wisdom`): merge + deduplicate
+      permanent facts; `rewrite!` for full replacement
+- [x] Implement end-of-session extraction: triggered at `ig/halt-key! :pa.runtime/dispatcher`;
+      LLM classifies conversation into ephemeral (→ `memory/daily/`) and permanent (→ `memory.md`);
+      runs on a background thread with a 2-minute halt timeout; promise/latch keeps channel open
+      until extraction completes
+- [~] Session turn counter / threshold-based extraction: implemented then dropped — extract-on-halt
+      is simpler and covers all session lengths
+- [x] Implement wisdom consolidation job (`scheduler/consolidate-wisdom`, 7-day heartbeat):
+      passes current `memory.md` bullets through LLM to deduplicate and merge; guarded against
+      empty-response data loss
 
 Scheduler tests:
 
-- [ ] Test: schedule a task, let it fire, confirm event appears in log
-- [ ] Write unit tests for scheduler: mock clock, assert tasks fire at correct intervals
-- [ ] Write tests for reflection and consolidation jobs with fixture memory data
+- [x] Catch-up on init: tasks with past `:task/fire-at` fire immediately
+- [x] Ticker: injected tick channel drives due-task dispatch
+- [x] Reminder end-to-end: EDN on disk → `:reminder/due` dispatched → file moved to `tasks/completed/`
+- [x] Extraction handler and effect tests; wisdom writer tests
 
 ---
 
