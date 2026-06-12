@@ -59,15 +59,12 @@
       current `memory.md`, merge in new permanent facts as bullet items, deduplicate
       against existing content, write back — distinct from the append-only daily
       writer in `pa.storage.memory`
-- [ ] Add session turn counter: in the `:user/message` handler, derive turn count
-      from `(count (:conversation db'))` after the state update and emit
-      `:session/threshold-reached` when count is a positive multiple of N (config,
-      default 10)
-- [ ] Implement `:session/threshold-reached` handler: dispatch the extraction job
-      as a fire-and-forget `:dispatch` — does not block user input
 - [ ] Implement extraction job handler: call LLM with a classification prompt over
       the last N turns; route ephemeral items to `:memory/write` effect (daily
       notes) and permanent items to the wisdom writer
+- [ ] Trigger `:extraction/run` on session end: dispatch from
+      `ig/halt-key! :pa.runtime/dispatcher` so every session extracts regardless
+      of length
 - [ ] Write tests — scheduler:
       - Mock clock: assert tasks whose `:task/fire-at` is in the past fire
         immediately on `ig/init-key` (catch-up)
@@ -80,8 +77,6 @@
       - `memory.md` wisdom writer: fixture current content + new items → assert
         output contains new items, deduplicates exact matches, preserves unrelated
         content
-      - Session turn counter: dispatch N `:user/message` events → assert
-        `:session/threshold-reached` fired exactly once at turn N
       - Extraction job: fixture conversation of N turns → assert ephemeral items
         produce `:memory/write` effects and permanent items are passed to the
         wisdom writer

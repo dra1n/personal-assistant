@@ -14,8 +14,7 @@
  :tool.fs/policy          {:fs #ig/ref :storage/fs}
  :ui/deltas               {}
 
- :pa.runtime/dispatcher   {:config   {:env :production
-                                      :session/extraction-threshold 10}
+ :pa.runtime/dispatcher   {:config   {:env :production}
                            :events   #ig/ref :storage/events
                            :identity #ig/ref :storage/identity
                            :history  #ig/ref :storage/history

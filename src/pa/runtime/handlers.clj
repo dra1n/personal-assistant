@@ -60,26 +60,17 @@
 
 (registry/reg-handler :user/message
                       [coeffects/memories-interceptor]
-                      (fn [{:keys [db event memories config]}]
+                      (fn [{:keys [db event memories]}]
                         (let [content    (:content event)
                               db'        (tr/add-conversation-entry db {:role :user :content content})
                               entry      (history/make-entry content)
-                              duplicate? (= content (:history/text (last (:ui/history db))))
-                              turn-count (count (:conversation db'))
-                              threshold  (get config :session/extraction-threshold)]
+                              duplicate? (= content (:history/text (last (:ui/history db))))]
                           (cond-> {:db          (if duplicate? db' (tr/append-history db' entry))
                                    :event/store event
                                    :llm/invoke  {:messages (assemble-for db' memories) :opts {:tools (tools/advertise)}}
                                    :trace       {:event/type :user/message}}
                             (not duplicate?)
-                            (assoc :history/append entry)
-                            (and threshold (pos? turn-count) (zero? (mod turn-count threshold)))
-                            (assoc :dispatch {:event/type :session/threshold-reached
-                                              :turn-count turn-count})))))
-
-(registry/reg-handler :session/threshold-reached
-                      (fn [_]
-                        {:dispatch {:event/type :extraction/run}}))
+                            (assoc :history/append entry)))))
 
 (registry/reg-handler :assistant/tool-call
                       (fn [{:keys [db event]}]
