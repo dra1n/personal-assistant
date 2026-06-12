@@ -25,11 +25,7 @@
     (fs/bootstrap! *tmp-root*)
     (doseq [path ["identity"
                   "memory/daily"
-                  "memory/semantic"
-                  "memory/episodic"
-                  "memory/summaries"
                   "cognition/reflections"
-                  "cognition/plans"
                   "tasks/scheduled"
                   "tasks/completed"
                   "events"
