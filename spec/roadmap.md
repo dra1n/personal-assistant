@@ -1172,27 +1172,6 @@ Scheduler tests:
 
 ---
 
-## Phase 7 — Explicit Cognitive Pipeline
-
-Goal: Formalize and make inspectable all cognition stages.
-
-- [ ] Define slash command registry: map of `/command-name → handler-fn`; wire UI input parser to dispatch commands as events before entering the cognition pipeline (e.g. `/rebuild-memory-index` → `:memory/rebuild-index` event → calls `(:rebuild! indexer)`)
-- [ ] Define pipeline stage protocol: each stage takes context map → returns updated context map
-- [ ] Implement `interpret` stage: classify user intent, extract entities
-- [ ] Implement `retrieve` stage: call memory retrieval (Phase 5) and attach results to context
-- [ ] Implement `plan` stage: decide which tools (if any) are needed
-- [ ] Implement `tool-select` stage: emit tool invocation effects (Phase 4)
-- [ ] Implement `respond` stage: assemble final prompt and call LLM (Phase 3)
-- [ ] Implement `extract` stage: trigger background extraction if session threshold is met (Phase 6)
-- [ ] Implement `consolidate` stage: trigger background consolidation if thresholds are met
-- [ ] Emit a `:cognition/pipeline-trace` event capturing the full context map at each stage
-- [ ] Make each stage independently testable with fixture context maps
-- [ ] Write unit tests for every pipeline stage: fixture context map in → assert expected context map out
-- [ ] Write integration test for full pipeline run with stub LLM and mocked tools
-- [ ] Write property-based tests for pipeline stage composition (any valid context in → valid context out)
-
----
-
 ## Phase 8 — Personality & Long-Term Evolution
 
 Goal: Evolve the assistant into a durable long-term system.
@@ -1239,3 +1218,24 @@ until recency + FTS retrieval proves insufficient in practice.
 - [ ] Implement semantic retrieval: load all embeddings from SQLite, compute cosine similarity against the query embedding, apply decay scoring, return top-N
 - [ ] Extend combined retrieval to merge recency + keyword + semantic result sets
 - [ ] Write embedding round-trip test: generate embedding, store, retrieve by cosine similarity with a semantically related query
+
+---
+
+## Phase 7 — Explicit Cognitive Pipeline
+
+Goal: Formalize and make inspectable all cognition stages.
+
+- [ ] Define slash command registry: map of `/command-name → handler-fn`; wire UI input parser to dispatch commands as events before entering the cognition pipeline (e.g. `/rebuild-memory-index` → `:memory/rebuild-index` event → calls `(:rebuild! indexer)`)
+- [ ] Define pipeline stage protocol: each stage takes context map → returns updated context map
+- [ ] Implement `interpret` stage: classify user intent, extract entities
+- [ ] Implement `retrieve` stage: call memory retrieval (Phase 5) and attach results to context
+- [ ] Implement `plan` stage: decide which tools (if any) are needed
+- [ ] Implement `tool-select` stage: emit tool invocation effects (Phase 4)
+- [ ] Implement `respond` stage: assemble final prompt and call LLM (Phase 3)
+- [ ] Implement `extract` stage: trigger background extraction if session threshold is met (Phase 6)
+- [ ] Implement `consolidate` stage: trigger background consolidation if thresholds are met
+- [ ] Emit a `:cognition/pipeline-trace` event capturing the full context map at each stage
+- [ ] Make each stage independently testable with fixture context maps
+- [ ] Write unit tests for every pipeline stage: fixture context map in → assert expected context map out
+- [ ] Write integration test for full pipeline run with stub LLM and mocked tools
+- [ ] Write property-based tests for pipeline stage composition (any valid context in → valid context out)
