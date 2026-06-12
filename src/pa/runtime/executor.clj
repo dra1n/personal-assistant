@@ -225,7 +225,7 @@
 ;;   permanent items → merge-wisdom! (memory/memory.md bullet list)
 ;; Runs synchronously so the write completes before the dispatcher go-loop exits.
 
-(defmethod execute-effect :extraction/classify [_ {:keys [turns]} {:keys [llm-provider write-memory! merge-wisdom!]}]
+(defmethod execute-effect :extraction/classify [_ {:keys [turns]} {:keys [llm-provider merge-wisdom!] :as ctx}]
   (if-not llm-provider
     (log/warn ":extraction/classify skipped — no :llm-provider in ctx")
     (try
@@ -234,10 +234,12 @@
             {:keys [ephemeral
                     permanent]}  (extraction/parse-response content)]
         (doseq [{:keys [title summary]} ephemeral]
-          (when (and write-memory! (seq title) (seq summary))
-            (write-memory! (records/make {:memory/type    :episodic
+          (when (and (seq title) (seq summary))
+            (execute-effect :memory/write
+                            (records/make {:memory/type    :episodic
                                           :memory/title   title
-                                          :memory/summary summary}))))
+                                          :memory/summary summary})
+                            ctx)))
         (when (and merge-wisdom! (seq permanent))
           (merge-wisdom! permanent))
         (log/info "extraction complete" {:ephemeral (count ephemeral)

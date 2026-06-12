@@ -38,12 +38,13 @@
     (stream [_ _ _ _] (provider/text-result response-json))))
 
 (deftest classify-effect-writes-ephemeral-and-permanent
-  (testing "routes ephemeral items to write-memory! and permanent to merge-wisdom!"
+  (testing "routes ephemeral items through :memory/write and permanent to merge-wisdom!"
     (let [written  (atom [])
           merged   (atom nil)
           json     "{\"ephemeral\":[{\"title\":\"T\",\"summary\":\"S\"}],\"permanent\":[\"User likes Clojure\"]}"
           ctx      {:llm-provider  (stub-llm json)
-                    :write-memory! #(swap! written conj %)
+                    :write-memory! #(do (swap! written conj %) %)
+                    :dispatch!     (constantly nil)
                     :merge-wisdom! #(reset! merged %)}]
       (executor/execute-effect :extraction/classify {:turns sample-turns} ctx)
       (is (= 1 (count @written)))
@@ -56,6 +57,7 @@
     (let [written  (atom [])
           merged   (atom :untouched)
           ctx      {:llm-provider  (stub-llm "{\"ephemeral\":[],\"permanent\":[]}")
+                    :dispatch!     (constantly nil)
                     :write-memory! #(swap! written conj %)
                     :merge-wisdom! #(reset! merged %)}]
       (executor/execute-effect :extraction/classify {:turns sample-turns} ctx)
