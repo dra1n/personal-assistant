@@ -33,8 +33,9 @@
       and moves the task EDN to `tasks/completed/`
 - [x] Implement periodic reflection job: on fire, run a summarization prompt over
       recent `cognition/` content and write output to `cognition/reflections/`
-- [x] Implement memory consolidation job: on fire, merge daily memory files older
-      than a configurable age threshold into a summary entry
+- [~] Implement memory consolidation job: on fire, merge daily memory files older
+      than a configurable age threshold into a summary entry (dropped — redundant
+      with session-end extraction)
 - [x] Move completed/fired one-shot tasks from `tasks/scheduled/` to
       `tasks/completed/`; update `:task/fire-at` for repeating tasks and rewrite
       the EDN file
@@ -55,7 +56,7 @@
 
 ### Group 3 — Memory extraction
 
-- [ ] Implement `memory.md` wisdom writer (e.g. `pa.storage.memory-wisdom`): read
+- [x] Implement `memory.md` wisdom writer (e.g. `pa.storage.memory-wisdom`): read
       current `memory.md`, merge in new permanent facts as bullet items, deduplicate
       against existing content, write back — distinct from the append-only daily
       writer in `pa.storage.memory`
@@ -65,15 +66,14 @@
 - [x] Trigger `:extraction/run` on session end: dispatch from
       `ig/halt-key! :pa.runtime/dispatcher` so every session extracts regardless
       of length
-- [ ] Write tests — scheduler:
+- [x] Write tests — scheduler:
       - Mock clock: assert tasks whose `:task/fire-at` is in the past fire
         immediately on `ig/init-key` (catch-up)
       - Ticker: assert a task fires at correct wall-clock time with a mocked
         timer channel
       - Reminder task: fixture task EDN → assert `:reminder/due` event dispatched
         and file moved to `tasks/completed/`
-      - Reflection and consolidation jobs with fixture memory data
-- [ ] Write tests — memory extraction:
+- [x] Write tests — memory extraction:
       - `memory.md` wisdom writer: fixture current content + new items → assert
         output contains new items, deduplicates exact matches, preserves unrelated
         content

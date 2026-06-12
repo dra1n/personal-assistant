@@ -43,9 +43,9 @@
                            (queries/scheduled-tasks (db/current-db)))
           :ticked-at (str (Instant/now))}}))
 
-(defn- start-ticker! [root dispatch! control-ch]
+(defn- start-ticker! [root dispatch! control-ch tick-ch-fn]
   (async/go-loop []
-    (let [[_ ch] (async/alts! [control-ch (async/timeout tick-ms)])]
+    (let [[_ ch] (async/alts! [control-ch (tick-ch-fn)])]
       (when (not= ch control-ch)
         (run-due! root dispatch!)
         (emit-state!)
@@ -55,13 +55,14 @@
 ;; Integrant component
 ;; ---------------------------------------------------------------------------
 
-(defmethod ig/init-key :pa/scheduler [_ {:keys [fs dispatcher]}]
+(defmethod ig/init-key :pa/scheduler [_ {:keys [fs dispatcher tick-ch-fn]}]
   (let [root       (:root fs)
         dispatch!  (:dispatch! dispatcher)
         _          (heartbeat/register-if-missing! root (tasks/load-tasks root))
         loaded     (tasks/load-tasks root)
         control-ch (async/chan 1)
-        now        (now-ms)]
+        now        (now-ms)
+        tick-ch-fn (or tick-ch-fn #(async/timeout tick-ms))]
 
     (effects/register! {:root root})
 
@@ -73,7 +74,7 @@
     (doseq [task (filterv #(<= (:task/fire-at %) now) loaded)]
       (process-task! root dispatch! task))
     (emit-state!)
-    (start-ticker! root dispatch! control-ch)
+    (start-ticker! root dispatch! control-ch tick-ch-fn)
 
     (log/info "scheduler: initialized")
     {:control-ch control-ch}))
