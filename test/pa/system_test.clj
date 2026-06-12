@@ -14,6 +14,7 @@
             [pa.db.sqlite]
             [pa.memory.indexer]
             [pa.llm.component]
+            [pa.scheduler.core]
             [pa.tools.fs.policy]
             [pa.ui.core]))
 

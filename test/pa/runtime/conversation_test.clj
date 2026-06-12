@@ -101,3 +101,4 @@
               {:role :assistant :content "hello!"}]
              (:conversation final))
           "both turns reconstructed; :llm/invoke is skipped on replay (no LLM call)"))))
+

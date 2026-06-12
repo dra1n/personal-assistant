@@ -14,7 +14,7 @@
             [pa.llm.provider :as provider]))
 
 (def ^:private default-base-url "https://api.openai.com/v1")
-(def ^:private default-model "gpt-4o-mini")
+(def ^:private default-model "gpt-5")
 
 ;; ---------------------------------------------------------------------------
 ;; Tool-name encoding

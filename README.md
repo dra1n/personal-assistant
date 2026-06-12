@@ -23,6 +23,20 @@ clojure -M:run
 
 Press `Ctrl+C` to quit.
 
+### Portal (data inspector)
+
+By default Portal is disabled. Set `PORTAL_ENABLED=true` to open it alongside the app:
+
+```sh
+# VS Code extension (default launcher)
+PORTAL_ENABLED=true PORTAL_LAUNCHER=vs-code clojure -M:run
+
+# Browser
+PORTAL_ENABLED=true PORTAL_LAUNCHER=browser clojure -M:run
+```
+
+The VS Code launcher requires the [Portal VS Code extension](https://github.com/djblue/portal) to be running.
+
 ---
 
 ### REPL (editor-driven development)

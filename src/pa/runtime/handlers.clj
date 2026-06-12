@@ -12,6 +12,14 @@
                     :conversation    (:conversation db)
                     :memory-snippets (or memories [])}))
 
+(registry/reg-handler :notifications/clear
+                      (fn [{:keys [db]}]
+                        {:db (tr/clear-notifications db)}))
+
+(registry/reg-handler :notification/dismiss
+                      (fn [{:keys [db event]}]
+                        {:db (tr/dismiss-notification db (:notification/id event))}))
+
 ;; ---------------------------------------------------------------------------
 ;; System lifecycle handlers
 ;; ---------------------------------------------------------------------------
@@ -53,15 +61,16 @@
 (registry/reg-handler :user/message
                       [coeffects/memories-interceptor]
                       (fn [{:keys [db event memories]}]
-                        (let [content (:content event)
-                              db'     (tr/add-conversation-entry db {:role :user :content content})
-                              entry   (history/make-entry content)
-                              duplicate?  (= content (:history/text (last (:ui/history db))))]
+                        (let [content    (:content event)
+                              db'        (tr/add-conversation-entry db {:role :user :content content})
+                              entry      (history/make-entry content)
+                              duplicate? (= content (:history/text (last (:ui/history db))))]
                           (cond-> {:db          (if duplicate? db' (tr/append-history db' entry))
                                    :event/store event
                                    :llm/invoke  {:messages (assemble-for db' memories) :opts {:tools (tools/advertise)}}
                                    :trace       {:event/type :user/message}}
-                            (not duplicate?) (assoc :history/append entry)))))
+                            (not duplicate?)
+                            (assoc :history/append entry)))))
 
 (registry/reg-handler :assistant/tool-call
                       (fn [{:keys [db event]}]
@@ -97,10 +106,11 @@
 ;; outcome is also appended to the conversation as a :role :tool turn. The model
 ;; may have requested several tools in one turn; they run sequentially —
 ;; whenever a result lands, the next unresolved call in the batch is fired, and
-;; only once every call has a result does the LLM get re-invoked (no tools) to
-;; finish. This keeps the assistant message's N tool_calls matched by N tool
-;; results, as the API requires. A result with no :tool/call-id (a
-;; directly-invoked tool) only records.
+;; only once every call has a result (and the event carries :llm/follow-up? true)
+;; does the LLM get re-invoked (with tools, enabling multi-hop) to continue.
+;; This keeps the assistant message's N tool_calls matched by N tool results, as
+;; the API requires. A result with no :tool/call-id (a directly-invoked tool)
+;; only records.
 ;; ---------------------------------------------------------------------------
 
 (defn- tool-result->content
@@ -148,3 +158,32 @@
                                 (assoc :llm/invoke {:messages (assemble-for db' [])
                                                     :opts     {:tools (tools/advertise)}})))
                             base))))
+
+;; ---------------------------------------------------------------------------
+;; Memory extraction
+;; ---------------------------------------------------------------------------
+
+(registry/reg-handler :extraction/run
+                      (fn [{:keys [db event]}]
+                        (let [turns (:conversation db)
+                              done  (:done event)]
+                          (if (seq turns)
+                            {:extraction/classify {:turns turns :done done}}
+                            {:dispatch {:event/type :extraction/done :done done}}))))
+
+(registry/reg-handler :extraction/write-memory
+                      (fn [{:keys [event]}]
+                        {:memory/write (:record event)}))
+
+(registry/reg-handler :extraction/merge-wisdom
+                      (fn [{:keys [event]}]
+                        {:wisdom/merge (:items event)}))
+
+;; Exception to the no-side-effects rule: delivers the halt coordination
+;; promise so ig/halt-key! unblocks and closes the channel. This is
+;; infrastructure glue, not domain logic — the promise never touches db state.
+(registry/reg-handler :extraction/done
+                      (fn [{:keys [event]}]
+                        (when-let [p (:done event)]
+                          (deliver p :ok))
+                        {}))

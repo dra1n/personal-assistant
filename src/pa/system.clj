@@ -13,12 +13,15 @@
             [pa.db.sqlite]
             [pa.memory.indexer]
             [pa.llm.component]
+            [pa.scheduler.core]
             [pa.tools.fs.policy]
             [pa.tools.fs]
             [pa.tools.network.search]
             [pa.tools.network.fetch]
             [pa.tools.network.youtube]
             [pa.tools.os]
+            [pa.tools.reminder]
+            [pa.tools.time]
             [pa.ui.core]))
 
 (defonce ^:private state (atom nil))

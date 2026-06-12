@@ -30,7 +30,7 @@
                   "memory/summaries"
                   "cognition/reflections"
                   "cognition/plans"
-                  "tasks/active"
+                  "tasks/scheduled"
                   "tasks/completed"
                   "events"
                   "system"

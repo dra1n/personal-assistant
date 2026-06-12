@@ -37,3 +37,25 @@
 
 (defn append-history [db entry]
   (update db :ui/history (fnil conj []) entry))
+
+(defn add-notification [db notification]
+  (update db :ui/notifications (fnil conj []) notification))
+
+(defn clear-notifications [db]
+  (assoc db :ui/notifications []))
+
+(defn dismiss-notification [db id]
+  (update db :ui/notifications (fnil #(filterv (fn [n] (not= (:id n) id)) %) [])))
+
+(defn load-scheduled-tasks [db tasks]
+  (assoc db :tasks/scheduled (vec tasks)))
+
+(defn register-scheduled-task [db task]
+  (update db :tasks/scheduled (fnil conj []) task))
+
+(defn remove-scheduled-task [db id]
+  (update db :tasks/scheduled (fnil #(filterv (fn [t] (not= (:task/id t) id)) %) [])))
+
+(defn replace-scheduled-task [db task]
+  (update db :tasks/scheduled
+          (fnil #(mapv (fn [t] (if (= (:task/id t) (:task/id task)) task t)) %) [])))

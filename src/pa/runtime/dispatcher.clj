@@ -32,16 +32,19 @@
         ;; accumulated by the :llm/invoke effect, so dropping is harmless.
         emit-delta! (fn [delta] (when deltas (async/offer! deltas delta)))
         system-context {:config  config
-                        :runtime {:dispatch!       dispatch!
-                                  :store-event!    (:append-event! events)
-                                  :append-history! (:append-entry! history)
-                                  :write-memory!       (:write-memory! memory)
-                                  :index-memory!       (:index-memory! indexer)
-                                  :retrieve-memories!  (:retrieve-memories! indexer)
-                                  :llm-provider    llm
-                                  :tool.fs/policy  policy
-                                  :http            (http/hato-client)
-                                  :emit-delta!     emit-delta!}}]
+                        :runtime {:dispatch!          dispatch!
+                                  :store-event!       (:append-event! events)
+                                  :append-history!    (:append-entry! history)
+                                  :write-memory!      (:write-memory! memory)
+                                  :merge-wisdom!      (:merge-wisdom! memory)
+                                  :read-wisdom!       (:read-wisdom! memory)
+                                  :rewrite-wisdom!    (:rewrite-wisdom! memory)
+                                  :index-memory!      (:index-memory! indexer)
+                                  :retrieve-memories! (:retrieve-memories! indexer)
+                                  :llm-provider       llm
+                                  :tool.fs/policy     policy
+                                  :http               (http/hato-client)
+                                  :emit-delta!        emit-delta!}}]
     (async/go-loop []
       (when-let [event (async/<! ch)]
         (process-event! event system-context)
@@ -56,6 +59,10 @@
     {:channel   ch
      :dispatch! dispatch!}))
 
-(defmethod ig/halt-key! :pa.runtime/dispatcher [_ {:keys [channel]}]
+(defmethod ig/halt-key! :pa.runtime/dispatcher [_ {:keys [channel dispatch!]}]
+  (let [done (promise)]
+    (dispatch! {:event/type :extraction/run :done done})
+    (when-not (deref done 120000 nil)
+      (log/warn "extraction timed out — session memories may not have been saved")))
   (async/close! channel)
   (log/info "dispatcher stopped"))

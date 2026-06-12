@@ -1,6 +1,9 @@
 (ns pa.runtime.executor
   (:require [clojure.core.async :as async]
             [pa.llm.provider :as provider]
+            [pa.memory.consolidation :as consolidation]
+            [pa.memory.extraction :as extraction]
+            [pa.memory.records :as records]
             [pa.state.db :as db]
             [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
@@ -214,6 +217,74 @@
   (if append-history!
     (append-history! entry)
     (log/warn ":history/append called but no :append-history! in ctx — is :storage/history wired?")))
+
+;; --- :extraction/classify -----------------------------------------------
+;;
+;; params: {:turns <conversation vector> :done <promise or nil>}
+;; Runs the LLM call on a background thread (like :llm/invoke) so the
+;; go-loop is never blocked. Events are dispatched in order within the
+;; future, so channel FIFO ordering is preserved.
+
+(defmethod execute-effect :extraction/classify [_ {:keys [turns done]} {:keys [llm-provider dispatch!]}]
+  (letfn [(finish [] (dispatch! {:event/type :extraction/done :done done}))]
+    (if-not llm-provider
+      (do (log/warn ":extraction/classify skipped — no :llm-provider in ctx") (finish))
+      (future
+        (try
+          (let [messages            (extraction/classify-messages turns)
+                {:keys [content]}   (provider/invoke llm-provider messages {})
+                {:keys [ephemeral
+                        permanent]} (extraction/parse-response content)]
+            (doseq [{:keys [title summary]} ephemeral]
+              (when (and (seq title) (seq summary))
+                (dispatch! {:event/type :extraction/write-memory
+                            :record     (records/make {:memory/type    :episodic
+                                                       :memory/title   title
+                                                       :memory/summary summary})})))
+            (when (seq permanent)
+              (dispatch! {:event/type :extraction/merge-wisdom :items permanent}))
+            (log/info "extraction complete" {:ephemeral (count ephemeral)
+                                             :permanent (count permanent)})
+            (finish))
+          (catch Exception e
+            (log/warn e ":extraction/classify failed") (finish)))))))
+
+;; --- :wisdom/merge -------------------------------------------------------
+;;
+;; params: a seq of plain-string fact items.
+;; ctx must contain :merge-wisdom! fn supplied by :memory/store component.
+
+(defmethod execute-effect :wisdom/merge [_ items {:keys [merge-wisdom!]}]
+  (if merge-wisdom!
+    (merge-wisdom! items)
+    (log/warn ":wisdom/merge called but no :merge-wisdom! in ctx — is :memory/store wired?")))
+
+;; --- :wisdom/consolidate -------------------------------------------------
+;;
+;; params: {} (no input — reads current wisdom file, rewrites it)
+;; Runs the LLM on a background thread (same pattern as :extraction/classify).
+;; ctx must contain :llm-provider and :rewrite-wisdom! from :memory/store.
+
+(defmethod execute-effect :wisdom/consolidate [_ _ {:keys [llm-provider read-wisdom! rewrite-wisdom!]}]
+  (if-not rewrite-wisdom!
+    (log/warn ":wisdom/consolidate called but no :rewrite-wisdom! in ctx — is :memory/store wired?")
+    (future
+      (try
+        (let [current (read-wisdom!)]
+          (if (empty? current)
+            (log/info "wisdom consolidation skipped — nothing to consolidate")
+            (if-not llm-provider
+              (log/warn ":wisdom/consolidate skipped — no :llm-provider in ctx")
+              (let [messages          (consolidation/consolidation-messages current)
+                    {:keys [content]} (provider/invoke llm-provider messages {})
+                    consolidated      (consolidation/parse-response content)]
+                (if (empty? consolidated)
+                  (log/warn ":wisdom/consolidate — LLM returned empty list, skipping rewrite")
+                  (do (rewrite-wisdom! consolidated)
+                      (log/info "wisdom consolidated"
+                                {:before (count current) :after (count consolidated)})))))))
+        (catch Exception e
+          (log/warn e ":wisdom/consolidate failed"))))))
 
 ;; --- default -----------------------------------------------------------
 

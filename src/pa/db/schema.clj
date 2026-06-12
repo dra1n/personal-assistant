@@ -4,6 +4,7 @@
 (defn init!
   "Create the memories and memories_fts tables if they do not already exist."
   [ds]
+  (jdbc/execute! ds ["PRAGMA journal_mode=WAL"])
   (jdbc/execute! ds
     ["CREATE TABLE IF NOT EXISTS memories (
         id         TEXT PRIMARY KEY,
