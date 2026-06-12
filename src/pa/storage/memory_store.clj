@@ -11,7 +11,10 @@
 ;; ---------------------------------------------------------------------------
 
 (defmethod ig/init-key :memory/store [_ {:keys [fs]}]
-  {:write-memory! (partial memory/write-daily (:root fs))
-   :merge-wisdom! (partial wisdom/merge-items! (:root fs))})
+  (let [root (:root fs)]
+    {:write-memory!   (partial memory/write-daily root)
+     :merge-wisdom!   (partial wisdom/merge-items! root)
+     :read-wisdom!    (fn [] (wisdom/read-items root))
+     :rewrite-wisdom! (partial wisdom/rewrite! root)}))
 
 (defmethod ig/halt-key! :memory/store [_ _])

@@ -47,6 +47,9 @@
 (registry/reg-handler :scheduler/periodic-reflection
                       (fn [_] {:reflection/run {}}))
 
+(registry/reg-handler :scheduler/consolidate-wisdom
+                      (fn [_] {:wisdom/consolidate {}}))
+
 ;; ---------------------------------------------------------------------------
 ;; Task lifecycle — state transitions driven by the ticker
 ;; ---------------------------------------------------------------------------

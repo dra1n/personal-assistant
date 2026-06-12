@@ -33,9 +33,11 @@
       and moves the task EDN to `tasks/completed/`
 - [x] Implement periodic reflection job: on fire, run a summarization prompt over
       recent `cognition/` content and write output to `cognition/reflections/`
-- [~] Implement memory consolidation job: on fire, merge daily memory files older
-      than a configurable age threshold into a summary entry (dropped — redundant
-      with session-end extraction)
+- [x] Implement memory consolidation job: on fire, pass current `memory/memory.md`
+      bullet list to LLM, deduplicate and merge overlapping facts, rewrite the
+      file; scheduled as a 30-day heartbeat job (`scheduler/consolidate-wisdom`);
+      staleness detection is out of scope — relies on newer extractions and
+      manual review
 - [x] Move completed/fired one-shot tasks from `tasks/scheduled/` to
       `tasks/completed/`; update `:task/fire-at` for repeating tasks and rewrite
       the EDN file

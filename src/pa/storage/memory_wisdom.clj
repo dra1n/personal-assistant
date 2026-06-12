@@ -71,3 +71,19 @@
   [root]
   (let [[_ rest] (split-header (read-raw root))]
     (vec (parse-bullets rest))))
+
+(defn rewrite!
+  "Replace the entire bullet list in memory/memory.md with new-facts.
+  Each fact may be a plain string or already a '- ...' bullet.
+  Preserves the header comment. Returns the final bullet list."
+  [root new-facts]
+  (locking write-lock
+    (let [raw           (read-raw root)
+          [header _]    (split-header raw)
+          all           (mapv ensure-bullet new-facts)
+          content       (str header "\n"
+                             (str/join "\n" all)
+                             (when (seq all) "\n"))]
+      (io/make-parents (wisdom-file root))
+      (spit (wisdom-file root) content)
+      all)))

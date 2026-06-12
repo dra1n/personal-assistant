@@ -1,6 +1,7 @@
 (ns pa.runtime.executor
   (:require [clojure.core.async :as async]
             [pa.llm.provider :as provider]
+            [pa.memory.consolidation :as consolidation]
             [pa.memory.extraction :as extraction]
             [pa.memory.records :as records]
             [pa.state.db :as db]
@@ -257,6 +258,33 @@
   (if merge-wisdom!
     (merge-wisdom! items)
     (log/warn ":wisdom/merge called but no :merge-wisdom! in ctx — is :memory/store wired?")))
+
+;; --- :wisdom/consolidate -------------------------------------------------
+;;
+;; params: {} (no input — reads current wisdom file, rewrites it)
+;; Runs the LLM on a background thread (same pattern as :extraction/classify).
+;; ctx must contain :llm-provider and :rewrite-wisdom! from :memory/store.
+
+(defmethod execute-effect :wisdom/consolidate [_ _ {:keys [llm-provider read-wisdom! rewrite-wisdom!]}]
+  (if-not rewrite-wisdom!
+    (log/warn ":wisdom/consolidate called but no :rewrite-wisdom! in ctx — is :memory/store wired?")
+    (future
+      (try
+        (let [current (read-wisdom!)]
+          (if (empty? current)
+            (log/info "wisdom consolidation skipped — nothing to consolidate")
+            (if-not llm-provider
+              (log/warn ":wisdom/consolidate skipped — no :llm-provider in ctx")
+              (let [messages          (consolidation/consolidation-messages current)
+                    {:keys [content]} (provider/invoke llm-provider messages {})
+                    consolidated      (consolidation/parse-response content)]
+                (if (empty? consolidated)
+                  (log/warn ":wisdom/consolidate — LLM returned empty list, skipping rewrite")
+                  (do (rewrite-wisdom! consolidated)
+                      (log/info "wisdom consolidated"
+                                {:before (count current) :after (count consolidated)})))))))
+        (catch Exception e
+          (log/warn e ":wisdom/consolidate failed"))))))
 
 ;; --- default -----------------------------------------------------------
 
