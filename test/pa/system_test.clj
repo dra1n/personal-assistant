@@ -52,4 +52,7 @@
       (tap> :hello-phase-0)
       (Thread/sleep 50)
       (remove-tap sink)
-      (is (= [:hello-phase-0] @received)))))
+      ;; Contains, not equals: tap> is process-global, and the full-system
+      ;; tests above leave async db-transition taps that can land in this
+      ;; window — this test only asserts our own value arrives.
+      (is (some #{:hello-phase-0} @received)))))
