@@ -18,8 +18,7 @@
   (stream [_ _messages _opts _on-delta] (not-implemented "stream")))
 
 (defn make-provider
-  ([] (make-provider {}))
-  ([{:keys [api-key base-url model]}]
-   (->AnthropicProvider (or api-key (System/getenv "ANTHROPIC_API_KEY"))
-                        (or base-url "https://api.anthropic.com/v1")
-                        (or model "claude-sonnet-4-6"))))
+  "Construct the stub from explicit settings — defaults and env overrides
+  live in the :llm/provider integrant config (system.edn)."
+  [{:keys [api-key base-url model]}]
+  (->AnthropicProvider api-key base-url model))

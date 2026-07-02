@@ -13,9 +13,6 @@
             [pa.http :as http]
             [pa.llm.provider :as provider]))
 
-(def ^:private default-base-url "https://api.openai.com/v1")
-(def ^:private default-model "gpt-5")
-
 ;; ---------------------------------------------------------------------------
 ;; Tool-name encoding
 ;;
@@ -205,12 +202,10 @@
       (consume-stream! (:body resp) on-delta))))
 
 (defn make-provider
-  "Construct an OpenAIProvider. Reads the API key from :api-key or the
-  OPENAI_API_KEY env var; the key is not validated until a call is made.
-  :http defaults to the hato-backed client; tests may inject a fake."
-  ([] (make-provider {}))
-  ([{:keys [api-key base-url model http]}]
-   (->OpenAIProvider (or api-key (System/getenv "OPENAI_API_KEY"))
-                     (or base-url default-base-url)
-                     (or model default-model)
-                     (or http (http/hato-client)))))
+  "Construct an OpenAIProvider from explicit settings — :api-key, :base-url
+  and :model come from the :llm/provider integrant config (system.edn), which
+  is where defaults and env overrides live. The key is not validated until a
+  call is made. :http defaults to the hato-backed client; tests may inject a
+  fake."
+  [{:keys [api-key base-url model http]}]
+  (->OpenAIProvider api-key base-url model (or http (http/hato-client))))
