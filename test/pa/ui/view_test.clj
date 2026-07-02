@@ -55,11 +55,11 @@
     (is (= 2 (view/input-line-count {:input "hello\n" :width 80})))))
 
 (deftest viewport-height-reserves-conversation-border-rows
-  (testing "fixed chrome (header + blanks + 1-line input + hint + borders) are subtracted"
-    ;; 24 − (10 + input-line-count(1) + collapsed-panel(1)) = 12
-    (is (= 12 (view/viewport-height {:height 24 :logs-open? false})))
-    ;; 24 − (10 + 1 + expanded-panel(11)) = 2 → clamped to the 3-row minimum
-    (is (= 3 (view/viewport-height {:height 24 :logs-open? true})))))
+  (testing "fixed chrome (header + 1-line input + hint + borders) is subtracted"
+    ;; 24 − (8 + input-line-count(1) + collapsed-panel(1)) = 14
+    (is (= 14 (view/viewport-height {:height 24 :logs-open? false})))
+    ;; 24 − (8 + 1 + expanded-panel(11)) = 4
+    (is (= 4 (view/viewport-height {:height 24 :logs-open? true})))))
 
 (deftest viewport-height-shrinks-for-multiline-input
   (testing "each additional input line reduces the conversation viewport by one row"
@@ -164,7 +164,7 @@
                  :logs [] :logs-open? false :focus :input :input ""
                  :streaming "" :motd-fallback "tip"}
           out   (view/view model)]
-      (is (= 4 (view/notification-lines model)) "3 rows + the overflow line")
+      (is (= 6 (view/notification-lines model)) "3 rows + overflow line + 2 border rows")
       (is (str/includes? out "reminder 2"))
       (is (not (str/includes? out "reminder 3")) "capped at 3 rows")
       (is (str/includes? out "+2 more"))

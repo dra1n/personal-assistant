@@ -162,25 +162,30 @@
 
 (def ^:private notification-max-rows 3)
 
-(defn- notification-text [{:keys [type payload]}]
-  (str (case type :reminder "⏰ Reminder: " "• ")
+(defn- notification-text
+  "Single-width characters only — a double-width glyph (an emoji clock) would
+  throw off charm's char-count padding and shift the box border."
+  [{:keys [type payload]}]
+  (str (case type :reminder "Reminder: " "• ")
        (or (:text payload) (pr-str payload))))
 
 (defn notification-lines
-  "Vertical lines the notification banner occupies under the header: one per
-  pending notification, capped at notification-max-rows plus an overflow
-  line. 0 when nothing is pending (no banner)."
+  "Vertical lines the notification panel occupies under the header: one per
+  pending notification (capped at notification-max-rows, plus an overflow
+  line) inside a bordered box (2 border rows). 0 when nothing is pending
+  (no panel)."
   [{:keys [db]}]
   (let [n (count (queries/notifications db))]
     (cond
       (zero? n)                   0
-      (> n notification-max-rows) (inc notification-max-rows)
-      :else                       n)))
+      (> n notification-max-rows) (+ 3 notification-max-rows)
+      :else                       (+ 2 n))))
 
 (defn- notification-banner
-  "The pending-notifications banner, or nil when there are none. Reminders
+  "The pending-notifications panel, or nil when there are none. Reminders
   fire into :ui/notifications (see :reminder/due); this is where they become
-  visible. The first line carries the dismiss hint."
+  visible. A bordered box like the other panels; the first line carries the
+  dismiss hint."
   [model]
   (let [notes (queries/notifications (:db model))]
     (when (seq notes)
@@ -194,9 +199,12 @@
                                                          :tail "…")
                                          :fg style/yellow :bold true)
                            (style/styled hint :faint true))))]
-        (str/join "\n"
-                  (cond-> (vec (map-indexed line shown))
-                    (pos? more) (conj (style/styled (str "… +" more " more") :faint true))))))))
+        (style/render (style/style :border  style/rounded-border
+                                   :padding box-padding
+                                   :width   (inner-width model))
+                      (str/join "\n"
+                                (cond-> (vec (map-indexed line shown))
+                                  (pos? more) (conj (style/styled (str "… +" more " more") :faint true)))))))))
 
 ;; --- layout sizing ----------------------------------------------------------
 
@@ -219,12 +227,13 @@
 
 (defn viewport-height
   "Lines available inside the conversation box's viewport: terminal height
-  minus fixed chrome (3-row header box + 2 blanks + input box + hint = 9),
-  the log panel, the notification banner (when present), and the conversation
-  box's own two border rows. The input box height is dynamic — it grows when
-  the buffer contains newlines."
+  minus fixed chrome (3-row header box + input box borders + hint = 6), the
+  log panel, the notification panel (when present), and the conversation
+  box's own two border rows. Panels stack directly — no blank rows between
+  them. The input box height is dynamic — it grows when the buffer contains
+  newlines."
   [{:keys [height logs-open?] :as model}]
-  (max 3 (- (or height 24) (+ 10
+  (max 3 (- (or height 24) (+ 8
                               (input-line-count model)
                               (panel-lines logs-open?)
                               (notification-lines model)))))
@@ -379,11 +388,9 @@
          (concat
           [(header model)]
           (when-let [banner (notification-banner model)] [banner])
-          [""
-           (if (conversation-empty? model)
+          [(if (conversation-empty? model)
              (empty-conversation-view model)
              (conversation-view model))
-           ""
            (input-view model)
            (hint)
            (log-panel model)])))
