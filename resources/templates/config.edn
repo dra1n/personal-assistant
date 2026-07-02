@@ -1,0 +1,14 @@
+;; Personal Assistant user settings.
+;;
+;; Uncomment and edit what you want to change. Precedence, highest first:
+;;   environment variable  >  project .env (dev)  >  this file  >  built-in default
+{;; :llm {:provider  :openai                                 ; :openai or :anthropic
+ ;;       :openai    {:api-key  "sk-..."
+ ;;                   :base-url "https://api.openai.com/v1"
+ ;;                   :model    "gpt-5"}
+ ;;       :anthropic {:api-key  "sk-ant-..."
+ ;;                   :base-url "https://api.anthropic.com/v1"
+ ;;                   :model    "claude-sonnet-4-6"}}
+ ;; :portal {:enabled? true
+ ;;          :launcher "vs-code"}
+ }

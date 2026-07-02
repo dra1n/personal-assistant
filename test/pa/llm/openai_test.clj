@@ -23,6 +23,15 @@
 (defn- fake-client [captured response]
   (->FakeClient captured response))
 
+(defn- test-provider
+  "make-provider with the settings the :llm/provider integrant config would
+  normally supply, merged with per-test overrides."
+  [overrides]
+  (openai/make-provider (merge {:api-key  "sk-test"
+                                :base-url "https://api.test/v1"
+                                :model    "gpt-test"}
+                               overrides)))
+
 (defn- sse-stream
   "An InputStream of newline-terminated SSE lines."
   [lines]
@@ -64,7 +73,7 @@
   (testing "stream feeds each content delta to on-delta and returns full text"
     (let [captured (atom nil)
           client   (fake-client captured {:body (sse-stream chat-sse)})
-          prov     (openai/make-provider {:api-key "sk-test" :http client})
+          prov     (test-provider {:http client})
           deltas   (atom [])
           result   (provider/stream prov
                                     [{:role :system :content "sys"}
@@ -79,7 +88,7 @@
   (testing "builds a streaming chat-completions POST with auth header + messages"
     (let [captured (atom nil)
           client   (fake-client captured {:body (sse-stream ["data: [DONE]"])})
-          prov     (openai/make-provider {:api-key "sk-test" :model "gpt-x" :http client})]
+          prov     (test-provider {:model "gpt-x" :http client})]
       (provider/stream prov [{:role :user :content "hi"}] {} (fn [_]))
       (let [{:keys [url opts]} @captured
             body (json/read-str (:body opts) :key-fn keyword)]
@@ -95,7 +104,7 @@
   (testing "per-call :model in opts overrides the provider default"
     (let [captured (atom nil)
           client   (fake-client captured {:body (sse-stream ["data: [DONE]"])})
-          prov     (openai/make-provider {:api-key "sk-test" :model "default-m" :http client})]
+          prov     (test-provider {:model "default-m" :http client})]
       (provider/stream prov [{:role :user :content "hi"}] {:model "override-m"} (fn [_]))
       (is (= "override-m" (:model (json/read-str (:body (:opts @captured)) :key-fn keyword)))))))
 
@@ -108,7 +117,7 @@
     (let [captured (atom nil)
           body     (json/write-str {:choices [{:message {:role "assistant" :content "42"}}]})
           client   (fake-client captured {:body body})
-          prov     (openai/make-provider {:api-key "sk-test" :http client})]
+          prov     (test-provider {:http client})]
       (is (= "42" (:content (provider/invoke prov [{:role :user :content "q"}] {}))))
       (is (= :string (:as (:opts @captured))) "non-streaming requests a string body")
       (is (false? (:stream (json/read-str (:body (:opts @captured)) :key-fn keyword)))))))
@@ -135,7 +144,7 @@
   (testing "streamed tool_call fragments assemble into a decoded, parsed tool call"
     (let [captured (atom nil)
           client   (fake-client captured {:body (sse-stream tool-call-sse)})
-          prov     (openai/make-provider {:api-key "sk-test" :http client})
+          prov     (test-provider {:http client})
           deltas   (atom [])
           result   (provider/stream prov [{:role :user :content "read a.txt"}] {}
                                     #(swap! deltas conj %))]
@@ -154,7 +163,7 @@
                                                         :function {:name "fs__write-file"
                                                                    :arguments "{\"path\":\"out.txt\",\"content\":\"hi\"}"}}]}}]})
           client   (fake-client captured {:body body})
-          prov     (openai/make-provider {:api-key "sk-test" :http client})
+          prov     (test-provider {:http client})
           result   (provider/invoke prov [{:role :user :content "write"}] {})]
       (is (= "" (:content result)))
       (is (= [{:id "call_9" :name :fs/write-file
@@ -165,7 +174,7 @@
   (testing ":tools in opts are translated into OpenAI function specs with encoded names"
     (let [captured (atom nil)
           client   (fake-client captured {:body (sse-stream ["data: [DONE]"])})
-          prov     (openai/make-provider {:api-key "sk-test" :http client})
+          prov     (test-provider {:http client})
           tools    [{:name        :fs/read-file
                      :description "Read a file."
                      :parameters  {:type "object" :properties {:path {:type "string"}} :required [:path]}}]]
@@ -182,7 +191,7 @@
   (testing "assistant tool-call and tool-result turns serialize to OpenAI shapes"
     (let [captured (atom nil)
           client   (fake-client captured {:body (sse-stream ["data: [DONE]"])})
-          prov     (openai/make-provider {:api-key "sk-test" :http client})
+          prov     (test-provider {:http client})
           msgs     [{:role :user :content "read a.txt"}
                     {:role :assistant :content ""
                      :tool-calls [{:id "call_1" :name :fs/read-file :arguments {:path "a.txt"}}]}
@@ -203,7 +212,7 @@
   (testing "a blank api key throws and makes no HTTP call"
     (let [captured (atom nil)
           client   (fake-client captured {:body (sse-stream ["data: [DONE]"])})
-          prov     (openai/make-provider {:api-key "" :http client})]
+          prov     (test-provider {:api-key "" :http client})]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"API key missing"
                             (provider/stream prov [{:role :user :content "x"}] {} (fn [_]))))
       (is (nil? @captured) "HTTP client was never called"))))

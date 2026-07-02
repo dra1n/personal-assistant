@@ -26,7 +26,7 @@
 ;; Integrant component — assembles subscribe + app, manages lifecycle
 ;; ---------------------------------------------------------------------------
 
-(defmethod ig/init-key :pa.ui/terminal [_ {:keys [dispatcher deltas]}]
+(defmethod ig/init-key :pa.ui/terminal [_ {:keys [dispatcher deltas llm]}]
   (let [{:keys [db-ch tap-sink watch-cmd]}          (subscribe/make-subscription)
         {:keys [log-ch log-appender watch-log-cmd]} (subscribe/make-log-subscription)
         _                        (add-tap tap-sink)
@@ -40,6 +40,7 @@
                                   {:init   (app/init {:db-ch           db-ch
                                                       :watch-cmd       watch-cmd
                                                       :dispatch!       (:dispatch! dispatcher)
+                                                      :llm-model       (:model llm)
                                                       :log-ch          log-ch
                                                       :watch-log-cmd   watch-log-cmd
                                                       :delta-ch        deltas

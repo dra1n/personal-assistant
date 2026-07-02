@@ -122,6 +122,14 @@
       (is (str/includes? with-motd "Carpe diem!") "user's motd shown when set")
       (is (str/includes? fallback "a handy tip") "fallback tip shown when motd unset"))))
 
+(deftest header-shows-llm-model
+  (testing "the active LLM model appears next to the wordmark when known"
+    (let [with-model (view/view {:width 60 :height 24 :llm-model "gpt-5"
+                                 :db {:conversation []}})
+          without    (view/view {:width 60 :height 24 :db {:conversation []}})]
+      (is (str/includes? with-model "· gpt-5") "model name shown after the wordmark")
+      (is (not (str/includes? without "· gpt-5")) "nothing shown when the model is unknown"))))
+
 (deftest conversation-renders-tool-call-turn
   (testing "an assistant turn that only calls a tool shows the call, not an empty bubble"
     (let [out (view/conversation-content

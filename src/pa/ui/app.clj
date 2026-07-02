@@ -19,6 +19,7 @@
                    buffered on delta-ch can't re-grow a ghost turn)
      :motd-fallback session's header MOTD when the user hasn't set one in
                    user.md — picked once at startup so it doesn't flicker
+     :llm-model    name of the active LLM model, shown in the header
      :viewport     charm viewport: the scrollable conversation
      :log-viewport charm viewport: the scrollable log panel
      :logs         bounded vector of recent log entries {:level :msg :instant}
@@ -101,9 +102,10 @@
 
 (defn init
   "Return a charm init fn. Returns the initial model plus the startup commands."
-  [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd delta-ch watch-delta-cmd]}]
+  [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd delta-ch watch-delta-cmd llm-model]}]
   (fn []
     [(-> {:db           (db/current-db)
+          :llm-model    llm-model
           :db-ch        db-ch
           :dispatch!    dispatch!
           :log-ch       log-ch

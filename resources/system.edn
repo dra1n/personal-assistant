@@ -1,7 +1,7 @@
 {:pa.logging/timbre       {}
 
- :pa.observability/portal {:enabled? #boolean #or [#env PORTAL_ENABLED false]
-                           :launcher #or [#env PORTAL_LAUNCHER "vs-code"]}
+ :pa.observability/portal {:enabled? #boolean #or [#env PORTAL_ENABLED #setting [:portal :enabled?] false]
+                           :launcher #or [#env PORTAL_LAUNCHER #setting [:portal :launcher] "vs-code"]}
 
  :storage/fs              {}
  :storage/identity        {:fs #ig/ref :storage/fs}
@@ -10,7 +10,13 @@
  :memory/store            {:fs #ig/ref :storage/fs}
  :db/sqlite               {:fs #ig/ref :storage/fs}
  :memory/indexer          {:db #ig/ref :db/sqlite :fs #ig/ref :storage/fs}
- :llm/provider            {:provider :openai}
+ :llm/provider            {:provider  #keyword #or [#env LLM_PROVIDER #setting [:llm :provider] "openai"]
+                           :openai    {:api-key  #or [#env OPENAI_API_KEY #setting [:llm :openai :api-key]]
+                                       :base-url #or [#env OPENAI_BASE_URL #setting [:llm :openai :base-url] "https://api.openai.com/v1"]
+                                       :model    #or [#env OPENAI_MODEL #setting [:llm :openai :model] "gpt-5"]}
+                           :anthropic {:api-key  #or [#env ANTHROPIC_API_KEY #setting [:llm :anthropic :api-key]]
+                                       :base-url #or [#env ANTHROPIC_BASE_URL #setting [:llm :anthropic :base-url] "https://api.anthropic.com/v1"]
+                                       :model    #or [#env ANTHROPIC_MODEL #setting [:llm :anthropic :model] "claude-sonnet-4-6"]}}
  :tool.fs/policy          {:fs #ig/ref :storage/fs}
  :ui/deltas               {}
 
@@ -28,4 +34,5 @@
                            :dispatcher #ig/ref :pa.runtime/dispatcher}
 
  :pa.ui/terminal          {:dispatcher #ig/ref :pa.runtime/dispatcher
-                           :deltas     #ig/ref :ui/deltas}}
+                           :deltas     #ig/ref :ui/deltas
+                           :llm        #ig/ref :llm/provider}}
