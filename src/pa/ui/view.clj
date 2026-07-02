@@ -216,13 +216,18 @@
 
 (defn input-line-count
   "Visual lines occupied by the input buffer. Returns 1 for blank or
-  single-line input; counts each wrapped segment for multiline buffers."
+  single-line input. Multiline buffers are hard-wrapped (character chunks,
+  not word wrap — exact cursor arithmetic needs a lossless mapping), so each
+  newline-delimited segment occupies (inc (quot len avail)) rows: a segment
+  whose length is an exact multiple of avail carries an empty continuation
+  row for the cursor to wrap onto. Must stay in lockstep with the row
+  construction in multiline-with-cursor."
   [{:keys [input] :as model}]
   (if (or (str/blank? input) (not (str/includes? input "\n")))
     1
     (let [avail (max 1 (- (inner-width model) 5))]
       (->> (str/split input #"\n" -1)
-           (map #(max 1 (count (wrap-line % avail))))
+           (map #(inc (quot (count %) avail)))
            (reduce +)))))
 
 (defn viewport-height
@@ -248,7 +253,8 @@
    "Press ^L to peek at the live log panel"
    "↑/↓ scroll whichever pane is focused"
    "Set your own header line via `motd` in user.md"
-   "Your assistant's persona lives in identity.md"])
+   "Your assistant's persona lives in identity.md"
+   "Readline keys work: ←/→ · Ctrl+A/E · Alt+F/B · Ctrl+W/K/U"])
 
 (defn random-tip
   "A randomly chosen usage tip — the header MOTD fallback when the user hasn't
@@ -327,17 +333,80 @@
 (defn- cursor []
   (style/styled " " :reverse true))
 
-(defn- visible-window
-  "Trailing window of `s` that fits in `avail` columns, prefixing an ellipsis
-  when text scrolled off the left. The result is never wider than `avail`."
-  [s avail]
-  (if (<= (count s) avail)
-    s
-    (str "…" (subs s (- (count s) (dec avail))))))
+(defn- mark-cursor
+  "s with the character at pos rendered in reverse video — the cursor cell.
+  When pos is at the end, a reversed trailing space is appended instead
+  (one extra column; callers must leave room for it)."
+  [s pos]
+  (if (< pos (count s))
+    (str (subs s 0 pos) (style/styled (subs s pos (inc pos)) :reverse true) (subs s (inc pos)))
+    (str s (cursor))))
+
+(defn- single-line-with-cursor
+  "The input line with the cursor marked at pos, horizontally scrolled so the
+  cursor stays visible (roughly centred while mid-string) within avail
+  columns. Ellipses flag text scrolled off either side; the result is never
+  wider than avail."
+  [s pos avail]
+  (let [len (count s)]
+    (if (< len avail)
+      (mark-cursor s pos)
+      (let [start     (-> (- pos (quot avail 2))
+                          (min (- (inc len) avail))   ; inc: the end-cursor cell
+                          (max 0))
+            end       (min len (+ start avail))
+            head?     (pos? start)
+            tail?     (< end len)
+            vis-start (if head? (inc start) start)
+            vis-end   (if tail? (dec end) end)
+            visible   (subs s vis-start vis-end)
+            cpos      (-> (- pos vis-start) (max 0) (min (count visible)))]
+        (str (when head? "…") (mark-cursor visible cpos) (when tail? "…"))))))
+
+(defn- hard-chunks
+  "Hard-wrap a newline-free segment into avail-column rows. A segment whose
+  length is an exact multiple of avail gets a trailing empty row — the cell
+  the cursor wraps onto after filling the last column — and an empty segment
+  is one empty row. Row count is always (inc (quot (count seg) avail)),
+  matching input-line-count."
+  [seg avail]
+  (let [base (mapv str/join (partition-all avail seg))]
+    (if (zero? (mod (count seg) avail))
+      (conj base "")
+      base)))
+
+(defn- multiline-with-cursor
+  "Multiline buffer rendering: newline-delimited segments hard-wrapped to
+  avail columns, first row prefixed with the prompt and continuation rows
+  aligned under it, cursor marked on its exact row/column."
+  [s pos avail prompt]
+  (let [rows    (loop [segs (str/split s #"\n" -1) off 0 acc []]
+                  (if-let [seg (first segs)]
+                    (recur (rest segs)
+                           (+ off (count seg) 1)
+                           (into acc (map-indexed (fn [i c] [c (+ off (* i avail))])
+                                                  (hard-chunks seg avail))))
+                    acc))
+        ;; The row whose span contains the cursor; a position on a chunk
+        ;; boundary matches two rows and takes the later one (the cursor
+        ;; wraps with the text).
+        row-idx (or (->> rows
+                         (keep-indexed (fn [i [c st]]
+                                         (when (<= st pos (+ st (count c))) i)))
+                         last)
+                    (dec (count rows)))]
+    (->> rows
+         (map-indexed (fn [i [c st]]
+                        (str (if (zero? i) prompt "  ")
+                             (if (= i row-idx)
+                               (mark-cursor c (-> (- pos st) (max 0) (min (count c))))
+                               c))))
+         (str/join "\n"))))
 
 (defn- input-view [{:keys [input focus] :as model}]
-  (let [inner (inner-width model)
-        avail (max 1 (- inner 5))
+  (let [inner  (inner-width model)
+        avail  (max 1 (- inner 5))
+        pos    (-> (or (:cursor model) (count input)) (max 0) (min (count input)))
         prompt (str (style/styled "›" :fg accent :bold true) " ")]
     (style/render
      (style/style :border  (border-for (= :input focus))
@@ -348,20 +417,10 @@
        (str prompt (cursor) (style/styled placeholder :faint true))
 
        (not (str/includes? input "\n"))
-       (str prompt (visible-window input avail) (cursor))
+       (str prompt (single-line-with-cursor input pos avail))
 
        :else
-       ;; Multiline: split on \n, word-wrap each segment, prefix the first
-       ;; wrapped line with "› " and all others with "  " to align.
-       (let [segments (str/split input #"\n" -1)
-             lines    (mapcat #(let [wl (wrap-line % avail)] (if (seq wl) wl [""])) segments)
-             prefixed (map-indexed
-                       (fn [i line] (str (if (zero? i) prompt "  ") line))
-                       lines)]
-         (str (str/join "\n" (butlast prefixed))
-              "\n"
-              (last prefixed)
-              (cursor)))))))
+       (multiline-with-cursor input pos avail prompt)))))
 
 (defn- hint []
   (style/styled "Enter send · Tab/Esc focus · ↑/↓ scroll · ^L logs · ^C quit" :faint true))
