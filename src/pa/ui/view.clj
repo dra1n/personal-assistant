@@ -35,11 +35,15 @@
 
 (defn- wrap-line
   "Greedily word-wrap a single (ANSI-free) line to `width` columns. A word
-  longer than `width` is left intact rather than hard-split."
+  longer than `width` (a URL, a pr-str blob) is hard-split into width-sized
+  chunks — an overflowing line would push past the box border and break the
+  fixed layout's height math."
   [line width]
   (if (<= (count line) width)
     [line]
-    (loop [words (str/split line #"\s+") cur "" out []]
+    (loop [words (mapcat #(map str/join (partition-all width %))
+                         (str/split line #"\s+"))
+           cur "" out []]
       (if-let [w (first words)]
         (let [cand (if (empty? cur) w (str cur " " w))]
           (if (<= (count cand) width)
@@ -52,8 +56,13 @@
        (mapcat #(wrap-line % width))
        (str/join "\n")))
 
-(defn- tool-call-line [{:keys [name arguments]}]
-  (str "→ " (subs (str name) 1) " " (pr-str arguments)))
+(defn- tool-call-line
+  "One truncated line per tool call — arguments can be enormous (write-file
+  contents, long URLs) and are a gist, not the record; the full call is in
+  the log panel and the event log."
+  [{:keys [name arguments]} width]
+  (style/truncate (str "→ " (subs (str name) 1) " " (pr-str arguments))
+                  width :tail "…"))
 
 (defn- faint-lines
   "Word-wrap s to width and apply the faint style per physical line, so the
@@ -64,8 +73,27 @@
        (map #(style/styled % :faint true))
        (str/join "\n")))
 
-(defn- render-turn [{:keys [role content tool-calls]} width names]
-  (let [label (case role
+(def ^:private tool-output-max-lines
+  "Physical lines of a tool-result turn shown before collapsing the rest.
+  Tool output (a fetched webpage, a file's contents) can run to thousands of
+  lines of machine chatter that would drown the conversation; the full text
+  still reaches the LLM and the event log."
+  3)
+
+(defn- collapsed-tool-output
+  "A tool-result turn's content: faint, capped at tool-output-max-lines
+  wrapped lines, with a trailing count of what was elided."
+  [content width]
+  (let [lines (str/split-lines (wrap-text content width))
+        shown (take tool-output-max-lines lines)
+        more  (- (count lines) tool-output-max-lines)]
+    (->> (cond-> (mapv #(style/styled % :faint true) shown)
+           (pos? more) (conj (style/styled (str "… +" more " more lines") :faint true)))
+         (str/join "\n"))))
+
+(defn- render-turn [{:keys [role content tool-calls pending?]} width names]
+  (let [w     (max 1 width)
+        label (case role
                 :user      (style/styled (or (:user names) "You")            :fg accent :bold true)
                 :assistant (style/styled (or (:assistant names) "Assistant") :fg style/green :bold true)
                 (style/styled (name (or role :system)) :faint true))
@@ -73,10 +101,14 @@
         ;; call(s) faintly instead of an empty bubble. A turn may carry both
         ;; (some models add commentary alongside a tool call).
         parts (cond-> []
+                pending?
+                (conj (style/styled "thinking…" :faint true))
                 (not (str/blank? content))
-                (conj (wrap-text (str content) (max 1 width)))
+                (conj (if (= :tool role)
+                        (collapsed-tool-output (str content) w)
+                        (wrap-text (str content) w)))
                 (seq tool-calls)
-                (conj (faint-lines (str/join "\n" (map tool-call-line tool-calls)) (max 1 width))))]
+                (conj (faint-lines (str/join "\n" (map #(tool-call-line % w) tool-calls)) w)))]
     ;; One blank line under the label so it stands out as a header; the gap
     ;; between turns (below) is wider, so the label groups with its own body.
     (str label "\n\n" (str/join "\n\n" parts))))
@@ -90,17 +122,24 @@
 
 (defn conversation-content
   "Render the committed conversation, plus the in-progress streamed response
-  (if any) as a trailing live assistant turn. Turn labels use the identity
-  names when set, falling back to capitalized \"You\"/\"Assistant\". Returns an
-  empty string when there are no turns — the empty state is handled by the
-  placeholder view, not here."
-  [db width streaming]
-  (let [turns (cond-> (vec (queries/conversation db))
-                (not (str/blank? streaming)) (conj {:role :assistant :content streaming}))
-        names {:user      (queries/user-name db)
-               :assistant (queries/assistant-name db)}]
-    ;; Two blank lines between turns — wider than the label's own bottom gap.
-    (str/join "\n\n\n" (map #(render-turn % width names) turns))))
+  (if any) as a trailing live assistant turn. When `pending?` is true and no
+  deltas have arrived yet, a faint thinking… placeholder turn is shown instead
+  (the wait for the first token, or for a tool call to finish). Turn labels
+  use the identity names when set, falling back to capitalized
+  \"You\"/\"Assistant\". Returns an empty string when there are no turns — the
+  empty state is handled by the placeholder view, not here."
+  ([db width streaming] (conversation-content db width streaming false))
+  ([db width streaming pending?]
+   (let [turns (cond-> (vec (queries/conversation db))
+                 (not (str/blank? streaming))
+                 (conj {:role :assistant :content streaming})
+
+                 (and pending? (str/blank? streaming) (seq (queries/conversation db)))
+                 (conj {:role :assistant :pending? true}))
+         names {:user      (queries/user-name db)
+                :assistant (queries/assistant-name db)}]
+     ;; Two blank lines between turns — wider than the label's own bottom gap.
+     (str/join "\n\n\n" (map #(render-turn % width names) turns)))))
 
 ;; --- log content ------------------------------------------------------------
 
@@ -118,6 +157,46 @@
   (if (seq logs)
     (str/join "\n" (map #(log-entry-line % width) logs))
     (style/styled "(no log entries yet)" :faint true)))
+
+;; --- notifications ------------------------------------------------------------
+
+(def ^:private notification-max-rows 3)
+
+(defn- notification-text [{:keys [type payload]}]
+  (str (case type :reminder "⏰ Reminder: " "• ")
+       (or (:text payload) (pr-str payload))))
+
+(defn notification-lines
+  "Vertical lines the notification banner occupies under the header: one per
+  pending notification, capped at notification-max-rows plus an overflow
+  line. 0 when nothing is pending (no banner)."
+  [{:keys [db]}]
+  (let [n (count (queries/notifications db))]
+    (cond
+      (zero? n)                   0
+      (> n notification-max-rows) (inc notification-max-rows)
+      :else                       n)))
+
+(defn- notification-banner
+  "The pending-notifications banner, or nil when there are none. Reminders
+  fire into :ui/notifications (see :reminder/due); this is where they become
+  visible. The first line carries the dismiss hint."
+  [model]
+  (let [notes (queries/notifications (:db model))]
+    (when (seq notes)
+      (let [tw    (text-width model)
+            shown (take notification-max-rows notes)
+            more  (- (count notes) notification-max-rows)
+            line  (fn [i note]
+                    (let [hint (if (zero? i) " · ^X dismiss" "")]
+                      (str (style/styled (style/truncate (notification-text note)
+                                                         (max 1 (- tw (count hint)))
+                                                         :tail "…")
+                                         :fg style/yellow :bold true)
+                           (style/styled hint :faint true))))]
+        (str/join "\n"
+                  (cond-> (vec (map-indexed line shown))
+                    (pos? more) (conj (style/styled (str "… +" more " more") :faint true))))))))
 
 ;; --- layout sizing ----------------------------------------------------------
 
@@ -141,10 +220,14 @@
 (defn viewport-height
   "Lines available inside the conversation box's viewport: terminal height
   minus fixed chrome (3-row header box + 2 blanks + input box + hint = 9),
-  the log panel, and the conversation box's own two border rows.
-  The input box height is dynamic — it grows when the buffer contains newlines."
+  the log panel, the notification banner (when present), and the conversation
+  box's own two border rows. The input box height is dynamic — it grows when
+  the buffer contains newlines."
   [{:keys [height logs-open?] :as model}]
-  (max 3 (- (or height 24) (+ 10 (input-line-count model) (panel-lines logs-open?)))))
+  (max 3 (- (or height 24) (+ 10
+                              (input-line-count model)
+                              (panel-lines logs-open?)
+                              (notification-lines model)))))
 
 ;; --- view -------------------------------------------------------------------
 
@@ -212,7 +295,9 @@
 (defn- conversation-view [{:keys [viewport focus] :as model}]
   (let [content (if viewport
                   (vp/viewport-view viewport)
-                  (conversation-content (:db model) (text-width model) (:streaming model)))]
+                  (conversation-content (:db model) (text-width model) (:streaming model)
+                                        (and (:streaming-open? model)
+                                             (str/blank? (:streaming model)))))]
     (style/render (style/style :border  (border-for (= :conversation focus))
                                :padding box-padding
                                :width   (inner-width model))
@@ -289,14 +374,16 @@
                       :faint true)))))
 
 (defn view [model]
-  (style/join-vertical
-   :left
-   (header model)
-   ""
-   (if (conversation-empty? model)
-     (empty-conversation-view model)
-     (conversation-view model))
-   ""
-   (input-view model)
-   (hint)
-   (log-panel model)))
+  (apply style/join-vertical
+         :left
+         (concat
+          [(header model)]
+          (when-let [banner (notification-banner model)] [banner])
+          [""
+           (if (conversation-empty? model)
+             (empty-conversation-view model)
+             (conversation-view model))
+           ""
+           (input-view model)
+           (hint)
+           (log-panel model)])))

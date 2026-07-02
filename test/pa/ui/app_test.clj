@@ -102,6 +102,35 @@
       (is (false? (:streaming-open? m2)) "the commit closes the stream")
       (is (= "" (:streaming m3)) "the straggler does not re-grow a ghost turn"))))
 
+(deftest tool-call-turn-keeps-the-stream-open
+  (testing "an assistant tool-call turn is an intermediate hop, not a commit"
+    (let [open   {:streaming "commentary" :streaming-open? true :db {} :width 40
+                  :delta-ch nil :db-ch nil}
+          [m1 _] (app/update-model open
+                                   {:type :runtime/db-updated
+                                    :db {:conversation
+                                         [{:role :user :content "hi"}
+                                          {:role :assistant :content ""
+                                           :tool-calls [{:id "c1" :name :fs/read-file
+                                                         :arguments {:path "a.txt"}}]}]}})
+          [m2 _] (app/update-model m1 {:type :llm/delta :delta "Done!"})]
+      (is (true? (:streaming-open? m1)) "the stream stays open through the hop")
+      (is (= "" (:streaming m1)) "the preview clears — its text committed with the turn")
+      (is (= "Done!" (:streaming m2)) "the follow-up response still streams live"))))
+
+(deftest non-conversation-db-update-preserves-stream-preview
+  (testing "a snapshot that didn't touch the conversation keeps the live preview"
+    (let [conv  [{:role :user :content "hi"}]
+          m0    {:streaming "partial reply" :streaming-open? true
+                 :db {:conversation conv} :db-ch nil :width 40}
+          [m _] (app/update-model m0
+                                  {:type :runtime/db-updated
+                                   :db {:conversation conv
+                                        :ui/notifications [{:id "n1" :type :reminder
+                                                            :payload {:text "stretch"}}]}})]
+      (is (= "partial reply" (:streaming m))
+          "a reminder firing mid-stream does not wipe the preview"))))
+
 (deftest user-turn-commit-keeps-the-stream-open
   (testing "committing the user turn leaves the stream open for the assistant's deltas"
     (let [open   {:streaming "" :streaming-open? true :db {} :width 40 :delta-ch nil :db-ch nil}
@@ -303,6 +332,24 @@
       (is (= :conversation (:focus scrolled)) "precondition: conversation focused & scrolled up")
       (is (false? (vp/viewport-at-bottom? (:viewport scrolled))))
       (is (= off (get-in m [:viewport :y-offset])) "position held, not pinned to bottom"))))
+
+;; ---------------------------------------------------------------------------
+;; Notifications
+;; ---------------------------------------------------------------------------
+
+(deftest ctrl-x-dismisses-pending-notifications
+  (testing "^X dispatches :notifications/clear when the banner is showing"
+    (let [events  (atom [])
+          model   {:db {:ui/notifications [{:id "n1" :type :reminder :payload {:text "x"}}]}
+                   :dispatch! #(swap! events conj %)}
+          [m cmd] (app/update-model model (msg/key-press "x" :ctrl true))]
+      (is (= model m) "the model itself is untouched — clearing flows back via the db subscription")
+      (is (some? cmd))
+      ((:fn cmd))
+      (is (= [{:event/type :notifications/clear}] @events))))
+  (testing "^X with nothing pending is a no-op"
+    (let [[_ cmd] (app/update-model {:db {}} (msg/key-press "x" :ctrl true))]
+      (is (nil? cmd)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Multiline input — paste, Alt+Enter, submit, regressions
