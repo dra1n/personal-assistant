@@ -34,4 +34,5 @@
                            :dispatcher #ig/ref :pa.runtime/dispatcher}
 
  :pa.ui/terminal          {:dispatcher #ig/ref :pa.runtime/dispatcher
-                           :deltas     #ig/ref :ui/deltas}}
+                           :deltas     #ig/ref :ui/deltas
+                           :llm        #ig/ref :llm/provider}}

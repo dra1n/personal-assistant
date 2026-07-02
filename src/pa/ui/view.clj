@@ -270,16 +270,21 @@
   [s]
   (str "[2m" s "[0m"))
 
-;; Split header: a rounded box, wordmark on the left and the message-of-the-day
-;; (user's `motd`, else the session's fallback tip) on the right of one row.
-;; The border is hand-drawn and dimmed (dim-glyph) to match the faint MOTD.
+;; Split header: a rounded box, wordmark (plus the active LLM model, faint) on
+;; the left and the message-of-the-day (user's `motd`, else the session's
+;; fallback tip) on the right of one row. The border is hand-drawn and dimmed
+;; (dim-glyph) to match the faint MOTD.
 (defn- header [model]
   (let [iw       (inner-width model)
         tw       (text-width model)
         wordmark "Personal Assistant"
-        left-len (+ 2 (count wordmark))                  ; ✦ + space + wordmark
+        llm      (:llm-model model)
+        left-len (cond-> (+ 2 (count wordmark))          ; ✦ + space + wordmark
+                   llm (+ 3 (count llm)))                ; + space + "· " + model
         left     (str (style/styled "✦" :fg accent :bold true) " "
-                      (style/styled wordmark :bold true))
+                      (style/styled wordmark :bold true)
+                      (when llm
+                        (str " " (style/styled (str "· " llm) :faint true))))
         raw      (or (queries/user-motd (:db model)) (:motd-fallback model) (first tips))
         motd     (style/truncate raw (max 1 (- tw left-len 1)) :tail "…")
         gap      (apply str (repeat (max 1 (- tw left-len (count motd))) " "))
