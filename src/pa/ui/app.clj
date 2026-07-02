@@ -7,7 +7,11 @@
     {:db           latest runtime state snapshot
      :db-ch        core.async channel — owned by pa.ui.core
      :dispatch!    runtime dispatch fn — the UI's only way to push events in
-     :input        UI-local input buffer string
+     :ti           charm text-input component — the canonical input buffer
+                   with cursor position and readline-style editing (←/→,
+                   ctrl+a/e, alt+f/b word hops, ctrl+w/k/u kill keys)
+     :input        derived string of :ti's value — what the view renders
+     :cursor       derived cursor index into :input — where the view marks it
      :streaming    live text of the in-flight assistant turn (delta preview)
      :streaming-open? whether to accept incoming deltas — opened when the user
                    sends, held open across tool-call hops, closed when the
@@ -30,7 +34,8 @@
   returns to the input. Typing and Enter always target the input and snap
   focus back to it. Runtime state is read only via pa.state.queries; the UI
   never mutates it."
-  (:require [charm.components.viewport :as vp]
+  (:require [charm.components.text-input :as tin]
+            [charm.components.viewport :as vp]
             [charm.message :as msg]
             [charm.program :as charm]
             [clojure.string :as str]
@@ -106,7 +111,9 @@
           :logs         []
           :logs-open?   false
           :focus        :input
+          :ti           (tin/text-input :prompt "" :placeholder "")
           :input        ""
+          :cursor       0
           :nav/index    nil
           :nav/draft    ""
           :pasting?     false
@@ -134,8 +141,45 @@
      (dispatch! event)
      nil)))
 
-(defn- backspace [s]
-  (if (seq s) (subs s 0 (dec (count s))) s))
+;; --- input buffer (charm text-input component) -------------------------------
+;;
+;; The component map {:value <char vector> :pos <cursor>} is canonical;
+;; :input and :cursor in the model are derived copies the view renders from.
+;; tin/text-input-update gives us readline-style editing for free — cursor
+;; movement, word hops, kill keys — inside charm's own update loop (a JLine
+;; LineReader can't be used here: charm owns the terminal's raw-mode input
+;; thread and repaints full frames, so a second reader/renderer would fight it).
+
+(defn- ensure-ti
+  "The text-input component holding the canonical buffer + cursor. Seeded
+  from :input (cursor at end) when absent, so bare test models work."
+  [model]
+  (or (:ti model)
+      (tin/set-value (tin/text-input :prompt "" :placeholder "") (or (:input model) ""))))
+
+(defn- sync-input
+  "Write the component back along with the derived :input string and :cursor
+  position the view renders from."
+  [model ti]
+  (assoc model :ti ti :input (tin/value ti) :cursor (:pos ti)))
+
+(defn- splice-input
+  "Insert s verbatim at the cursor — used for newlines and tabs (paste,
+  Alt+Enter), which text-input's own insert filter would reject."
+  [model s]
+  (let [{:keys [value pos] :as ti} (ensure-ti model)
+        v (vec value)]
+    (sync-input model (-> ti
+                          (assoc :value (into (into (subvec v 0 pos) (vec s)) (subvec v pos)))
+                          (update :pos + (count s))))))
+
+(defn- set-input
+  "Replace the whole buffer (history recall), cursor at the end."
+  [model s]
+  (sync-input model (tin/set-value (ensure-ti model) s)))
+
+(defn- clear-input [model]
+  (sync-input model (tin/reset (ensure-ti model))))
 
 (defn- append-log [model entry]
   (update model :logs #(vec (take-last log-buffer-size (conj (or % []) entry)))))
@@ -254,7 +298,7 @@
     ;; While pasting, Tab characters in the clipboard content are appended verbatim.
     (msg/key-match? message :tab)
     (if (:pasting? model)
-      [(update model :input str "\t") nil]
+      [(splice-input model "\t") nil]
       [(-> model (assoc :focus (next-focus model)) refresh-conversation refresh-logs) nil])
 
     (msg/key-match? message :escape)
@@ -266,7 +310,7 @@
       (let [nav     (select-keys model [:nav/index :nav/draft])
             history (get-in model [:db :ui/history] [])
             [nav' text] (input/navigate-back nav history (:input model))]
-        [(merge model nav' {:input text}) nil])
+        [(merge (set-input model text) nav') nil])
       [(scroll-focused model vp/scroll-up) nil])
 
     (msg/key-match? message :down)
@@ -274,7 +318,7 @@
       (let [nav     (select-keys model [:nav/index :nav/draft])
             history (get-in model [:db :ui/history] [])
             [nav' text] (input/navigate-forward nav history)]
-        [(merge model nav' {:input text}) nil])
+        [(merge (set-input model text) nav') nil])
       [(scroll-focused model vp/scroll-down) nil])
 
     ;; Enter — while pasting, \n/\r arrive as :enter events; append a literal
@@ -282,39 +326,52 @@
     ;; buffer as a user message (ignored when blank).
     (msg/key-match? message :enter)
     (if (:pasting? model)
-      [(update model :input str "\n") nil]
+      [(splice-input model "\n") nil]
       (let [text (str/trim (:input model))]
         (if (str/blank? text)
           [(focus-input model) nil]
           ;; Open the stream so the assistant's deltas are accepted into the live
           ;; preview; it closes again when the assistant turn commits.
-          [(refresh-conversation (focus-input (assoc model :input "" :nav/index nil :nav/draft "" :streaming-open? true)))
+          [(refresh-conversation (focus-input (assoc (clear-input model)
+                                                     :nav/index nil :nav/draft ""
+                                                     :streaming-open? true)))
            (dispatch-cmd (:dispatch! model) {:event/type :user/message :content text})])))
 
-    (msg/key-match? message :backspace)
-    [(focus-input (update model :input backspace)) nil]
-
-    ;; Alt+Enter — manual newline: insert \n into the buffer without submitting.
+    ;; Alt+Enter — manual newline: insert \n at the cursor without submitting.
     ;; (Shift+Enter is not detectable in charm.clj on standard terminals.)
     (and (msg/key-press? message) (msg/alt? message) (= "\r" (:key message)))
-    [(refresh-conversation (focus-input (update model :input str "\n"))) nil]
+    [(refresh-conversation (focus-input (splice-input model "\n"))) nil]
 
-    ;; Space arrives as a special key, not a runes string.
-    (msg/key-match? message :space)
-    [(focus-input (update model :input str " ")) nil]
+    ;; Everything else that's a key press goes to the text-input component,
+    ;; which owns readline-style editing: character insertion, backspace,
+    ;; ←/→ and ctrl+f/b movement, ctrl+a/e line ends, alt+f/b word hops,
+    ;; ctrl+w/k/u kill keys, delete/ctrl+d forward delete. Space arrives as
+    ;; a special key, so it is translated to its rune first. An edit that
+    ;; changes the value exits history navigation (movement alone doesn't).
+    (msg/key-press? message)
+    (let [ti      (ensure-ti model)
+          [ti' _] (tin/text-input-update ti (if (msg/key-match? message :space)
+                                              (msg/key-press " ")
+                                              message))
+          typing? (or (msg/key-match? message :space)
+                      (msg/key-match? message :backspace)
+                      (and (string? (:key message))
+                           (not (msg/ctrl? message))
+                           (not (msg/alt? message))))]
+      (cond
+        (not= ti' ti)
+        [(focus-input (cond-> (sync-input model ti')
+                        (not= (:value ti') (:value ti))
+                        (assoc :nav/index nil :nav/draft "")))
+         nil]
 
-    ;; Printable characters arrive as a runes string; ignore modified chords.
-    ;; While navigating history, exit navigation and incorporate the typed char.
-    (and (msg/key-press? message)
-         (string? (:key message))
-         (not (msg/ctrl? message))
-         (not (msg/alt? message)))
-    (if (some? (:nav/index model))
-      (let [[nav' text] (input/reset-navigation (select-keys model [:nav/index :nav/draft])
-                                                (:input model)
-                                                (:key message))]
-        [(focus-input (merge model nav' {:input text})) nil])
-      [(focus-input (update model :input str (:key message))) nil])
+        ;; A no-op edit (backspace on empty, space filtered) still signals
+        ;; typing intent — snap focus back to the input like before.
+        typing?
+        [(focus-input model) nil]
+
+        :else
+        [model nil]))
 
     :else
     [model nil]))

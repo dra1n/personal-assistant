@@ -62,6 +62,56 @@
       (is (empty? @events))
       (is (= "   " (:input m))))))
 
+;; ---------------------------------------------------------------------------
+;; Readline-style editing (charm text-input component)
+;; ---------------------------------------------------------------------------
+
+(deftest left-arrow-moves-cursor-and-inserts-mid-string
+  (testing "←←, then typing, inserts at the cursor instead of appending"
+    (let [[m1 _] (app/update-model {:input "helo"} (msg/key-press :left))
+          [m2 _] (app/update-model m1 (msg/key-press "l"))]
+      (is (= 3 (:cursor m1)) "cursor moved back one")
+      (is (= "hello" (:input m2)) "char inserted at the cursor")
+      (is (= 4 (:cursor m2)) "cursor advanced past the insertion"))))
+
+(deftest ctrl-a-and-ctrl-e-jump-to-line-ends
+  (let [[at-start _] (app/update-model {:input "hello"} (msg/key-press "a" :ctrl true))
+        [at-end _]   (app/update-model at-start (msg/key-press "e" :ctrl true))]
+    (is (= 0 (:cursor at-start)) "ctrl+a jumps to the start")
+    (is (= 5 (:cursor at-end)) "ctrl+e jumps back to the end")))
+
+(deftest ctrl-w-kills-the-previous-word
+  (let [[m _] (app/update-model {:input "git commit now"} (msg/key-press "w" :ctrl true))]
+    (is (= "git commit " (:input m)) "last word killed")))
+
+(deftest ctrl-k-and-ctrl-u-kill-to-line-ends
+  (let [mid    (first (app/update-model {:input "keep-drop"}
+                                        (msg/key-press "a" :ctrl true)))
+        mid    (reduce (fn [m _] (first (app/update-model m (msg/key-press :right))))
+                       mid (range 5))
+        [k _]  (app/update-model mid (msg/key-press "k" :ctrl true))
+        [u _]  (app/update-model mid (msg/key-press "u" :ctrl true))]
+    (is (= 5 (:cursor mid)) "precondition: cursor after 'keep-'")
+    (is (= "keep-" (:input k)) "ctrl+k kills to the end")
+    (is (= "drop" (:input u)) "ctrl+u kills to the start")))
+
+(deftest delete-forward-removes-char-under-cursor
+  (let [at-start (first (app/update-model {:input "abc"} (msg/key-press "a" :ctrl true)))
+        [m _]    (app/update-model at-start (msg/key-press :delete))]
+    (is (= "bc" (:input m)) "delete removes the char at the cursor")))
+
+(deftest cursor-movement-preserves-history-navigation
+  (testing "moving the cursor inside a recalled entry keeps nav active; editing exits it"
+    (let [model  {:input "" :nav/index nil :nav/draft "" :focus :input
+                  :db {:ui/history [{:history/text "git status"}]}}
+          [m1 _] (app/update-model model (msg/key-press :up))
+          [m2 _] (app/update-model m1 (msg/key-press :left))
+          [m3 _] (app/update-model m2 (msg/key-press "!"))]
+      (is (= "git status" (:input m1)) "↑ recalls the entry")
+      (is (some? (:nav/index m2)) "cursor movement alone keeps navigation")
+      (is (= "git statu!s" (:input m3)) "typing inserts at the cursor")
+      (is (nil? (:nav/index m3)) "an edit exits navigation"))))
+
 (deftest db-update-preserves-input-buffer
   (testing "an incoming runtime snapshot does not clobber in-progress typing"
     (let [model  {:input "half-typed" :db-ch nil :db {}}
