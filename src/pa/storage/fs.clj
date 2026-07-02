@@ -44,6 +44,14 @@
 (defn- create-system-templates! [root]
   (create-templates! root "system" system-template-files))
 
+(defn- create-config-template!
+  "Copy the user-settings template to <root>/config.edn if absent (idempotent).
+  Read back by pa.config's #setting aero tag."
+  [root]
+  (let [dest (io/file root "config.edn")]
+    (when-not (.exists dest)
+      (io/copy (io/input-stream (io/resource "templates/config.edn")) dest))))
+
 (defn- create-event-log! [root]
   (let [f (io/file root "events" "events.edn")]
     (when-not (.exists f)
@@ -63,6 +71,7 @@
   (create-identity-templates! root)
   (create-memory-templates! root)
   (create-system-templates! root)
+  (create-config-template! root)
   (create-event-log! root)
   (create-history-log! root))
 

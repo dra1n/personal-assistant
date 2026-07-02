@@ -18,8 +18,10 @@
                  "malformed-line\n"))))
     (is (= {} (config/parse-dotenv "")))))
 
-(defn- read-config-str [s dotenv]
-  (aero/read-config (StringReader. s) {:dotenv dotenv}))
+(defn- read-config-str
+  ([s dotenv] (read-config-str s dotenv {}))
+  ([s dotenv settings]
+   (aero/read-config (StringReader. s) {:dotenv dotenv :settings settings})))
 
 (deftest env-reader-precedence-test
   (testing ".env fills in vars missing from the real environment"
@@ -32,3 +34,21 @@
   (testing "unset everywhere resolves to nil, so #or defaults still apply"
     (is (= {:x "fallback"}
            (read-config-str "{:x #or [#env PA_TEST_UNSET_VAR \"fallback\"]}" {})))))
+
+(def ^:private setting-chain
+  "{:x #or [#env PA_TEST_UNSET_VAR #setting [:llm :model] \"default\"]}")
+
+(deftest setting-reader-test
+  (testing "#setting resolves a get-in path into the user settings map"
+    (is (= {:x "from-settings"}
+           (read-config-str "{:x #setting [:llm :model]}"
+                            {} {:llm {:model "from-settings"}}))))
+  (testing "in the standard #or chain: .env beats settings, settings beat the default"
+    (is (= {:x "from-dotenv"}
+           (read-config-str setting-chain
+                            {"PA_TEST_UNSET_VAR" "from-dotenv"}
+                            {:llm {:model "from-settings"}})))
+    (is (= {:x "from-settings"}
+           (read-config-str setting-chain {} {:llm {:model "from-settings"}})))
+    (is (= {:x "default"}
+           (read-config-str setting-chain {} {})))))

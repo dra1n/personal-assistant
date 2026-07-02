@@ -1,14 +1,21 @@
 (ns pa.config
   "Loads the integrant system config from resources/system.edn via aero.
 
-  #env resolution order: the real process environment first, then a
-  gitignored .env file in the project root (KEY=VALUE lines) as a dev-time
-  fallback. The JVM cannot mutate its environment, so .env is consulted at
-  config-read time only — it never becomes a real env var."
+  Two custom value sources, combined per value in system.edn with #or so the
+  precedence is explicit where each setting is declared:
+
+    #env X      — the real process environment, falling back to a gitignored
+                  .env file in the project root (KEY=VALUE lines, dev-time).
+                  The JVM cannot mutate its environment, so .env is consulted
+                  at config-read time only — it never becomes a real env var.
+    #setting P  — get-in path P into the user's <PA_HOME>/config.edn (plain
+                  EDN, bootstrapped from a template by :storage/fs)."
   (:require [aero.core :as aero]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [integrant.core :as ig]))
+            [integrant.core :as ig]
+            [pa.storage.fs :as fs]))
 
 (defmethod aero/reader 'ig/ref [_ _ value]
   (ig/ref value))
@@ -47,6 +54,24 @@
   (or (System/getenv (str value))
       (get dotenv (str value))))
 
+;; ---------------------------------------------------------------------------
+;; <PA_HOME>/config.edn user settings
+;; ---------------------------------------------------------------------------
+
+(defn- load-settings [path]
+  (let [f (io/file path)]
+    (if (.exists f)
+      (try
+        (or (edn/read-string (slurp f)) {})
+        (catch Exception e
+          (throw (ex-info (str "Malformed user settings file: " path)
+                          {:path path} e))))
+      {})))
+
+(defmethod aero/reader 'setting [{:keys [settings]} _ path]
+  (get-in settings path))
+
 (defn system-config []
   (aero/read-config (io/resource "system.edn")
-                    {:dotenv (load-dotenv ".env")}))
+                    {:dotenv   (load-dotenv ".env")
+                     :settings (load-settings (str (fs/pa-home) "/config.edn"))}))

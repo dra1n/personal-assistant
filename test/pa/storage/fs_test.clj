@@ -1,5 +1,6 @@
 (ns pa.storage.fs-test
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.edn :as edn]
+            [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.java.io :as io]
             [pa.storage.fs :as fs]))
 
@@ -56,6 +57,14 @@
     (let [f (io/file *tmp-root* "memory" "memory.md")]
       (is (.exists f) "memory/memory.md should exist")
       (is (pos? (.length f)) "memory/memory.md should not be empty"))))
+
+(deftest bootstrap-creates-config-template
+  (testing "config.edn is created at the root and reads as an EDN map"
+    (fs/bootstrap! *tmp-root*)
+    (let [f (io/file *tmp-root* "config.edn")]
+      (is (.exists f) "config.edn should exist")
+      (is (map? (edn/read-string (slurp f)))
+          "template must stay valid EDN — pa.config reads it at startup"))))
 
 (deftest bootstrap-creates-event-log
   (testing "empty events.edn is created"
