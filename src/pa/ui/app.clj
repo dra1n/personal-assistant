@@ -10,7 +10,8 @@
      :input        UI-local input buffer string
      :streaming    live text of the in-flight assistant turn (delta preview)
      :streaming-open? whether to accept incoming deltas — opened when the user
-                   sends, closed when the assistant turn commits (so stragglers
+                   sends, held open across tool-call hops, closed when the
+                   final assistant turn (no tool calls) commits (so stragglers
                    buffered on delta-ch can't re-grow a ghost turn)
      :motd-fallback session's header MOTD when the user hasn't set one in
                    user.md — picked once at startup so it doesn't flicker
@@ -34,6 +35,7 @@
             [charm.program :as charm]
             [clojure.string :as str]
             [pa.state.db :as db]
+            [pa.state.queries :as queries]
             [pa.ui.input :as input]
             [pa.ui.subscribe :as subscribe]
             [pa.ui.view :as view]))
@@ -50,9 +52,12 @@
   [{:keys [db streaming viewport focus] :as model}]
   (let [at-bottom? (or (nil? viewport) (vp/viewport-at-bottom? viewport))
         prev-off   (:y-offset viewport)
+        ;; The stream is open but no delta has arrived yet — waiting on the
+        ;; first token, or on a tool call to finish. Shown as a thinking… turn.
+        pending?   (and (:streaming-open? model) (str/blank? streaming))
         vp0        (-> (or viewport (vp/viewport ""))
                        (vp/viewport-set-content
-                        (view/conversation-content db (view/text-width model) streaming))
+                        (view/conversation-content db (view/text-width model) streaming pending?))
                        (vp/viewport-set-dimensions 0 (view/viewport-height model)))]
     (assoc model :viewport
            (if (and (= focus :conversation) (not at-bottom?))
@@ -120,13 +125,13 @@
 ;; Update
 ;; ---------------------------------------------------------------------------
 
-(defn- dispatch-user-message
-  "A charm command that pushes a :user/message event into the runtime. The
-  command produces no follow-up charm message (returns nil)."
-  [dispatch! text]
+(defn- dispatch-cmd
+  "A charm command that pushes an event into the runtime. The command
+  produces no follow-up charm message (returns nil)."
+  [dispatch! event]
   (charm/cmd
    (fn []
-     (dispatch! {:event/type :user/message :content text})
+     (dispatch! event)
      nil)))
 
 (defn- backspace [s]
@@ -172,18 +177,26 @@
     (and (msg/key-press? message) (msg/key-match? message "ctrl+c"))
     [model charm/quit-cmd]
 
-    ;; A committed conversation snapshot — clear the in-progress stream (the
-    ;; assistant turn, if any, is now part of the conversation). Once the
-    ;; assistant turn lands the stream is closed, so late deltas still buffered
-    ;; on delta-ch are rejected rather than re-growing a ghost trailing turn.
+    ;; A runtime snapshot. When the conversation grew, the in-progress stream
+    ;; preview is cleared (its text, if any, is now a committed turn); a
+    ;; snapshot that left the conversation untouched (a reminder firing, a
+    ;; memory stored) must not wipe a live preview. The stream itself closes
+    ;; only on a *final* assistant turn — one without tool calls. A tool-call
+    ;; turn is an intermediate hop: the follow-up invocation streams the real
+    ;; answer, so the stream stays open through it. Once closed, late deltas
+    ;; still buffered on delta-ch are rejected rather than re-growing a ghost
+    ;; trailing turn.
     (= :runtime/db-updated (:type message))
-    (let [new-db (:db message)
-          committed? (= :assistant (:role (last (:conversation new-db))))]
-      [(refresh-conversation (assoc model
-                                    :db new-db
-                                    :streaming ""
-                                    :streaming-open? (and (:streaming-open? model)
-                                                          (not committed?))))
+    (let [new-db        (:db message)
+          last-turn     (last (:conversation new-db))
+          conv-changed? (not= (:conversation new-db) (:conversation (:db model)))
+          committed?    (and (= :assistant (:role last-turn))
+                             (empty? (:tool-calls last-turn)))]
+      [(refresh-conversation
+        (cond-> (assoc model
+                       :db new-db
+                       :streaming-open? (and (:streaming-open? model) (not committed?)))
+          conv-changed? (assoc :streaming "")))
        (subscribe/watch-db-cmd (:db-ch model))])
 
     (= :log/appended (:type message))
@@ -218,6 +231,14 @@
            refresh-conversation
            refresh-logs)
        nil])
+
+    ;; Dismiss pending notifications (the banner under the header). The model
+    ;; is returned untouched — the cleared state comes back via the db
+    ;; subscription, like every other runtime transition.
+    (and (msg/key-press? message) (msg/key-match? message "ctrl+x"))
+    (if (seq (queries/notifications (:db model)))
+      [model (dispatch-cmd (:dispatch! model) {:event/type :notifications/clear})]
+      [model nil])
 
     ;; Bracketed paste — :paste-start marks the beginning of pasted content.
     ;; Clear navigation state and enter paste-accumulation mode. All subsequent
@@ -268,7 +289,7 @@
           ;; Open the stream so the assistant's deltas are accepted into the live
           ;; preview; it closes again when the assistant turn commits.
           [(refresh-conversation (focus-input (assoc model :input "" :nav/index nil :nav/draft "" :streaming-open? true)))
-           (dispatch-user-message (:dispatch! model) text)])))
+           (dispatch-cmd (:dispatch! model) {:event/type :user/message :content text})])))
 
     (msg/key-match? message :backspace)
     [(focus-input (update model :input backspace)) nil]
