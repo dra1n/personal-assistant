@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Resolve the project root from this script's own location so `ada`
+# can be run from any directory (the deps.edn lives one level up from bin/).
+set -euo pipefail
+
+script="${BASH_SOURCE[0]}"
+# Follow symlinks so a symlinked `aria` on PATH still resolves correctly.
+while [ -h "$script" ]; do
+  dir="$(cd -P "$(dirname "$script")" && pwd)"
+  script="$(readlink "$script")"
+  [[ $script != /* ]] && script="$dir/$script"
+done
+project_root="$(cd -P "$(dirname "$script")/.." && pwd)"
+
+cd "$project_root"
+exec clojure -M:run
