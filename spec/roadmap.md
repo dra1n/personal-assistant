@@ -1,6 +1,6 @@
 # Roadmap
 
-Phases are ordered by dependency — each builds on the last. Phases 0–9 are all broken into concrete micro-steps.
+Phases are ordered by dependency — each builds on the last. Phases 0–10 are all broken into concrete micro-steps.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
@@ -1172,7 +1172,193 @@ Scheduler tests:
 
 ---
 
-## Phase 7 — Personality & Long-Term Evolution
+## Phase 7 — Slash Command Framework
+
+Goal: A robust, extensible foundation for slash commands — typed at the input,
+parsed before the message reaches the LLM, and dispatched as first-class runtime
+events. This phase builds the bedrock, an **interactive command selector** (a
+completion popup that opens the moment `/` is typed, showing each command with a
+usage hint — its possible values or argument shape), and the two argument kinds
+needed by the first commands
+(free-text and enum). Introducing the selector means the phase also builds the
+reusable charm overlay/list UI. The `:select` *argument* picker (`/load` → a
+dynamic list of choices) reuses that same overlay and is one small step away, but
+its first real command, `/load`, additionally needs a **sessions** storage layer
+that does not exist yet — so concrete `:select` commands remain deferred.
+
+### Architecture principles
+
+Consistent with the existing runtime — nothing bespoke:
+
+- **Commands are events.** A parsed command becomes a runtime event with a
+  registered handler that returns declarative effects — the same pipeline as
+  `:user/message`. The UI never performs the command's side effect directly. This
+  keeps commands observable, traceable, and replayable, and honours the thin-UI
+  boundary (`pa.ui.*` dispatches events only).
+- **Registry mirrors the tool registry.** `pa.commands.registry` is a
+  runtime-mutable atom of `name → command-spec`, exactly like `pa.tools.registry`.
+  Adding a command is one `reg-command` entry.
+- **Parsing is pure and lives at the single input choke point.** Enter in
+  `pa.ui.app` already turns the buffer into a `:user/message`; parsing branches
+  there — a leading `/` routes to command handling, everything else stays the
+  existing `:user/message` path, unchanged.
+
+### The command spec
+
+```clojure
+{:command     "memory"
+ :description "Append a note to the assistant's permanent memory"
+ :arg-spec    {:kind :free-text :required true :placeholder "<text>"}
+ :->event     (fn [args] {:event/type :memory/note :text (:text args)})}
+
+{:command     "markdown"
+ :description "Toggle terminal markdown rendering"
+ :arg-spec    {:kind       :enum
+               :values     ["on" "off"]         ; hint derives from these → "on | off"
+               :current-fn (fn [db] (if (queries/setting db :markdown) "on" "off"))}
+ :->event     (fn [args] {:event/type :settings/set :key :markdown :value (= "on" (:token args))})}
+
+{:command     "model"
+ :hint        "gpt5.4, gpt5-mini, …"            ; curated, overrides the derived hint
+ :description "Switch the active LLM model"
+ :arg-spec    {:kind :enum :values [...] :current-fn ...}
+ :->event     (fn [args] {:event/type :settings/set :key :model :value (:token args)})}
+
+{:command     "clear"
+ :description "Clear the on-screen conversation (persisted events are kept)"
+ :arg-spec    {:kind :none}                      ; no argument → blank hint
+ :->event     (fn [_] {:event/type :conversation/clear})}
+
+{:command     "reflect"
+ :hint        "[topic]"                          ; curated: optional free-text
+ :description "Ask the assistant to reflect now, optionally on a topic"
+ :arg-spec    {:kind :free-text :required false :placeholder "[topic]"}
+ :->event     (fn [args] {:event/type :cognition/reflect :topic (:text args)})}
+
+;; :select — deferred (needs the sessions layer), shown for the full shape.
+{:command     "load"
+ :description "Load a previous conversation session"
+ :arg-spec    {:kind       :select
+               :options-fn (fn [db] (sessions/list db))   ; [{:label .. :value ..}]
+               :placeholder "<session>"}          ; hint until options resolve
+ :->event     (fn [args] {:event/type :session/load :id (:value args)})}
+```
+
+The selector renders each command as its name plus a right-aligned **usage hint**
+— the command's possible values or argument shape (`on | off`, `<text>`,
+`gpt5.4, gpt5-mini, …`). The hint **derives from the arg-spec by default**
+(`:enum` → its `:values`; `:free-text`/`:select` → its `:placeholder`; `:none` →
+blank); an optional `:hint` string overrides it when a curated or illustrative
+label reads better — a long or open-ended value list like `/model`, or an
+optional argument like `/reflect`. The fuller `:description` shows as a help line
+for the currently-highlighted command (and in `/help`).
+
+Argument kinds — the polymorphic part that covers the three input shapes:
+
+- `:none` — no arguments (`/help`, `/clear`).
+- `:free-text` — the rest of the line, verbatim, as one arbitrary string
+  (`/memory Don't use this site to search for that`). Internal spacing preserved;
+  no tokenization.
+- `:enum` — a fixed set of allowed tokens, validated (`/markdown on|off`). A
+  missing or unknown token yields a usage error; the command does not run. The
+  spec carries `:values` (the ordered allowed tokens — which also communicate the
+  format) and a `:current-fn` that reads the present value from runtime state.
+  Once the command is recognised and a space typed (`/markdown ⎵`), the input
+  renders the current value as **ghost/placeholder text** — e.g. a dim `on`. This
+  tells the user both the shape of the argument (it's `on`/`off`, not
+  `true`/`false`) and the value in effect right now, in one glance, before they
+  type anything.
+- `:select` — a dynamically-populated interactive argument picker (`/load` → list
+  of saved sessions). The spec declares an `:options-fn` producing choices at
+  invoke time; the chosen option resolves to an event. It reuses the same overlay
+  component as the command selector below, so the widget cost is already paid by
+  this phase — but its first concrete command, `/load`, needs a **sessions**
+  storage layer that does not exist yet, so wiring `:select` end-to-end is
+  deferred to the phase that adds sessions.
+
+### Interactive command selector
+
+The selector is not a follow-on affordance — it is how commands are discovered
+and entered from the start. Typing `/` at the start of the input opens a
+completion overlay (the popup in the reference screenshot): a scrollable list of
+registered commands, each row showing the command name and a right-aligned usage
+hint (its values / argument shape); the highlighted command's fuller
+`:description` shows as a help line beneath the list. As more is typed (`/mar`) the list filters
+by match on the command name; ↑/↓ move the highlight, Enter/Tab accepts the
+highlighted command into the buffer (completing `/markdown ` so argument entry —
+including the enum ghost-text placeholder — continues inline), and Esc dismisses.
+
+This introduces one reusable charm surface — an **overlay list component** with
+selection + keyboard focus — that both the command selector and the `:select`
+argument picker share. It stays a thin client: the overlay reads from
+`registered-commands` and, while open, edits only the UI-local input buffer and
+its own ephemeral selection state (a small state machine, sibling to
+`pa.ui.input`'s history navigation) — no runtime event is dispatched until the
+completed command is submitted with Enter.
+
+### Runtime settings store (new)
+
+Static-toggle commands like `/markdown on` need mutable runtime settings, which
+don't exist today — `pa.config` reads `config.edn` once at startup, read-only.
+Introduce a `:settings` map in runtime state, changed only via the `:db` effect
+through a `pa.state.transitions` fn (no direct mutation), and read by consumers
+(view, prompt assembly) via `pa.state.queries`. Persisting settings back to
+`<PA_HOME>/config.edn` is a later nice-to-have; in-session settings are enough for
+the bedrock.
+
+### Tasks
+
+Parsing & registry:
+
+- [ ] `pa.commands.parse` — pure fn: input string → `{:command <name>, :raw-args <string>}` when it starts with `/` and names a registered command, else `nil` (a plain message). Handle bare `/`, unknown command, and leading whitespace.
+- [ ] `pa.commands.registry` — runtime-mutable atom plus `reg-command` / `registered-commands`, mirroring `pa.tools.registry`. Spec shape: `{:command :description :arg-spec :->event}` plus an optional `:hint` override.
+- [ ] Usage-hint derivation: a fn that returns a command's selector hint — `:hint` if present, else derived from the arg-spec (`:enum` → `:values` joined `on | off`; `:free-text` → `:placeholder`; `:none` → blank).
+- [ ] Argument resolution per kind: `:none`, `:free-text` (rest-of-line verbatim), `:enum` (validate against the allowed set). Invalid/missing args produce a structured usage error, not an event.
+- [ ] Enum placeholder: when the input is a recognised `:enum` command awaiting its argument (name + trailing space, no token yet), render the command's current value (`:current-fn`) as dim ghost/placeholder text in the input — conveying both the valid format (the `:values`) and the value currently in effect. Pure derivation from the model + registry; no new runtime state.
+
+Command selector (interactive):
+
+- [ ] Overlay list component (new charm UI surface): a scrollable, keyboard-navigable list rendered above the input, with a highlighted row and a right-aligned hint column, plus a help line for the highlighted row. Built to be reused by the `:select` argument picker later. Lives under `pa.ui.*`.
+- [ ] Selector state machine (UI-local, ephemeral — sibling to `pa.ui.input`): open on leading `/`, track the filter text and highlight index, close on Esc/submit/deleting the `/`. Pure transitions where possible.
+- [ ] Filtering: match the typed prefix against `registered-commands` by command name; render name + usage hint per row (and the `:description` help line for the highlighted one); empty match state handled.
+- [ ] Keyboard handling in `pa.ui.app` while the selector is open: ↑/↓ move the highlight, Enter/Tab complete the highlighted command into the buffer (then normal argument entry continues, including the enum ghost placeholder), Esc dismisses. These keys are intercepted before the history-navigation and text-input paths when the selector is open.
+
+Dispatch wiring:
+
+- [ ] Branch the Enter path in `pa.ui.app`: a recognised command builds its event via `:->event` and dispatches it (bypassing `:user/message` and the LLM); a non-command submits as today. An unknown `/x` or bad args surface an inline error/notification — never an LLM call.
+- [ ] Commands flow through the normal dispatch → coeffect → handler → effect pipeline; each command's target event has a registered handler returning declarative effects.
+
+Runtime settings:
+
+- [ ] Add `:settings` to the initial runtime state (`pa.state.db`) and a `set-setting` transition in `pa.state.transitions` (mutated only via `:db`); expose a `setting` selector in `pa.state.queries`.
+- [ ] Provide the effect/handler path so a command can persist a setting change into runtime state via `:db`.
+
+Example commands (exercise both argument kinds + the selector):
+
+- [ ] `/help` (`:none`) — lists registered commands and descriptions, read from the registry (a full-panel complement to the inline selector).
+- [ ] `/memory <text>` (`:free-text`) — appends the arbitrary text to permanent memory via the Phase 6 wisdom writer (`pa.storage.memory-wisdom`).
+- [ ] `/markdown on|off` (`:enum`) — toggles a `:markdown` runtime setting. (Actual markdown *rendering* in the terminal is a separate feature — this command only flips the flag.)
+- [ ] `/clear` (`:none`) — clears the in-session conversation view (dispatches an event; does not delete persisted events).
+
+Extension points (designed, deferred):
+
+- [ ] Document the `:select` arg-spec contract (`:options-fn` → choices → resolved event) and how it reuses the overlay list component built here, so the phase that adds sessions can wire `/load` (and other pickers) without reworking the registry, selector, or dispatch. Note the remaining dependency: `/load` needs a **sessions** storage layer (save/name/restore conversations), which does not exist yet.
+- [ ] Note that the same overlay component could later back an `@`-style resource mention (the reference screenshot's original use) — out of scope here, but the widget is deliberately general.
+
+### Tests
+
+- [ ] `pa.commands.parse`: `/memory foo  bar` → command with verbatim args; `/help` → `:none`; `hello` and `/unknown` → `nil` or usage error; bare-`/` and leading-whitespace edge cases.
+- [ ] Arg resolution: `:free-text` preserves internal spacing; `:enum` accepts allowed tokens and rejects others with a usage error; `:none` rejects surplus args.
+- [ ] Enum placeholder: with `:markdown` currently `on`, a model whose input is `/markdown ` (awaiting the token) exposes ghost text `on`; after `/markdown off`, the same input exposes `off` — asserting the placeholder tracks `:current-fn`.
+- [ ] Command selector (via `pa.ui.app` update + the selector state machine): typing `/` opens the overlay listing all registered commands with their usage hint; typing `/mar` filters to `markdown`; ↑/↓ move the highlight; Enter/Tab completes the highlighted command into the buffer; Esc dismisses; deleting the leading `/` closes it. A normal (non-`/`) line never opens the overlay (regression).
+- [ ] Usage-hint derivation: `/markdown` shows `on | off` (from `:values`), `/memory` shows `<text>` (from `:placeholder`), and a command with an explicit `:hint` shows that verbatim (overriding the derived value).
+- [ ] Dispatch branch (via `pa.ui.app` update): submitting `/markdown on` dispatches the command event and NOT `:user/message`; submitting a normal line still dispatches `:user/message` (regression).
+- [ ] Settings round-trip: `/markdown on` → `:db` transition sets `:settings :markdown` true; `queries/setting` reads it; a second `/markdown off` flips it back.
+- [ ] `/help` output enumerates exactly the registered commands.
+
+---
+
+## Phase 8 — Personality & Long-Term Evolution
 
 Goal: Evolve the assistant into a durable long-term system.
 
@@ -1191,7 +1377,7 @@ Goal: Evolve the assistant into a durable long-term system.
 
 ---
 
-## Phase 8 — Optional Advanced Features
+## Phase 9 — Optional Advanced Features
 
 These are explicitly deferred and not required for a complete system.
 
@@ -1221,11 +1407,11 @@ until recency + FTS retrieval proves insufficient in practice.
 
 ---
 
-## Phase 9 — Explicit Cognitive Pipeline
+## Phase 10 — Explicit Cognitive Pipeline
 
 Goal: Formalize and make inspectable all cognition stages.
 
-- [ ] Define slash command registry: map of `/command-name → handler-fn`; wire UI input parser to dispatch commands as events before entering the cognition pipeline (e.g. `/rebuild-memory-index` → `:memory/rebuild-index` event → calls `(:rebuild! indexer)`)
+- [ ] Register pipeline/cognition slash commands on the Phase 7 command framework (`pa.commands.registry`) — e.g. `/rebuild-memory-index` → `:memory/rebuild-index` event → calls `(:rebuild! indexer)`. The registry, parser, and dispatch-as-events wiring already exist from Phase 7; this only adds command entries that front the cognition pipeline.
 - [ ] Define pipeline stage protocol: each stage takes context map → returns updated context map
 - [ ] Implement `interpret` stage: classify user intent, extract entities
 - [ ] Implement `retrieve` stage: call memory retrieval (Phase 5) and attach results to context
