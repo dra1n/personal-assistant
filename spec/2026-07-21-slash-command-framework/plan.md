@@ -8,13 +8,13 @@ matrix.
 ## Task groups
 
 ### Group 1 — Parser & registry (pure core)
-- [ ] `pa.commands.registry` — runtime-mutable atom plus `reg-command` /
+- [x] `pa.commands.registry` — runtime-mutable atom plus `reg-command` /
       `registered-commands`, mirroring `pa.tools.registry`. Spec shape
       `{:command :description :arg-spec :->event}` + optional `:hint`.
-- [ ] `pa.commands.parse` — pure fn: input string → `{:command <name>, :raw-args
+- [x] `pa.commands.parse` — pure fn: input string → `{:command <name>, :raw-args
       <string>}` when it starts with `/` and names a registered command, else
       `nil`. Handle bare `/`, unknown command, leading whitespace.
-- [ ] Usage-hint derivation fn: `:hint` if present, else derived from arg-spec
+- [x] Usage-hint derivation fn: `:hint` if present, else derived from arg-spec
       (`:enum` → `:values` joined `on | off`; `:free-text`/`:select` →
       `:placeholder`; `:none` → blank).
 
