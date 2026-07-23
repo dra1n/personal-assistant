@@ -47,6 +47,12 @@
 (defn dismiss-notification [db id]
   (update db :ui/notifications (fnil #(filterv (fn [n] (not= (:id n) id)) %) [])))
 
+(defn set-setting
+  "Set runtime setting k to v in the :settings map. The sole transition for
+  settings; commands reach it through the :settings/set handler + :db effect."
+  [db k v]
+  (assoc-in db [:settings k] v))
+
 (defn load-scheduled-tasks [db tasks]
   (assoc db :tasks/scheduled (vec tasks)))
 

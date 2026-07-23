@@ -21,6 +21,22 @@
                         {:db (tr/dismiss-notification db (:notification/id event))}))
 
 ;; ---------------------------------------------------------------------------
+;; Settings handlers
+;;
+;; Runtime settings live in the :settings map, changed only here via the
+;; set-setting transition through the :db effect (never mutated directly). The
+;; /markdown command dispatches :settings/set; consumers read via
+;; queries/setting. Not persisted this phase — see Phase 7 requirements.
+;; ---------------------------------------------------------------------------
+
+(registry/reg-handler :settings/set
+                      (fn [{:keys [db event]}]
+                        {:db    (tr/set-setting db (:key event) (:value event))
+                         :trace {:event/type :settings/set
+                                 :key        (:key event)
+                                 :value      (:value event)}}))
+
+;; ---------------------------------------------------------------------------
 ;; System lifecycle handlers
 ;; ---------------------------------------------------------------------------
 

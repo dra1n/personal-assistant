@@ -21,7 +21,11 @@
    :events/recent     []
    :ui                {}
    :ui/history        []
-   :identity          {}})
+   :identity          {}
+   ;; In-session command/runtime settings (e.g. :markdown). Changed only via the
+   ;; set-setting transition through the :db effect; read via queries/setting.
+   ;; Not persisted to disk this phase (see Phase 7 requirements — out of scope).
+   :settings          {}})
 
 (def db (atom initial-db))
 

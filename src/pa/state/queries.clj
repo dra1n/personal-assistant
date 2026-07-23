@@ -77,3 +77,9 @@
   "Return the pending UI notifications vector."
   [db]
   (:ui/notifications db))
+
+(defn setting
+  "Return the value of runtime setting k (from the :settings map), or nil if
+  unset. Symmetric with the set-setting transition."
+  [db k]
+  (get-in db [:settings k]))

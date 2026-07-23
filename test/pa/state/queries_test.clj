@@ -114,6 +114,20 @@
       (is (= notifs (queries/notifications db))))))
 
 ;; ---------------------------------------------------------------------------
+;; queries/setting
+;; ---------------------------------------------------------------------------
+
+(deftest setting-returns-nil-when-unset
+  (testing "returns nil on initial db and for an absent key"
+    (is (nil? (queries/setting base-db :markdown)))
+    (is (nil? (queries/setting (assoc base-db :settings {:markdown true}) :other)))))
+
+(deftest setting-returns-stored-value
+  (testing "returns the stored value for a set key"
+    (let [db (assoc base-db :settings {:markdown true})]
+      (is (true? (queries/setting db :markdown))))))
+
+;; ---------------------------------------------------------------------------
 ;; Grep check: no swap!/reset! in pa.ui
 ;; ---------------------------------------------------------------------------
 

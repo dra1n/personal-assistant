@@ -27,10 +27,10 @@ matrix.
       event) as a deferred extension point — no runtime wiring.
 
 ### Group 3 — Runtime settings store
-- [ ] Add `:settings` to initial runtime state in `pa.state.db`.
-- [ ] `set-setting` transition in `pa.state.transitions` (mutated only via `:db`).
-- [ ] `setting` selector in `pa.state.queries`.
-- [ ] Effect/handler path so a command persists a setting change into runtime
+- [x] Add `:settings` to initial runtime state in `pa.state.db`.
+- [x] `set-setting` transition in `pa.state.transitions` (mutated only via `:db`).
+- [x] `setting` selector in `pa.state.queries`.
+- [x] Effect/handler path so a command persists a setting change into runtime
       state via `:db` (event → handler → `:db` effect).
 
 ### Group 4 — Dispatch wiring & example commands
