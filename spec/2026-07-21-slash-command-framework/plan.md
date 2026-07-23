@@ -19,11 +19,11 @@ matrix.
       `:placeholder`; `:none` → blank).
 
 ### Group 2 — Argument resolution
-- [ ] Argument resolution per kind: `:none` (reject surplus args), `:free-text`
+- [x] Argument resolution per kind: `:none` (reject surplus args), `:free-text`
       (rest-of-line verbatim, internal spacing preserved), `:enum` (validate
       against allowed set). Invalid/missing args produce a structured usage error,
       not an event.
-- [ ] Document the `:select` arg-spec contract (`:options-fn` → choices → resolved
+- [x] Document the `:select` arg-spec contract (`:options-fn` → choices → resolved
       event) as a deferred extension point — no runtime wiring.
 
 ### Group 3 — Runtime settings store
