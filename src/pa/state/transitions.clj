@@ -17,6 +17,13 @@
 (defn add-conversation-entry [db entry]
   (update db :conversation conj entry))
 
+(defn clear-conversation
+  "Reset the active conversation context to empty so the next LLM turn carries
+  no prior turns. A context reset only — persisted events on disk are untouched.
+  Drives the /clear command's :conversation/clear event."
+  [db]
+  (assoc db :conversation []))
+
 (defn set-ui [db ui-map]
   (assoc db :ui ui-map))
 

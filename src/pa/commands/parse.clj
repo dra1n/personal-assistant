@@ -17,14 +17,26 @@
 ;; anchor for the same reason.
 (def ^:private command-re #"(?s)^/(\S+)(?:\s(.*))?$")
 
-(defn parse
-  "Parse input into {:command <name> :raw-args <string>}, or nil.
+(defn command-line
+  "The attempt-level parse: if input is a command attempt — a leading slash
+  followed by a non-blank command token — return {:command <token> :raw-args
+  <string>} REGARDLESS of whether the token names a registered command; else
+  nil (an ordinary message, including a bare slash and leading whitespace).
 
-  Returns nil when input is not a string, does not start with a leading slash
-  (leading whitespace counts as no slash), is a bare slash, or names a command
-  that is not registered — in every such case the line is an ordinary message."
+  This is what the dispatch site needs to tell an unknown /command (surface a
+  usage error, never the LLM) apart from a plain message (route to the LLM);
+  parse only recognises registered commands."
   [input]
   (when (string? input)
     (when-let [[_ command raw] (re-matches command-re input)]
-      (when (registry/get-command command)
-        {:command command :raw-args (or raw "")}))))
+      {:command command :raw-args (or raw "")})))
+
+(defn parse
+  "Parse input into {:command <name> :raw-args <string>} for a REGISTERED
+  command, or nil. nil covers a non-command line, a bare slash, leading
+  whitespace, and an unknown /command alike; use command-line when the unknown
+  case must be told apart from an ordinary message."
+  [input]
+  (when-let [{:keys [command] :as parsed} (command-line input)]
+    (when (registry/get-command command)
+      parsed)))

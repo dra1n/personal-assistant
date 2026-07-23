@@ -56,3 +56,21 @@
   (testing "a newline in the argument body is preserved in :raw-args"
     (is (= {:command "memory" :raw-args "line one\nline two"}
            (parse/parse "/memory line one\nline two")))))
+
+;; ---------------------------------------------------------------------------
+;; command-line — the attempt-level parse (registration-agnostic)
+
+(deftest command-line-recognises-unregistered-commands
+  (testing "command-line returns the token even when the command is not registered"
+    (is (= {:command "nonsense" :raw-args "foo bar"} (parse/command-line "/nonsense foo bar")))
+    (is (= {:command "memory" :raw-args "hi"} (parse/command-line "/memory hi")))
+    (is (nil? (parse/parse "/nonsense foo bar"))
+        "parse still rejects the unregistered command")))
+
+(deftest command-line-nil-for-non-attempts
+  (testing "a non-slash line, bare slash, slash-space, or leading whitespace is not an attempt"
+    (is (nil? (parse/command-line "hello")))
+    (is (nil? (parse/command-line "what is /memory")))
+    (is (nil? (parse/command-line "/")))
+    (is (nil? (parse/command-line "/ spaced")))
+    (is (nil? (parse/command-line "  /help")))))

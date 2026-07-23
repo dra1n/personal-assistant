@@ -3,6 +3,8 @@
             [pa.config :as config]
             [pa.logging]
             [pa.observability]
+            [pa.commands.builtin]
+            [pa.commands.handlers]
             [pa.runtime.dispatcher]
             [pa.runtime.handlers]
             [pa.storage.events]

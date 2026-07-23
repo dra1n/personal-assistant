@@ -34,20 +34,20 @@ matrix.
       state via `:db` (event → handler → `:db` effect).
 
 ### Group 4 — Dispatch wiring & example commands
-- [ ] Branch the Enter path in `pa.ui.app`: a recognised command builds its event
+- [x] Branch the Enter path in `pa.ui.app`: a recognised command builds its event
       via `:->event` and dispatches it (bypassing `:user/message` + LLM); a
       non-command submits as today; unknown `/x` or bad args surface an inline
       error/notification — never an LLM call.
-- [ ] Ensure command events flow through the normal dispatch → coeffect → handler
+- [x] Ensure command events flow through the normal dispatch → coeffect → handler
       → effect pipeline; each command's target event has a registered handler
       returning declarative effects.
-- [ ] `/help` (`:none`) — lists registered commands + descriptions, read from the
+- [x] `/help` (`:none`) — lists registered commands + descriptions, read from the
       registry (full-panel complement to the inline selector).
-- [ ] `/memory <text>` (`:free-text`) — appends text to permanent memory via
+- [x] `/memory <text>` (`:free-text`) — appends text to permanent memory via
       `pa.storage.memory-wisdom`.
-- [ ] `/markdown on|off` (`:enum`) — toggles the `:markdown` runtime setting
+- [x] `/markdown on|off` (`:enum`) — toggles the `:markdown` runtime setting
       (flag only; no rendering).
-- [ ] `/clear` (`:none`) — starts a fresh conversation context: dispatches
+- [x] `/clear` (`:none`) — starts a fresh conversation context: dispatches
       `:conversation/clear`, whose handler resets the active `:conversation` in
       runtime state via `:db` so the next LLM turn carries no prior turns.
       Persisted events on disk are untouched; this is a context reset, not a

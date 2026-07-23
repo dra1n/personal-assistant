@@ -40,6 +40,9 @@
             [charm.message :as msg]
             [charm.program :as charm]
             [clojure.string :as str]
+            [pa.commands.args :as args]
+            [pa.commands.parse :as parse]
+            [pa.commands.registry :as commands]
             [pa.state.db :as db]
             [pa.state.queries :as queries]
             [pa.ui.input :as input]
@@ -142,6 +145,22 @@
    (fn []
      (dispatch! event)
      nil)))
+
+(defn- command-event
+  "The runtime event to dispatch for a submitted slash-command line. attempt is
+  {:command :raw-args} from parse/command-line. A registered command resolves
+  its args (args/resolve) and builds its event via :->event, or — on a usage
+  error or an unknown command — yields a :command/rejected event carrying the
+  message. Either way the result bypasses :user/message and the LLM."
+  [{:keys [command raw-args]}]
+  (if-let [spec (commands/get-command command)]
+    (let [{:keys [args error]} (args/resolve spec raw-args)]
+      (if error
+        {:event/type :command/rejected :command command
+         :message    (:message error)  :reason  (:reason error)}
+        ((:->event spec) args)))
+    {:event/type :command/rejected :command command
+     :message    (str "Unknown command: /" command) :reason :unknown-command}))
 
 ;; --- input buffer (charm text-input component) -------------------------------
 ;;
@@ -329,14 +348,24 @@
     (msg/key-match? message :enter)
     (if (:pasting? model)
       [(splice-input model "\n") nil]
-      (let [text (str/trim (:input model))]
-        (if (str/blank? text)
+      (let [text    (str/trim (:input model))
+            attempt (parse/command-line text)
+            cleared (focus-input (assoc (clear-input model) :nav/index nil :nav/draft ""))]
+        (cond
+          (str/blank? text)
           [(focus-input model) nil]
-          ;; Open the stream so the assistant's deltas are accepted into the live
-          ;; preview; it closes again when the assistant turn commits.
-          [(refresh-conversation (focus-input (assoc (clear-input model)
-                                                     :nav/index nil :nav/draft ""
-                                                     :streaming-open? true)))
+
+          ;; A slash-command line (registered or not): dispatch the command event
+          ;; (or a :command/rejected usage error) — never :user/message, never
+          ;; the LLM. No stream is opened; there is no assistant turn to preview.
+          attempt
+          [(refresh-conversation cleared)
+           (dispatch-cmd (:dispatch! model) (command-event attempt))]
+
+          :else
+          ;; Ordinary message. Open the stream so the assistant's deltas are
+          ;; accepted into the live preview; it closes when the turn commits.
+          [(refresh-conversation (assoc cleared :streaming-open? true))
            (dispatch-cmd (:dispatch! model) {:event/type :user/message :content text})])))
 
     ;; Alt+Enter — manual newline: insert \n at the cursor without submitting.

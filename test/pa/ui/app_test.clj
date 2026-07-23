@@ -3,6 +3,7 @@
             [charm.message :as msg]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [pa.commands.builtin]                 ; registers the built-in slash commands
             [pa.ui.app :as app]
             [pa.ui.view :as view]))
 
@@ -61,6 +62,55 @@
       (is (nil? cmd))
       (is (empty? @events))
       (is (= "   " (:input m))))))
+
+;; ---------------------------------------------------------------------------
+;; Slash-command dispatch branch
+;; ---------------------------------------------------------------------------
+
+(defn- dispatched
+  "Submit `text` via Enter and return the vector of events the returned charm
+  command dispatches (running its side effect)."
+  [text]
+  (let [events  (atom [])
+        [m cmd] (app/update-model {:input text :dispatch! #(swap! events conj %)}
+                                  (msg/key-press :enter))]
+    (when cmd ((:fn cmd)))
+    {:model m :events @events}))
+
+(deftest enter-recognised-command-dispatches-command-event-not-user-message
+  (testing "/markdown on dispatches :settings/set and bypasses :user/message + the LLM"
+    (let [{:keys [model events]} (dispatched "/markdown on")]
+      (is (= "" (:input model)) "buffer cleared")
+      (is (not (:streaming-open? model)) "no assistant stream opened for a command")
+      (is (= [{:event/type :settings/set :key :markdown :value true}] events))))
+  (testing "/markdown off flips the value"
+    (is (= [{:event/type :settings/set :key :markdown :value false}]
+           (:events (dispatched "/markdown off")))))
+  (testing "/help dispatches :command/help"
+    (is (= [{:event/type :command/help}] (:events (dispatched "/help"))))))
+
+(deftest enter-bad-enum-arg-surfaces-error-never-the-llm
+  (testing "/markdown bogus dispatches :command/rejected, not :user/message"
+    (let [{:keys [events]} (dispatched "/markdown bogus")]
+      (is (= 1 (count events)))
+      (is (= :command/rejected (:event/type (first events))))
+      (is (= :unknown-value (:reason (first events))))
+      (is (not-any? #(= :user/message (:event/type %)) events)))))
+
+(deftest enter-unknown-command-surfaces-error-never-the-llm
+  (testing "/nonsense dispatches :command/rejected with :unknown-command, never :user/message"
+    (let [{:keys [events]} (dispatched "/nonsense foo")]
+      (is (= :command/rejected (:event/type (first events))))
+      (is (= :unknown-command (:reason (first events))))
+      (is (not-any? #(= :user/message (:event/type %)) events)))))
+
+(deftest enter-non-command-lines-still-dispatch-user-message
+  (testing "a mid-line slash, a bare slash, and slash-space are ordinary messages"
+    (doseq [text ["what is /memory about" "/" "/ spaced"]]
+      (let [{:keys [events]} (dispatched text)]
+        (is (= :user/message (:event/type (first events)))
+            (str (pr-str text) " → :user/message"))
+        (is (= text (:content (first events))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Readline-style editing (charm text-input component)
