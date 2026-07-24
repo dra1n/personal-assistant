@@ -5,13 +5,15 @@
   Loaded for its registration side effects — required by pa.system at startup.
 
   :command/help      -> append a system turn listing the registered commands.
-  :memory/note       -> append the note to permanent memory via :wisdom/merge.
+  :memory/note       -> persist the note as a memory record via :memory/write
+                        (indexed + retrievable, like an extracted memory).
   :conversation/clear-> reset the active conversation context via :db.
   :command/rejected  -> surface a usage error as a UI notification via :db.
 
   (/markdown's :settings/set handler is generic and lives in pa.runtime.handlers.)"
   (:require [clojure.string :as str]
             [pa.commands.registry :as commands]
+            [pa.memory.records :as records]
             [pa.runtime.registry :as registry]
             [pa.state.transitions :as tr]))
 
@@ -25,7 +27,7 @@
        (map (fn [{:keys [command description]}]
               (str "/" command " — " description)))
        (str/join "\n")
-       (str "Available commands:\n")))
+       (str "Available commands:\n\n")))
 
 (registry/reg-handler :command/help
                       (fn [{:keys [db]}]
@@ -34,7 +36,10 @@
 
 (registry/reg-handler :memory/note
                       (fn [{:keys [event]}]
-                        {:wisdom/merge [(:text event)]}))
+                        (let [text (:text event)]
+                          {:memory/write (records/make {:memory/type    :fact
+                                                        :memory/title   text
+                                                        :memory/summary text})})))
 
 (registry/reg-handler :conversation/clear
                       (fn [{:keys [db]}]

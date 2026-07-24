@@ -25,7 +25,7 @@
 
 (deftest help-text-enumerates-exactly-registered-commands
   (testing "help-text lists every registered command, sorted, and nothing else"
-    (is (= "Available commands:\n/alpha — First\n/beta — Second" (handlers/help-text)))))
+    (is (= "Available commands:\n\n/alpha — First\n/beta — Second" (handlers/help-text)))))
 
 (deftest help-handler-appends-a-system-turn
   (testing ":command/help appends the listing to the conversation as a system turn"
@@ -37,10 +37,15 @@
 ;; ---------------------------------------------------------------------------
 ;; :memory/note
 
-(deftest memory-note-emits-wisdom-merge
-  (testing ":memory/note appends the verbatim text via :wisdom/merge"
-    (is (= {:wisdom/merge ["buy  milk"]}
-           ((handler :memory/note) {:event {:event/type :memory/note :text "buy  milk"}})))))
+(deftest memory-note-writes-a-memory-record
+  (testing ":memory/note persists the verbatim text as a :fact record via :memory/write"
+    (let [record (:memory/write
+                  ((handler :memory/note) {:event {:event/type :memory/note :text "buy  milk"}}))]
+      (is (= :fact (:memory/type record)))
+      (is (= "buy  milk" (:memory/summary record)) "internal spacing preserved verbatim")
+      (is (= "buy  milk" (:memory/title record)))
+      (is (string? (:memory/id record)) "records/make stamps an id")
+      (is (inst? (:memory/created-at record)) "records/make stamps a timestamp"))))
 
 ;; ---------------------------------------------------------------------------
 ;; :conversation/clear
