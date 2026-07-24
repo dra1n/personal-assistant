@@ -54,45 +54,45 @@ matrix.
       screen wipe.
 
 ### Group 5 — Interactive command selector (charm UI, last)
-- [ ] Overlay list component (new charm surface): scrollable, keyboard-navigable
+- [x] Overlay list component (new charm surface): scrollable, keyboard-navigable
       list rendered above the input, highlighted row, right-aligned hint column,
       help line for the highlighted row. Built for reuse by the future `:select`
       picker. Lives under `pa.ui.*`.
-- [ ] Selector state machine (UI-local, ephemeral, sibling to `pa.ui.input`): open
+- [x] Selector state machine (UI-local, ephemeral, sibling to `pa.ui.input`): open
       on leading `/`, track filter text + highlight index, close on Esc / submit /
       deleting the `/`. Pure transitions where possible.
-- [ ] Filtering: match typed prefix against `registered-commands` by command name;
+- [x] Filtering: match typed prefix against `registered-commands` by command name;
       render name + usage hint per row (+ `:description` help line for the
       highlighted one); handle empty-match state.
-- [ ] Keyboard handling in `pa.ui.app` while selector is open: ↑/↓ move highlight,
+- [x] Keyboard handling in `pa.ui.app` while selector is open: ↑/↓ move highlight,
       Enter/Tab complete highlighted command into the buffer (then normal argument
       entry continues, including the enum ghost placeholder), Esc dismisses. These
       keys are intercepted before history-navigation and text-input paths.
-- [ ] Enum ghost placeholder: when input is a recognised `:enum` command awaiting
+- [x] Enum ghost placeholder: when input is a recognised `:enum` command awaiting
       its argument (name + trailing space, no token), render the current value
       (`:current-fn`) as dim placeholder text. Pure derivation from model +
       registry; no new runtime state.
 
 ### Group 6 — Tests (full matrix)
-- [ ] `pa.commands.parse`: `/memory foo  bar` → verbatim args; `/help` → `:none`;
+- [x] `pa.commands.parse`: `/memory foo  bar` → verbatim args; `/help` → `:none`;
       `hello` and `/unknown` → `nil`/usage error; bare-`/` and leading-whitespace
       edge cases.
-- [ ] Arg resolution: `:free-text` preserves internal spacing; `:enum` accepts
+- [x] Arg resolution: `:free-text` preserves internal spacing; `:enum` accepts
       allowed tokens, rejects others with a usage error; `:none` rejects surplus.
-- [ ] Enum placeholder: `:markdown` currently `on` → `/markdown ` exposes ghost
+- [x] Enum placeholder: `:markdown` currently `on` → `/markdown ` exposes ghost
       `on`; after `/markdown off`, same input exposes `off` (tracks `:current-fn`).
-- [ ] Command selector (via `pa.ui.app` update + selector state machine): `/` opens
+- [x] Command selector (via `pa.ui.app` update + selector state machine): `/` opens
       overlay listing all commands with hints; `/mar` filters to `markdown`; ↑/↓
       move highlight; Enter/Tab completes into buffer; Esc dismisses; deleting the
       leading `/` closes it; a normal line never opens the overlay (regression).
-- [ ] Usage-hint derivation: `/markdown` → `on | off`; `/memory` → `<text>`; a
+- [x] Usage-hint derivation: `/markdown` → `on | off`; `/memory` → `<text>`; a
       command with explicit `:hint` shows it verbatim (overriding derived).
-- [ ] Dispatch branch (via `pa.ui.app` update): `/markdown on` dispatches the
+- [x] Dispatch branch (via `pa.ui.app` update): `/markdown on` dispatches the
       command event and NOT `:user/message`; a normal line still dispatches
       `:user/message` (regression).
-- [ ] Settings round-trip: `/markdown on` → `:db` transition sets `:settings
+- [x] Settings round-trip: `/markdown on` → `:db` transition sets `:settings
       :markdown` true; `queries/setting` reads it; `/markdown off` flips it back.
-- [ ] `/help` output enumerates exactly the registered commands.
+- [x] `/help` output enumerates exactly the registered commands.
 
 ## Notes
 

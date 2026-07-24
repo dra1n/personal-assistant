@@ -46,6 +46,7 @@
             [pa.state.db :as db]
             [pa.state.queries :as queries]
             [pa.ui.input :as input]
+            [pa.ui.selector :as selector]
             [pa.ui.subscribe :as subscribe]
             [pa.ui.view :as view]))
 
@@ -119,6 +120,7 @@
           :ti           (tin/text-input :prompt "" :placeholder "")
           :input        ""
           :cursor       0
+          :selector     selector/initial
           :nav/index    nil
           :nav/draft    ""
           :pasting?     false
@@ -180,9 +182,14 @@
 
 (defn- sync-input
   "Write the component back along with the derived :input string and :cursor
-  position the view renders from."
+  position the view renders from. Reconciles the command selector against the new
+  buffer here — the single choke point for buffer edits — so the overlay's
+  open/closed state and highlight stay consistent wherever the buffer changes."
   [model ti]
-  (assoc model :ti ti :input (tin/value ti) :cursor (:pos ti)))
+  (let [value (tin/value ti)]
+    (-> model
+        (assoc :ti ti :input value :cursor (:pos ti))
+        (update :selector selector/sync-state value))))
 
 (defn- splice-input
   "Insert s verbatim at the cursor — used for newlines and tabs (paste,
@@ -237,10 +244,43 @@
     :conversation (refresh-conversation (assoc model :focus :input))
     model))
 
+;; --- command selector -------------------------------------------------------
+;;
+;; The overlay is a thin client: while open it reads the registry and edits only
+;; the UI-local buffer + its own ephemeral selection state (:selector), never
+;; dispatching a runtime event. open? is derived from the buffer, so its keys are
+;; intercepted in update-model ahead of history navigation and the text path.
+
+(defn- selector-open? [model]
+  (selector/open? (:selector model) (:input model)))
+
+(defn- complete-selected
+  "Enter/Tab in the overlay: replace the buffer with the highlighted command name
+  plus a trailing space, ready for argument entry (sync-input then closes the
+  overlay, since the buffer has left the name phase). A no-op with no highlight."
+  [model]
+  (if-let [spec (selector/highlighted (:selector model) (:input model))]
+    (refresh-conversation (set-input model (str "/" (:command spec) " ")))
+    model))
+
 (defn update-model [model message]
   (cond
     (and (msg/key-press? message) (msg/key-match? message "ctrl+c"))
     [model charm/quit-cmd]
+
+    ;; --- command selector keys (only while open; before history/focus/submit) -
+    (and (selector-open? model) (not (:pasting? model)) (msg/key-match? message :up))
+    [(update model :selector selector/move (:input model) -1) nil]
+
+    (and (selector-open? model) (not (:pasting? model)) (msg/key-match? message :down))
+    [(update model :selector selector/move (:input model) 1) nil]
+
+    (and (selector-open? model) (not (:pasting? model))
+         (or (msg/key-match? message :enter) (msg/key-match? message :tab)))
+    [(complete-selected model) nil]
+
+    (and (selector-open? model) (not (:pasting? model)) (msg/key-match? message :escape))
+    [(update model :selector selector/dismiss) nil]
 
     ;; A runtime snapshot. When the conversation grew, the in-progress stream
     ;; preview is cleared (its text, if any, is now a committed turn); a
@@ -391,10 +431,16 @@
                            (not (msg/alt? message))))]
       (cond
         (not= ti' ti)
-        [(focus-input (cond-> (sync-input model ti')
-                        (not= (:value ti') (:value ti))
-                        (assoc :nav/index nil :nav/draft "")))
-         nil]
+        (let [m (cond-> (sync-input model ti')
+                  (not= (:value ti') (:value ti))
+                  (assoc :nav/index nil :nav/draft ""))]
+          ;; The selector opening/closing on this edit (typing or deleting the
+          ;; leading /) changes the layout height, so re-size the conversation
+          ;; viewport around the overlay — same as the multiline newline path.
+          [(focus-input (cond-> m
+                          (not= (view/selector-lines model) (view/selector-lines m))
+                          refresh-conversation))
+           nil])
 
         ;; A no-op edit (backspace on empty, space filtered) still signals
         ;; typing intent — snap focus back to the input like before.

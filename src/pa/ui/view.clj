@@ -8,7 +8,11 @@
   (:require [charm.components.viewport :as vp]
             [charm.style.core :as style]
             [clojure.string :as str]
-            [pa.state.queries :as queries]))
+            [pa.commands.parse :as parse]
+            [pa.commands.registry :as commands]
+            [pa.state.queries :as queries]
+            [pa.ui.overlay :as overlay]
+            [pa.ui.selector :as selector]))
 
 (def ^:private accent style/cyan)
 (def log-content-lines 8)   ; log rows visible inside the expanded panel
@@ -206,6 +210,51 @@
                                 (cond-> (vec (map-indexed line shown))
                                   (pos? more) (conj (style/styled (str "… +" more " more") :faint true)))))))))
 
+;; --- command selector overlay ------------------------------------------------
+
+(defn- selector-spec
+  "The command-selector overlay's data — {:rows :index :help} — or nil when the
+  overlay is closed. Shared by the layout sizing (selector-lines) and the render
+  (selector-view) so the two never drift. Rows are name + derived usage hint;
+  help is the highlighted command's description."
+  [{:keys [selector input] :as _model}]
+  (when (selector/open? selector input)
+    (let [specs (vec (selector/matches input))
+          index (get selector :selector/index 0)]
+      {:rows  (mapv (fn [s] {:label (str "/" (:command s))
+                             :hint  (commands/usage-hint s)})
+                    specs)
+       :index index
+       :help  (:description (get specs index))})))
+
+(defn selector-lines
+  "Vertical lines the selector overlay occupies (0 when closed). Subtracted from
+  the conversation viewport height so the frame stays exactly terminal-height
+  while the overlay is open, like the notification panel."
+  [model]
+  (if-let [spec (selector-spec model)]
+    (overlay/height spec)
+    0))
+
+(defn- selector-overlay
+  "The rendered selector overlay box, or nil when closed."
+  [model]
+  (when-let [spec (selector-spec model)]
+    (overlay/overlay-list (assoc spec :inner-width (inner-width model)))))
+
+(defn enum-ghost
+  "The dim placeholder shown when the input is a recognised :enum command
+  awaiting its argument: the command name plus a trailing space and no token yet
+  (e.g. '/markdown ⎵'). Returns the current value via the arg-spec :current-fn
+  (e.g. \"on\"), or nil. Pure derivation from the model + registry — no new
+  runtime state."
+  [{:keys [input db] :as _model}]
+  (when-let [{:keys [command raw-args]} (parse/command-line input)]
+    (when (re-find #"\s\z" (str input))                 ; a trailing space: awaiting the token
+      (let [{:keys [kind current-fn]} (:arg-spec (commands/get-command command))]
+        (when (and (= :enum kind) current-fn (str/blank? raw-args))
+          (current-fn db))))))
+
 ;; --- layout sizing ----------------------------------------------------------
 
 (defn- panel-lines
@@ -241,7 +290,8 @@
   (max 3 (- (or height 24) (+ 8
                               (input-line-count model)
                               (panel-lines logs-open?)
-                              (notification-lines model)))))
+                              (notification-lines model)
+                              (selector-lines model)))))
 
 ;; --- view -------------------------------------------------------------------
 
@@ -412,7 +462,8 @@
   (let [inner  (inner-width model)
         avail  (max 1 (- inner 5))
         pos    (-> (or (:cursor model) (count input)) (max 0) (min (count input)))
-        prompt (str (style/styled "›" :fg accent :bold true) " ")]
+        prompt (str (style/styled "›" :fg accent :bold true) " ")
+        ghost  (enum-ghost model)]
     (style/render
      (style/style :border  (border-for (= :input focus))
                   :padding box-padding
@@ -422,7 +473,10 @@
        (str prompt (cursor) (style/styled placeholder :faint true))
 
        (not (str/includes? input "\n"))
-       (str prompt (single-line-with-cursor input pos avail))
+       ;; The enum ghost trails the cursor as a dim preview of the current value
+       ;; (e.g. '/markdown ⎵' → dim "on"); it awaits a token, so input is short.
+       (str prompt (single-line-with-cursor input pos avail)
+            (when ghost (style/styled ghost :faint true)))
 
        :else
        (multiline-with-cursor input pos avail prompt)))))
@@ -454,7 +508,10 @@
           (when-let [banner (notification-banner model)] [banner])
           [(if (conversation-empty? model)
              (empty-conversation-view model)
-             (conversation-view model))
-           (input-view model)
+             (conversation-view model))]
+          ;; The selector overlay sits directly above the input while open; its
+          ;; height is carved out of the conversation viewport (selector-lines).
+          (when-let [sel (selector-overlay model)] [sel])
+          [(input-view model)
            (hint)
            (log-panel model)])))

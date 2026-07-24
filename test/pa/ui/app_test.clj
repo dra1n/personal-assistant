@@ -5,6 +5,7 @@
             [clojure.test :refer [deftest is testing]]
             [pa.commands.builtin]                 ; registers the built-in slash commands
             [pa.ui.app :as app]
+            [pa.ui.selector :as selector]
             [pa.ui.view :as view]))
 
 (defn- model-with-turns
@@ -86,8 +87,8 @@
   (testing "/markdown off flips the value"
     (is (= [{:event/type :settings/set :key :markdown :value false}]
            (:events (dispatched "/markdown off")))))
-  (testing "/help dispatches :command/help"
-    (is (= [{:event/type :command/help}] (:events (dispatched "/help"))))))
+  (testing "/help (with a trailing space, past the selector's name phase) dispatches :command/help"
+    (is (= [{:event/type :command/help}] (:events (dispatched "/help "))))))
 
 (deftest enter-bad-enum-arg-surfaces-error-never-the-llm
   (testing "/markdown bogus dispatches :command/rejected, not :user/message"
@@ -105,12 +106,99 @@
       (is (not-any? #(= :user/message (:event/type %)) events)))))
 
 (deftest enter-non-command-lines-still-dispatch-user-message
-  (testing "a mid-line slash, a bare slash, and slash-space are ordinary messages"
-    (doseq [text ["what is /memory about" "/" "/ spaced"]]
+  (testing "a mid-line slash and slash-space are ordinary messages (regression)"
+    ;; A bare '/' is not here — it opens the selector (see the selector tests);
+    ;; these are lines the selector never claims (they leave the name phase).
+    (doseq [text ["what is /memory about" "/ spaced"]]
       (let [{:keys [events]} (dispatched text)]
         (is (= :user/message (:event/type (first events)))
             (str (pr-str text) " → :user/message"))
         (is (= text (:content (first events))))))))
+
+;; ---------------------------------------------------------------------------
+;; Command selector overlay (via update-model + the selector state machine)
+;; ---------------------------------------------------------------------------
+
+(defn- fresh
+  "A freshly initialised model (with :selector seeded and commands registered)."
+  []
+  (first ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity}))))
+
+(defn- type-str
+  "Drive `model` through update-model one printable character at a time."
+  [model s]
+  (reduce (fn [m ch] (first (app/update-model m (msg/key-press (str ch))))) model s))
+
+(defn- sel-open? [m] (selector/open? (:selector m) (:input m)))
+(defn- match-names [m] (mapv :command (selector/matches (:input m))))
+(defn- highlighted-name [m] (:command (selector/highlighted (:selector m) (:input m))))
+
+(deftest selector-opens-on-slash-and-filters-by-prefix
+  (let [m1 (type-str (fresh) "/")]
+    (testing "typing / opens the overlay listing all registered commands"
+      (is (sel-open? m1))
+      (is (= ["clear" "help" "markdown" "memory"] (match-names m1))))
+    (testing "/mar filters to markdown"
+      (is (= ["markdown"] (match-names (type-str m1 "mar")))))))
+
+(deftest selector-arrows-move-highlight-with-wraparound
+  (let [m    (type-str (fresh) "/m")                 ; markdown, memory
+        down (first (app/update-model m (msg/key-press :down)))
+        up   (first (app/update-model m (msg/key-press :up)))]
+    (is (= "markdown" (highlighted-name m)))
+    (is (= "memory" (highlighted-name down)) "↓ moves the highlight")
+    (is (= "memory" (highlighted-name up)) "↑ wraps to the last match")
+    (is (= "/m" (:input down)) "arrows drive the overlay, not the buffer")))
+
+(deftest selector-enter-and-tab-complete-into-the-buffer
+  (doseq [key [:enter :tab]]
+    (let [m        (type-str (fresh) "/mar")
+          [done c] (app/update-model m (msg/key-press key))]
+      (is (= "/markdown " (:input done)) (str (name key) " completes the highlighted command"))
+      (is (nil? c) "completion dispatches nothing")
+      (is (not (sel-open? done)) "the overlay closes once completed"))))
+
+(deftest selector-esc-dismisses-without-touching-the-buffer
+  (let [m             (type-str (fresh) "/mar")
+        [dismissed _] (app/update-model m (msg/key-press :escape))]
+    (is (sel-open? m) "precondition: open")
+    (is (not (sel-open? dismissed)) "Esc dismisses the overlay")
+    (is (= "/mar" (:input dismissed)) "the buffer is untouched")))
+
+(deftest selector-closes-when-the-slash-is-deleted
+  (let [m  (type-str (fresh) "/m")
+        m1 (first (app/update-model m (msg/key-press :backspace)))    ; "/"
+        m2 (first (app/update-model m1 (msg/key-press :backspace)))]  ; ""
+    (is (sel-open? m1) "still open at the bare slash")
+    (is (not (sel-open? m2)) "deleting the leading / closes the overlay")
+    (is (= "" (:input m2)))))
+
+(deftest selector-never-opens-for-a-normal-line
+  (testing "a non-slash line never opens the overlay (regression)"
+    (is (not (sel-open? (type-str (fresh) "hello"))))))
+
+(deftest selector-arrows-take-priority-over-history-navigation
+  (testing "while the overlay is open ↑ moves the highlight, not command history"
+    (let [m      (-> (fresh)
+                     (assoc :db {:ui/history [{:history/text "old message"}]})
+                     (type-str "/m"))
+          [up _] (app/update-model m (msg/key-press :up))]
+      (is (= "/m" (:input up)) "the buffer was not replaced by a history entry")
+      (is (sel-open? up)))))
+
+;; ---------------------------------------------------------------------------
+;; Enum ghost placeholder (pure derivation from model + registry)
+;; ---------------------------------------------------------------------------
+
+(deftest enum-ghost-tracks-the-current-setting
+  (testing "an :enum command awaiting its token shows the current value as a ghost"
+    (is (= "on"  (view/enum-ghost {:input "/markdown " :db {:settings {:markdown true}}})))
+    (is (= "off" (view/enum-ghost {:input "/markdown " :db {:settings {:markdown false}}})))
+    (is (= "off" (view/enum-ghost {:input "/markdown " :db {}})) "nil setting → off"))
+  (testing "no ghost until the trailing space, once a token is typed, or for non-enum commands"
+    (is (nil? (view/enum-ghost {:input "/markdown" :db {:settings {:markdown true}}})))
+    (is (nil? (view/enum-ghost {:input "/markdown on" :db {:settings {:markdown true}}})))
+    (is (nil? (view/enum-ghost {:input "/memory " :db {}})))))
 
 ;; ---------------------------------------------------------------------------
 ;; Readline-style editing (charm text-input component)
