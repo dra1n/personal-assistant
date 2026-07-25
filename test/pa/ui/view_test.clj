@@ -2,51 +2,8 @@
   (:require [charm.components.viewport :as vp]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
-            [pa.ui.view :as view]))
-
-(defn- visible-width
-  "Column count of s with ANSI escapes stripped."
-  [s]
-  (count (str/replace s #"\e\[[0-9;]*m" "")))
-
-(deftest single-line-cursor-window-follows-the-cursor
-  (let [slc #'view/single-line-with-cursor]
-    (testing "short input is untouched apart from the cursor cell"
-      (is (str/includes? (slc "short" 5 10) "short"))
-      (is (= 6 (visible-width (slc "short" 5 10))) "trailing cursor cell appended at end"))
-    (testing "cursor at the end of overflowing text shows the tail"
-      (let [r (slc "abcdefghijklmnop" 16 10)]
-        (is (<= (visible-width r) 10) "never wider than avail")
-        (is (str/starts-with? r "…") "left overflow flagged")
-        (is (str/includes? r "op") "tail visible")))
-    (testing "cursor at the start of overflowing text shows the head"
-      (let [r (slc "abcdefghijklmnop" 0 10)]
-        (is (<= (visible-width r) 10))
-        (is (str/includes? (str/replace r #"\e\[[0-9;]*m" "") "abc") "head visible")
-        (is (str/ends-with? r "…") "right overflow flagged")))
-    (testing "cursor mid-string keeps both neighbours visible"
-      (let [r (slc "abcdefghijklmnopqrstuvwxyz" 13 10)]
-        (is (<= (visible-width r) 10))
-        (is (str/starts-with? r "…"))
-        (is (str/ends-with? r "…"))
-        (is (str/includes? (str/replace r #"\e\[[0-9;]*m" "") "n") "char under cursor present")))))
-
-(deftest multiline-cursor-lands-on-its-row
-  (let [mlc  #'view/multiline-with-cursor
-        text "first\nsecond"]
-    (testing "two segments render two rows"
-      (let [lines (str/split-lines (mlc text 9 20 "> "))]
-        (is (= 2 (count lines)))))
-    (testing "cursor cell is on the row containing the cursor position"
-      ;; pos 8 = 'c' in "second" ("first" is 0–4, \n is 5)
-      (let [lines (str/split-lines (mlc text 8 20 "> "))]
-        (is (not (str/includes? (first lines) "\u001b[7m")) "no cursor on row 1")
-        (is (str/includes? (second lines) "\u001b[7m") "reverse-video cursor on row 2")))
-    (testing "a segment filling the row exactly wraps the cursor to a fresh row"
-      ;; segment of exactly 10 chars at avail 10, cursor at its end
-      (let [lines (str/split-lines (mlc "0123456789\nx" 10 10 "> "))]
-        (is (= 3 (count lines)) "full row + empty continuation row + second segment")
-        (is (str/includes? (second lines) "\u001b[7m") "cursor on the continuation row")))))
+            [pa.ui.view :as view]
+            [pa.ui.view.layout :as layout]))
 
 (deftest view-shows-placeholder-and-hint-when-empty
   (testing "empty input shows the placeholder and the key hint"
@@ -74,34 +31,6 @@
       (is (str/includes? out "Andrey"))
       (is (str/includes? out "Aria"))
       (is (not (str/includes? out "Assistant")) "name replaces the default label"))))
-
-(deftest input-line-count-single-line
-  (testing "blank or single-line input always reports 1 visual line"
-    (is (= 1 (view/input-line-count {})))
-    (is (= 1 (view/input-line-count {:input ""})))
-    (is (= 1 (view/input-line-count {:input "hello" :width 80})))))
-
-(deftest input-line-count-multiline
-  (testing "counts visual lines for buffers with embedded newlines"
-    (is (= 2 (view/input-line-count {:input "line one\nline two" :width 80})))
-    (is (= 3 (view/input-line-count {:input "a\nb\nc" :width 80})))
-    ;; trailing newline adds a blank visual line
-    (is (= 2 (view/input-line-count {:input "hello\n" :width 80})))))
-
-(deftest viewport-height-reserves-conversation-border-rows
-  (testing "fixed chrome (header + 1-line input + hint + borders) is subtracted"
-    ;; 24 − (8 + input-line-count(1) + collapsed-panel(1)) = 14
-    (is (= 14 (view/viewport-height {:height 24 :logs-open? false})))
-    ;; 24 − (8 + 1 + expanded-panel(11)) = 4
-    (is (= 4 (view/viewport-height {:height 24 :logs-open? true})))))
-
-(deftest viewport-height-shrinks-for-multiline-input
-  (testing "each additional input line reduces the conversation viewport by one row"
-    (let [single (view/viewport-height {:height 30 :logs-open? false :input "one line"  :width 80})
-          double (view/viewport-height {:height 30 :logs-open? false :input "a\nb"       :width 80})
-          triple (view/viewport-height {:height 30 :logs-open? false :input "a\nb\nc"    :width 80})]
-      (is (= 1 (- single double)) "2-line input shrinks viewport by 1")
-      (is (= 1 (- double triple)) "3-line input shrinks viewport by another 1"))))
 
 (deftest frame-height-unchanged-with-multiline-input
   (testing "the rendered frame is still exactly terminal height when input is multiline"
@@ -206,7 +135,7 @@
                  :logs [] :logs-open? false :focus :input :input ""
                  :streaming "" :motd-fallback "tip"}
           out   (view/view model)]
-      (is (= 6 (view/notification-lines model)) "3 rows + overflow line + 2 border rows")
+      (is (= 6 (layout/notification-lines model)) "3 rows + overflow line + 2 border rows")
       (is (str/includes? out "reminder 2"))
       (is (not (str/includes? out "reminder 3")) "capped at 3 rows")
       (is (str/includes? out "+2 more"))

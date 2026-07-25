@@ -1,6 +1,6 @@
-(ns pa.ui.input-test
+(ns pa.ui.input.state-test
   (:require [clojure.test :refer [deftest is testing]]
-            [pa.ui.input :as input]))
+            [pa.ui.input.state :as input]))
 
 (def ^:private history
   [{:history/text "git status"}

@@ -1,7 +1,7 @@
-(ns pa.ui.selector-test
+(ns pa.ui.selector.state-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [pa.commands.registry :as registry]
-            [pa.ui.selector :as selector]))
+            [pa.ui.selector.state :as selector]))
 
 ;; A fixed command set in an isolated registry so filtering is deterministic.
 (use-fixtures :each

@@ -5,7 +5,8 @@
             [clojure.test :refer [deftest is testing]]
             [pa.commands.builtin]                 ; registers the built-in slash commands
             [pa.ui.app :as app]
-            [pa.ui.selector :as selector]
+            [pa.ui.input.view :as input-view]
+            [pa.ui.selector.state :as selector]
             [pa.ui.view :as view]))
 
 (defn- model-with-turns
@@ -192,13 +193,13 @@
 
 (deftest enum-ghost-tracks-the-current-setting
   (testing "an :enum command awaiting its token shows the current value as a ghost"
-    (is (= "on"  (view/enum-ghost {:input "/markdown " :db {:settings {:markdown true}}})))
-    (is (= "off" (view/enum-ghost {:input "/markdown " :db {:settings {:markdown false}}})))
-    (is (= "off" (view/enum-ghost {:input "/markdown " :db {}})) "nil setting → off"))
+    (is (= "on"  (input-view/enum-ghost {:input "/markdown " :db {:settings {:markdown true}}})))
+    (is (= "off" (input-view/enum-ghost {:input "/markdown " :db {:settings {:markdown false}}})))
+    (is (= "off" (input-view/enum-ghost {:input "/markdown " :db {}})) "nil setting → off"))
   (testing "no ghost until the trailing space, once a token is typed, or for non-enum commands"
-    (is (nil? (view/enum-ghost {:input "/markdown" :db {:settings {:markdown true}}})))
-    (is (nil? (view/enum-ghost {:input "/markdown on" :db {:settings {:markdown true}}})))
-    (is (nil? (view/enum-ghost {:input "/memory " :db {}})))))
+    (is (nil? (input-view/enum-ghost {:input "/markdown" :db {:settings {:markdown true}}})))
+    (is (nil? (input-view/enum-ghost {:input "/markdown on" :db {:settings {:markdown true}}})))
+    (is (nil? (input-view/enum-ghost {:input "/memory " :db {}})))))
 
 ;; ---------------------------------------------------------------------------
 ;; Readline-style editing (charm text-input component)

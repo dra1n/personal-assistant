@@ -1,39 +1,22 @@
 (ns pa.ui.view
-  "Rendering and layout for the terminal UI.
+  "Top-level rendering for the terminal UI: the conversation, log panel,
+  notification banner, and header/chrome, plus the `view` fn that composes the
+  whole frame (delegating the input buffer to pa.ui.input.view and the selector
+  overlay to pa.ui.selector.view).
 
   Pure presentation: turns the charm model (a plain data map) into the string
-  charm displays. Holds no state and references no update logic — it only
-  reads the model map. pa.ui.app depends on this namespace (its viewports
-  store pre-rendered content); this namespace never depends back on app."
+  charm displays. Holds no state and references no update logic — it only reads
+  the model map. Sizing lives in pa.ui.view.layout; shared render helpers in
+  pa.ui.view.common. pa.ui.app depends on this namespace; this namespace never
+  depends back on app."
   (:require [charm.components.viewport :as vp]
             [charm.style.core :as style]
             [clojure.string :as str]
-            [pa.commands.parse :as parse]
-            [pa.commands.registry :as commands]
             [pa.state.queries :as queries]
-            [pa.ui.overlay :as overlay]
-            [pa.ui.selector :as selector]))
-
-(def ^:private accent style/cyan)
-(def log-content-lines 8)   ; log rows visible inside the expanded panel
-
-(def ^:private box-padding
-  "Inner horizontal padding for the bordered content boxes (1 column each
-  side), so text doesn't sit flush against the side borders."
-  [0 1])
-
-(defn inner-width
-  "Content width inside a full-width bordered box (terminal width minus the
-  two border columns). This is the box's `:width`; the padding is carved out
-  of it, leaving `text-width` for the text itself."
-  [{:keys [width]}]
-  (max 10 (- (or width 80) 2)))
-
-(defn text-width
-  "Wrappable width for text inside a padded, bordered box: the inner width
-  minus the two horizontal padding columns."
-  [model]
-  (max 8 (- (inner-width model) 2)))
+            [pa.ui.input.view :as input-view]
+            [pa.ui.selector.view :as selector-view]
+            [pa.ui.view.common :as common]
+            [pa.ui.view.layout :as layout]))
 
 ;; --- conversation content ---------------------------------------------------
 
@@ -98,7 +81,7 @@
 (defn- render-turn [{:keys [role content tool-calls pending?]} width names]
   (let [w     (max 1 width)
         label (case role
-                :user      (style/styled (or (:user names) "You")            :fg accent :bold true)
+                :user      (style/styled (or (:user names) "You")            :fg common/accent :bold true)
                 :assistant (style/styled (or (:assistant names) "Assistant") :fg style/green :bold true)
                 (style/styled (name (or role :system)) :faint true))
         ;; An assistant turn that only calls a tool has blank content; show the
@@ -164,26 +147,12 @@
 
 ;; --- notifications ------------------------------------------------------------
 
-(def ^:private notification-max-rows 3)
-
 (defn- notification-text
   "Single-width characters only — a double-width glyph (an emoji clock) would
   throw off charm's char-count padding and shift the box border."
   [{:keys [type payload]}]
   (str (case type :reminder "Reminder: " "• ")
        (or (:text payload) (pr-str payload))))
-
-(defn notification-lines
-  "Vertical lines the notification panel occupies under the header: one per
-  pending notification (capped at notification-max-rows, plus an overflow
-  line) inside a bordered box (2 border rows). 0 when nothing is pending
-  (no panel)."
-  [{:keys [db]}]
-  (let [n (count (queries/notifications db))]
-    (cond
-      (zero? n)                   0
-      (> n notification-max-rows) (+ 3 notification-max-rows)
-      :else                       (+ 2 n))))
 
 (defn- notification-banner
   "The pending-notifications panel, or nil when there are none. Reminders
@@ -193,9 +162,9 @@
   [model]
   (let [notes (queries/notifications (:db model))]
     (when (seq notes)
-      (let [tw    (text-width model)
-            shown (take notification-max-rows notes)
-            more  (- (count notes) notification-max-rows)
+      (let [tw    (layout/text-width model)
+            shown (take layout/notification-max-rows notes)
+            more  (- (count notes) layout/notification-max-rows)
             line  (fn [i note]
                     (let [hint (if (zero? i) " · ^X dismiss" "")]
                       (str (style/styled (style/truncate (notification-text note)
@@ -204,98 +173,14 @@
                                          :fg style/yellow :bold true)
                            (style/styled hint :faint true))))]
         (style/render (style/style :border  style/rounded-border
-                                   :padding box-padding
-                                   :width   (inner-width model))
+                                   :padding common/box-padding
+                                   :width   (layout/inner-width model))
                       (str/join "\n"
                                 (cond-> (vec (map-indexed line shown))
                                   (pos? more) (conj (style/styled (str "… +" more " more") :faint true)))))))))
 
-;; --- command selector overlay ------------------------------------------------
+;; --- header / chrome --------------------------------------------------------
 
-(defn- selector-spec
-  "The command-selector overlay's data — {:rows :index :help} — or nil when the
-  overlay is closed. Shared by the layout sizing (selector-lines) and the render
-  (selector-view) so the two never drift. Rows are name + derived usage hint;
-  help is the highlighted command's description."
-  [{:keys [selector input] :as _model}]
-  (when (selector/open? selector input)
-    (let [specs (vec (selector/matches input))
-          index (get selector :selector/index 0)]
-      {:rows  (mapv (fn [s] {:label (str "/" (:command s))
-                             :hint  (commands/usage-hint s)})
-                    specs)
-       :index index
-       :help  (:description (get specs index))})))
-
-(defn selector-lines
-  "Vertical lines the selector overlay occupies (0 when closed). Subtracted from
-  the conversation viewport height so the frame stays exactly terminal-height
-  while the overlay is open, like the notification panel."
-  [model]
-  (if-let [spec (selector-spec model)]
-    (overlay/height spec)
-    0))
-
-(defn- selector-overlay
-  "The rendered selector overlay box, or nil when closed."
-  [model]
-  (when-let [spec (selector-spec model)]
-    (overlay/overlay-list (assoc spec :inner-width (inner-width model)))))
-
-(defn enum-ghost
-  "The dim placeholder shown when the input is a recognised :enum command
-  awaiting its argument: the command name plus a trailing space and no token yet
-  (e.g. '/markdown ⎵'). Returns the current value via the arg-spec :current-fn
-  (e.g. \"on\"), or nil. Pure derivation from the model + registry — no new
-  runtime state."
-  [{:keys [input db] :as _model}]
-  (when-let [{:keys [command raw-args]} (parse/command-line input)]
-    (when (re-find #"\s\z" (str input))                 ; a trailing space: awaiting the token
-      (let [{:keys [kind current-fn]} (:arg-spec (commands/get-command command))]
-        (when (and (= :enum kind) current-fn (str/blank? raw-args))
-          (current-fn db))))))
-
-;; --- layout sizing ----------------------------------------------------------
-
-(defn- panel-lines
-  "Vertical lines the log panel occupies: one summary line when collapsed; a
-  title line plus the bordered content box when expanded."
-  [logs-open?]
-  (if logs-open? (+ 1 log-content-lines 2) 1))
-
-(defn input-line-count
-  "Visual lines occupied by the input buffer. Returns 1 for blank or
-  single-line input. Multiline buffers are hard-wrapped (character chunks,
-  not word wrap — exact cursor arithmetic needs a lossless mapping), so each
-  newline-delimited segment occupies (inc (quot len avail)) rows: a segment
-  whose length is an exact multiple of avail carries an empty continuation
-  row for the cursor to wrap onto. Must stay in lockstep with the row
-  construction in multiline-with-cursor."
-  [{:keys [input] :as model}]
-  (if (or (str/blank? input) (not (str/includes? input "\n")))
-    1
-    (let [avail (max 1 (- (inner-width model) 5))]
-      (->> (str/split input #"\n" -1)
-           (map #(inc (quot (count %) avail)))
-           (reduce +)))))
-
-(defn viewport-height
-  "Lines available inside the conversation box's viewport: terminal height
-  minus fixed chrome (3-row header box + input box borders + hint = 6), the
-  log panel, the notification panel (when present), and the conversation
-  box's own two border rows. Panels stack directly — no blank rows between
-  them. The input box height is dynamic — it grows when the buffer contains
-  newlines."
-  [{:keys [height logs-open?] :as model}]
-  (max 3 (- (or height 24) (+ 8
-                              (input-line-count model)
-                              (panel-lines logs-open?)
-                              (notification-lines model)
-                              (selector-lines model)))))
-
-;; --- view -------------------------------------------------------------------
-
-(def ^:private placeholder "Ask me anything…")
 (def ^:private empty-conversation-hint "Type a message and press Enter.")
 
 (def ^:private tips
@@ -315,23 +200,23 @@
 
 (defn- dim-glyph
   "Faint via the raw SGR escape. charm's styler downgrades box-drawing *edges*
-  (─ │) to ASCII whenever an attribute is applied (see border-for), so we emit
-  the dim escape by hand around the glyphs to keep them Unicode."
+  (─ │) to ASCII whenever an attribute is applied (see pa.ui.view.common/border-for),
+  so we emit the dim escape by hand around the glyphs to keep them Unicode."
   [s]
-  (str "[2m" s "[0m"))
+  (str "\u001b[2m" s "\u001b[0m"))
 
 ;; Split header: a rounded box, wordmark (plus the active LLM model, faint) on
 ;; the left and the message-of-the-day (user's `motd`, else the session's
 ;; fallback tip) on the right of one row. The border is hand-drawn and dimmed
 ;; (dim-glyph) to match the faint MOTD.
 (defn- header [model]
-  (let [iw       (inner-width model)
-        tw       (text-width model)
+  (let [iw       (layout/inner-width model)
+        tw       (layout/text-width model)
         wordmark "Personal Assistant"
         llm      (:llm-model model)
         left-len (cond-> (+ 2 (count wordmark))          ; ✦ + space + wordmark
                    llm (+ 3 (count llm)))                ; + space + "· " + model
-        left     (str (style/styled "✦" :fg accent :bold true) " "
+        left     (str (style/styled "✦" :fg common/accent :bold true) " "
                       (style/styled wordmark :bold true)
                       (when llm
                         (str " " (style/styled (str "· " llm) :faint true))))
@@ -342,12 +227,6 @@
     (str (dim-glyph "╭") rule (dim-glyph "╮") "\n"
          (dim-glyph "│") " " left gap (style/styled motd :faint true) " " (dim-glyph "│") "\n"
          (dim-glyph "╰") rule (dim-glyph "╯"))))
-
-;; A focused region gets a thick border; otherwise a rounded one. Borders are
-;; never coloured — charm downgrades box-drawing edges to ASCII when a border
-;; :fg/:bg is set.
-(defn- border-for [focused?]
-  (if focused? style/thick-border style/rounded-border))
 
 (defn- pad-lines
   "Append blank lines so `s` spans exactly `n` lines (no-op if already ≥ n).
@@ -365,134 +244,38 @@
 (defn- conversation-view [{:keys [viewport focus] :as model}]
   (let [content (if viewport
                   (vp/viewport-view viewport)
-                  (conversation-content (:db model) (text-width model) (:streaming model)
+                  (conversation-content (:db model) (layout/text-width model) (:streaming model)
                                         (and (:streaming-open? model)
                                              (str/blank? (:streaming model)))))]
-    (style/render (style/style :border  (border-for (= :conversation focus))
-                               :padding box-padding
-                               :width   (inner-width model))
-                  (pad-lines content (viewport-height model)))))
+    (style/render (style/style :border  (common/border-for (= :conversation focus))
+                               :padding common/box-padding
+                               :width   (layout/inner-width model))
+                  (pad-lines content (layout/viewport-height model)))))
 
 ;; Shown before the first message: a borderless, unfocusable hint centred in
 ;; the same rectangle the conversation box would occupy, so the input below
 ;; stays put. No border/focus styling — that's what looked wonky empty.
 (defn- empty-conversation-view [model]
   (let [w    (or (:width model) 80)
-        h    (+ (viewport-height model) 2)            ; match the bordered box's outer height
+        h    (+ (layout/viewport-height model) 2)     ; match the bordered box's outer height
         lead (apply str (repeat (max 0 (quot (- w (count empty-conversation-hint)) 2)) \space))
         line (style/styled (str lead empty-conversation-hint) :faint true)
         top  (quot (dec h) 2)]
     ;; Space-filled blanks, not "" — charm drops trailing empty lines on join.
     (str/join "\n" (concat (repeat top " ") [line] (repeat (- h top 1) " ")))))
 
-(defn- cursor []
-  (style/styled " " :reverse true))
-
-(defn- mark-cursor
-  "s with the character at pos rendered in reverse video — the cursor cell.
-  When pos is at the end, a reversed trailing space is appended instead
-  (one extra column; callers must leave room for it)."
-  [s pos]
-  (if (< pos (count s))
-    (str (subs s 0 pos) (style/styled (subs s pos (inc pos)) :reverse true) (subs s (inc pos)))
-    (str s (cursor))))
-
-(defn- single-line-with-cursor
-  "The input line with the cursor marked at pos, horizontally scrolled so the
-  cursor stays visible (roughly centred while mid-string) within avail
-  columns. Ellipses flag text scrolled off either side; the result is never
-  wider than avail."
-  [s pos avail]
-  (let [len (count s)]
-    (if (< len avail)
-      (mark-cursor s pos)
-      (let [start     (-> (- pos (quot avail 2))
-                          (min (- (inc len) avail))   ; inc: the end-cursor cell
-                          (max 0))
-            end       (min len (+ start avail))
-            head?     (pos? start)
-            tail?     (< end len)
-            vis-start (if head? (inc start) start)
-            vis-end   (if tail? (dec end) end)
-            visible   (subs s vis-start vis-end)
-            cpos      (-> (- pos vis-start) (max 0) (min (count visible)))]
-        (str (when head? "…") (mark-cursor visible cpos) (when tail? "…"))))))
-
-(defn- hard-chunks
-  "Hard-wrap a newline-free segment into avail-column rows. A segment whose
-  length is an exact multiple of avail gets a trailing empty row — the cell
-  the cursor wraps onto after filling the last column — and an empty segment
-  is one empty row. Row count is always (inc (quot (count seg) avail)),
-  matching input-line-count."
-  [seg avail]
-  (let [base (mapv str/join (partition-all avail seg))]
-    (if (zero? (mod (count seg) avail))
-      (conj base "")
-      base)))
-
-(defn- multiline-with-cursor
-  "Multiline buffer rendering: newline-delimited segments hard-wrapped to
-  avail columns, first row prefixed with the prompt and continuation rows
-  aligned under it, cursor marked on its exact row/column."
-  [s pos avail prompt]
-  (let [rows    (loop [segs (str/split s #"\n" -1) off 0 acc []]
-                  (if-let [seg (first segs)]
-                    (recur (rest segs)
-                           (+ off (count seg) 1)
-                           (into acc (map-indexed (fn [i c] [c (+ off (* i avail))])
-                                                  (hard-chunks seg avail))))
-                    acc))
-        ;; The row whose span contains the cursor; a position on a chunk
-        ;; boundary matches two rows and takes the later one (the cursor
-        ;; wraps with the text).
-        row-idx (or (->> rows
-                         (keep-indexed (fn [i [c st]]
-                                         (when (<= st pos (+ st (count c))) i)))
-                         last)
-                    (dec (count rows)))]
-    (->> rows
-         (map-indexed (fn [i [c st]]
-                        (str (if (zero? i) prompt "  ")
-                             (if (= i row-idx)
-                               (mark-cursor c (-> (- pos st) (max 0) (min (count c))))
-                               c))))
-         (str/join "\n"))))
-
-(defn- input-view [{:keys [input focus] :as model}]
-  (let [inner  (inner-width model)
-        avail  (max 1 (- inner 5))
-        pos    (-> (or (:cursor model) (count input)) (max 0) (min (count input)))
-        prompt (str (style/styled "›" :fg accent :bold true) " ")
-        ghost  (enum-ghost model)]
-    (style/render
-     (style/style :border  (border-for (= :input focus))
-                  :padding box-padding
-                  :width   inner)
-     (cond
-       (str/blank? input)
-       (str prompt (cursor) (style/styled placeholder :faint true))
-
-       (not (str/includes? input "\n"))
-       ;; The enum ghost trails the cursor as a dim preview of the current value
-       ;; (e.g. '/markdown ⎵' → dim "on"); it awaits a token, so input is short.
-       (str prompt (single-line-with-cursor input pos avail)
-            (when ghost (style/styled ghost :faint true)))
-
-       :else
-       (multiline-with-cursor input pos avail prompt)))))
-
 (defn- hint []
   (style/styled "Enter send · Tab/Esc focus · ↑/↓ scroll · ^L logs · ^C quit" :faint true))
 
 (defn- log-panel [{:keys [logs logs-open? log-viewport focus] :as model}]
-  (let [iw (inner-width model)]
+  (let [iw (layout/inner-width model)]
     (if logs-open?
       (let [focused? (= focus :logs)
             title    (style/styled (str "▾ logs (" (count logs) ") · Tab focus · ^L collapse")
-                                   :faint (not focused?) :bold focused? :fg (when focused? accent))
-            content  (if log-viewport (vp/viewport-view log-viewport) (logs-content logs (text-width model)))]
-        (str title "\n" (style/render (style/style :border  (border-for focused?)
-                                                   :padding box-padding
+                                   :faint (not focused?) :bold focused? :fg (when focused? common/accent))
+            content  (if log-viewport (vp/viewport-view log-viewport) (logs-content logs (layout/text-width model)))]
+        (str title "\n" (style/render (style/style :border  (common/border-for focused?)
+                                                   :padding common/box-padding
                                                    :width   iw)
                                       content)))
       (let [n     (count logs)
@@ -510,8 +293,8 @@
              (empty-conversation-view model)
              (conversation-view model))]
           ;; The selector overlay sits directly above the input while open; its
-          ;; height is carved out of the conversation viewport (selector-lines).
-          (when-let [sel (selector-overlay model)] [sel])
-          [(input-view model)
+          ;; height is carved out of the conversation viewport (layout/selector-lines).
+          (when-let [sel (selector-view/selector-overlay model)] [sel])
+          [(input-view/input-view model)
            (hint)
            (log-panel model)])))

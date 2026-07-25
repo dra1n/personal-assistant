@@ -1,4 +1,4 @@
-(ns pa.ui.input
+(ns pa.ui.input.state
   "Pure navigation state machine for ↑/↓ command-history browsing.
 
   Navigation state: {:nav/index nil  — nil means not navigating

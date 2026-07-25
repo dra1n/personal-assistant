@@ -1,4 +1,4 @@
-(ns pa.ui.overlay
+(ns pa.ui.view.overlay
   "A reusable overlay list surface: a bordered list rendered above the input,
   each row a left label with a right-aligned faint hint, the highlighted row in
   reverse video, and a faint help line for the highlight beneath. Presentation
@@ -8,7 +8,7 @@
 
   A row is {:label <string> :hint <string?>}. The list scrolls when it exceeds
   max-rows, keeping the highlight in view. height mirrors what overlay-list
-  renders, so the layout sizing (pa.ui.view) and the render never drift."
+  renders, so the layout sizing (pa.ui.view.layout) and the render never drift."
   (:require [charm.style.core :as style]
             [clojure.string :as str]))
 

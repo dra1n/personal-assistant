@@ -45,10 +45,11 @@
             [pa.commands.registry :as commands]
             [pa.state.db :as db]
             [pa.state.queries :as queries]
-            [pa.ui.input :as input]
-            [pa.ui.selector :as selector]
+            [pa.ui.input.state :as input]
+            [pa.ui.selector.state :as selector]
             [pa.ui.subscribe :as subscribe]
-            [pa.ui.view :as view]))
+            [pa.ui.view :as view]
+            [pa.ui.view.layout :as layout]))
 
 (def ^:private log-buffer-size 200)   ; ring-buffer cap for in-memory log entries
 
@@ -67,8 +68,8 @@
         pending?   (and (:streaming-open? model) (str/blank? streaming))
         vp0        (-> (or viewport (vp/viewport ""))
                        (vp/viewport-set-content
-                        (view/conversation-content db (view/text-width model) streaming pending?))
-                       (vp/viewport-set-dimensions 0 (view/viewport-height model)))]
+                        (view/conversation-content db (layout/text-width model) streaming pending?))
+                       (vp/viewport-set-dimensions 0 (layout/viewport-height model)))]
     (assoc model :viewport
            (if (and (= focus :conversation) (not at-bottom?))
              (vp/viewport-scroll-to vp0 (or prev-off 0))
@@ -82,8 +83,8 @@
   (let [at-bottom? (or (nil? log-viewport) (vp/viewport-at-bottom? log-viewport))
         prev-off   (:y-offset log-viewport)
         vp0        (-> (or log-viewport (vp/viewport ""))
-                       (vp/viewport-set-content (view/logs-content logs (view/text-width model)))
-                       (vp/viewport-set-dimensions 0 view/log-content-lines))]
+                       (vp/viewport-set-content (view/logs-content logs (layout/text-width model)))
+                       (vp/viewport-set-dimensions 0 layout/log-content-lines))]
     (assoc model :log-viewport
            (if (and (= focus :logs) (not at-bottom?))
              (vp/viewport-scroll-to vp0 (or prev-off 0))
@@ -438,7 +439,7 @@
           ;; leading /) changes the layout height, so re-size the conversation
           ;; viewport around the overlay — same as the multiline newline path.
           [(focus-input (cond-> m
-                          (not= (view/selector-lines model) (view/selector-lines m))
+                          (not= (layout/selector-lines model) (layout/selector-lines m))
                           refresh-conversation))
            nil])
 

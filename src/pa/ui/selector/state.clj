@@ -1,9 +1,10 @@
-(ns pa.ui.selector
+(ns pa.ui.selector.state
   "Pure state machine for the slash-command selector overlay — a sibling to
-  pa.ui.input's history navigation. UI-local and ephemeral: it reads the command
-  registry and the current input buffer and tracks only a highlight index plus a
-  dismissed flag. It dispatches nothing; completing a command edits the buffer
-  (in pa.ui.app), and only Enter on the completed line dispatches a runtime event.
+  pa.ui.input.state's history navigation. UI-local and ephemeral: it reads the
+  command registry and the current input buffer and tracks only a highlight index
+  plus a dismissed flag. It dispatches nothing; completing a command edits the
+  buffer (in pa.ui.app), and only Enter on the completed line dispatches a runtime
+  event.
 
   Selector state: {:selector/index      highlighted row in the filtered list
                    :selector/dismissed? true after Esc, until the buffer leaves
