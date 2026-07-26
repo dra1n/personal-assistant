@@ -3,15 +3,15 @@
 ## Task groups
 
 ### Group 1 — Dependency & renderer skeleton
-- [ ] Add `io.github.nextjournal/markdown` to `deps.edn`
-- [ ] Create `pa.ui.view.markdown` (clean reimplementation using the spike as a
+- [x] Add `io.github.nextjournal/markdown` to `deps.edn` (0.7.225)
+- [x] Create `pa.ui.view.markdown` (clean reimplementation using the spike as a
       design reference — not a cherry-pick): pure `(render md-string width)`
       parsing with `nextjournal.markdown` and walking the AST
-- [ ] Implement the character-level inline model: flatten inline nodes to
+- [x] Implement the character-level inline model: flatten inline nodes to
       `[char style-map]` pairs; `:softbreak` → space, `:hardbreak` → `[:break]`
       marker; render runs through `charm.style` (magenta code, blue link, cyan
       heading — spike palette kept)
-- [ ] Implement visible-length word-wrap: greedy pack to `width`, hard-split any
+- [x] Implement visible-length word-wrap: greedy pack to `width`, hard-split any
       word longer than `width` without overrunning the frame
 
 ### Group 2 — Block node coverage
