@@ -1,6 +1,6 @@
 # Roadmap
 
-Phases are ordered by dependency — each builds on the last. Phases 0–10 are all broken into concrete micro-steps.
+Phases are ordered by dependency — each builds on the last. Phases 0–11 are all broken into concrete micro-steps.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
@@ -1358,7 +1358,173 @@ Extension points (designed, deferred):
 
 ---
 
-## Phase 8 — Personality & Long-Term Evolution
+## Phase 8 — Terminal Markdown Rendering
+
+Goal: Render the assistant's markdown responses as styled terminal text —
+headings, emphasis, lists, code, blockquotes, tables — behind the `:markdown`
+runtime setting introduced in Phase 7. Phase 7 added the `/markdown on|off`
+command and the flag but deliberately left *rendering* to this phase.
+
+### Decisions (settled)
+
+- **Scope: assistant turns only.** User turns stay plain — rendering a user's
+  literal `*asterisks*` as italic would surprise. Only `:role :assistant`
+  committed turns are markdown-rendered.
+- **Default: on**, overridable via `~/.config/personal-assistant/config.edn`.
+  The initial `:settings :markdown` defaults to `true`; a `:settings` map read
+  from `config.edn` at startup overrides it (`{:settings {:markdown false}}`).
+  This pulls a thin slice of the settings-persistence deferred in Phase 7 —
+  config → initial `:settings` — into this phase.
+- **Palette: keep the spike's** (cyan headings, magenta inline code, blue links)
+  for now; revisit after final testing (note it overlaps the app's cyan accent).
+- **Rendering cadence: on commit, cached** — see Performance below. No markdown
+  work per streamed delta.
+
+### Approach
+
+Parse with **`io.github.nextjournal/markdown`** and walk the resulting
+Clojure-data AST, emitting ANSI via `charm.style`. A spike lives on branch
+`spike/markdown-render` (namespace `pa.ui.view.markdown`, demo
+`dev/markdown_demo.clj`, run with `clojure -M:dev -m markdown-demo`) implementing
+the core; this phase productionises and polishes it.
+
+Why this library:
+
+- It is a thin Clojure-data layer **over commonmark-java** (`org.commonmark`
+  0.24 + GFM extensions: tables, strikethrough, task-lists, autolinks,
+  footnotes). Solid CommonMark parsing with a light footprint — a few hundred KB
+  of jars plus `data.json`, no JS engine. `md/parse` returns a recursive
+  `{:type … :content [...]}` tree that maps almost 1:1 onto a renderer.
+- Alternatives considered and rejected: raw **commonmark-java** (same parser but
+  a Java visitor API rather than Clojure data); **flexmark-java** (heavier
+  superset); shelling out to **glow** / **mdcat** (great output, but an external
+  binary, a process spawn per render, and its own wrapping that fights our
+  fixed-height frame). The JVM has **no `glamour` equivalent**, so a small custom
+  renderer is the right call.
+
+### Renderer design (`pa.ui.view.markdown`)
+
+- Pure `(render md-string width)` → a charm-styled string wrapped to `width`.
+- **Inline styling at the character level** — flatten inline nodes to a seq of
+  `[char style-map]` pairs, then word-wrap measuring *visible* length. This keeps
+  wrapping correct despite ANSI escapes and keeps punctuation attached across
+  style runs (e.g. the `.` after inline `code` gets no stray space).
+- Node coverage: headings, strong / em / inline-code / strikethrough / link,
+  soft & hard breaks, bullet + numbered lists (nested), fenced code blocks,
+  blockquotes, GFM tables, thematic breaks. charm supports
+  `:bold :italic :underline :faint :reverse`; strikethrough falls back to faint
+  (no SGR 9).
+
+### Integration (behind the Phase 7 toggle)
+
+- `conversation-content` tags each **committed assistant** turn with the
+  `:markdown` setting (`queries/setting db :markdown`); `render-turn` routes
+  flagged, non-tool content through `markdown/render` instead of `wrap-text`.
+  Non-assistant (user) and tool turns are never tagged.
+- The **live stream and pending turns are never tagged**, so a half-open fenced
+  block mid-stream cannot garble the preview — markdown applies only once a turn
+  commits. Tool output keeps its existing collapsed rendering.
+- Tagging guards on `map?` so non-map sentinel conversation entries are left
+  untouched.
+
+### Performance (rendering cadence & caching)
+
+`refresh-conversation` runs on **every `:llm/delta`** (`pa.ui.app`), and
+`conversation-content` rebuilds the whole conversation string each time — so
+without care, every prior committed turn's markdown would be re-parsed on every
+streamed token (O(turns × deltas)). Markdown parsing is far heavier than the
+current `wrap-text`, so this must be cached.
+
+- Render markdown **only when a turn commits**; the in-flight streamed turn stays
+  **plain** (cheap) and is re-appended each frame.
+- **Cache the rendered committed block** and reuse it during streaming, appending
+  the plain streaming turn on top — zero markdown work per delta.
+- **Invalidate the cache** when: a new turn commits, the terminal **resizes**
+  (width changes → re-wrap), or the `:markdown` setting toggles. Cache key is
+  therefore `[committed-conversation width md?]`.
+- The cache lives in the **model / `refresh-conversation` path**, so `pa.ui.view`
+  stays pure. (Per-*turn* caching keyed by `[content width]` is a further
+  optimization if history grows large, but a single committed-block cache is
+  enough for now.)
+
+### Findings (from the spike)
+
+- Frame height stays exact with markdown on — the renderer wraps to `text-width`,
+  so the fixed-height layout math is unaffected.
+- A soft line break (a single `\n` inside a paragraph) parses to a `:softbreak`
+  node with no content; it must render as a space or adjacent words merge
+  ("wrapped tothe"). Handled in the spike.
+- The rendered bullet glyph differs by codepoint from a hand-typed `•`; tests
+  should assert on the marker *transformation* (raw `-` gone, text kept), not the
+  exact glyph.
+- Hand-written ANSI escapes are fragile — a raw ESC (0x1b) byte is easy to drop
+  in an edit, printing literal `[2m`. Use `\u001b` string literals, never raw
+  bytes. The renderer goes through `charm.style`, which is safe; this applies to
+  any bespoke SGR.
+
+### Caveats & polish (improvements to make)
+
+- **Code blocks**: the fenced-language line is not gutter-aligned with the code
+  lines; align it (and consider a bordered box like the selector overlay). No
+  syntax highlighting — there is no good JVM/TUI highlighter, so map a few
+  languages to simple ANSI or leave code plain.
+- **Tables**: cells render as plain text (no inline styling inside cells) and do
+  not truncate to width, so a wide table can overrun the box. Add per-cell inline
+  rendering and width-aware column sizing / truncation.
+- **Links**: styled text is shown without the URL; optionally append the href
+  faintly, or emit OSC-8 hyperlinks where the terminal supports them.
+- **Task lists** (`- [ ]` / `- [x]`) and **footnotes** parse but are not rendered
+  specially yet.
+- Consider graceful handling / a cap for pathological input (deeply nested lists,
+  enormous tables).
+
+### Tasks
+
+v1 (this phase):
+
+- [ ] Promote `pa.ui.view.markdown` from the spike branch: the AST-walking
+  renderer with character-level inline wrapping.
+- [ ] Add `io.github.nextjournal/markdown` to `deps.edn`.
+- [ ] Wire into `conversation-content` / `render-turn` behind `:markdown` —
+  **committed assistant turns only**; user, live stream, pending, and tool output
+  unaffected; `map?` guard on tagging.
+- [ ] Default the `:markdown` setting to `true` (`pa.state.db`); read a
+  `:settings` map from `config.edn` at startup and merge it over the defaults so
+  users can set `{:settings {:markdown false}}`.
+- [ ] Caching: render markdown only on commit; cache the rendered committed block
+  in the model / `refresh-conversation` path, invalidated by
+  `[committed-conversation width md?]` (new commit, resize, toggle). No per-delta
+  markdown parsing.
+
+Deferred polish (later cut — see Caveats):
+
+- [ ] Code-block polish: align the language line; optional bordered block.
+- [ ] Table polish: inline-styled cells; width-aware column sizing + truncation.
+- [ ] Link polish: optional faint URL / OSC-8 hyperlinks.
+- [ ] Render task-list items and footnotes.
+
+### Tests
+
+- [ ] `pa.ui.view.markdown/render` (assert on ANSI-stripped output): headings;
+  emphasis (markers consumed, text kept); inline code; lists (marker transformed,
+  nesting preserved); fenced code block; blockquote gutter; table alignment;
+  thematic break.
+- [ ] Wrapping: long paragraphs wrap to width; soft breaks become spaces; a word
+  longer than the width hard-splits without overrunning the box.
+- [ ] Integration (`conversation-content`): `:markdown` on renders committed
+  **assistant** turns; a user turn with markdown syntax stays literal; off shows
+  raw source; the live stream is never markdown-rendered even with the setting on;
+  frame height unchanged.
+- [ ] Default & config: `:markdown` defaults on; a `config.edn`
+  `{:settings {:markdown false}}` disables it at startup.
+- [ ] Caching: the committed block is rendered once across many deltas (no
+  re-parse per delta); a width change (resize) invalidates and re-wraps; toggling
+  `:markdown` invalidates.
+- [ ] Non-map conversation entries do not crash the tagging path (regression).
+
+---
+
+## Phase 9 — Personality & Long-Term Evolution
 
 Goal: Evolve the assistant into a durable long-term system.
 
@@ -1377,7 +1543,7 @@ Goal: Evolve the assistant into a durable long-term system.
 
 ---
 
-## Phase 9 — Optional Advanced Features
+## Phase 10 — Optional Advanced Features
 
 These are explicitly deferred and not required for a complete system.
 
@@ -1407,7 +1573,7 @@ until recency + FTS retrieval proves insufficient in practice.
 
 ---
 
-## Phase 10 — Explicit Cognitive Pipeline
+## Phase 11 — Explicit Cognitive Pipeline
 
 Goal: Formalize and make inspectable all cognition stages.
 
