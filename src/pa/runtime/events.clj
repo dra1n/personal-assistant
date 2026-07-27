@@ -1,5 +1,6 @@
 (ns pa.runtime.events
-  (:require [clojure.spec.alpha :as s])
+  (:require [clojure.spec.alpha :as s]
+            [pa.spec :as spec])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -24,7 +25,8 @@
   "Stamps :event/id and :event/timestamp onto the given event map.
   Caller-supplied :event/id or :event/timestamp are preserved (useful in tests)."
   [m]
-  {:pre [(qualified-keyword? (:event/type m))]}
+  {:pre  [(qualified-keyword? (:event/type m))]
+   :post [(spec/validate! ::event %)]}
   (merge {:event/id        (UUID/randomUUID)
           :event/timestamp (Instant/now)}
          m))

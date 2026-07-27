@@ -1,5 +1,6 @@
 (ns pa.memory.records
-  (:require [clojure.spec.alpha :as s])
+  (:require [clojure.spec.alpha :as s]
+            [pa.spec :as spec])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -53,9 +54,7 @@
   Stamps :memory/id (UUID) and :memory/created-at (Instant).
   Required keys: :memory/type, :memory/title, :memory/summary."
   [fields]
-  (when-not (s/valid? ::input fields)
-    (throw (ex-info (str "Invalid memory record input:\n" (s/explain-str ::input fields))
-                    {:fields fields})))
+  (spec/validate! ::input fields)
   (merge fields
          {:memory/id         (str (UUID/randomUUID))
           :memory/created-at (Instant/now)}))

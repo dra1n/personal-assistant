@@ -28,7 +28,8 @@
   Permitted mutation sites: reg-command, and test fixtures that save/restore the
   registry between tests."
   (:require [clojure.spec.alpha :as s]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [pa.spec :as spec]))
 
 ;; ---------------------------------------------------------------------------
 ;; Command spec (validated at registration)
@@ -77,11 +78,9 @@
   "Register command-spec, keyed by its :command name. Overwrites any existing
   registration for that name. Returns the command name. Throws ex-info with a
   spec explanation if the spec is malformed (see ::spec)."
-  [{:keys [command] :as spec}]
-  (when-not (s/valid? ::spec spec)
-    (throw (ex-info (str "Invalid command spec:\n" (s/explain-str ::spec spec))
-                    {:spec spec})))
-  (swap! registry assoc command spec)
+  [{:keys [command] :as command-spec}]
+  (spec/validate! ::spec command-spec)
+  (swap! registry assoc command command-spec)
   command)
 
 (defn get-command

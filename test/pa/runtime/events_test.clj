@@ -43,3 +43,16 @@
 
   (testing "throws on unqualified :event/type"
     (is (thrown? AssertionError (events/make-event {:event/type :message})))))
+
+(deftest make-event-post-validates-result
+  (testing "throws when a caller-supplied :event/id overrides the default with an invalid value"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (events/make-event {:event/type :user/message :event/id "not-a-uuid"}))))
+
+  (testing "the thrown exception explains what's wrong"
+    (try
+      (events/make-event {:event/type :user/message :event/id "not-a-uuid"})
+      (is false "expected make-event to throw")
+      (catch clojure.lang.ExceptionInfo e
+        (is (= "not-a-uuid" (get-in (ex-data e) [:value :event/id])))
+        (is (re-find #"event/id" (:explain (ex-data e))))))))
