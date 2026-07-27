@@ -51,27 +51,27 @@
       markdown parse per `:llm/delta` (verified: 20 deltas → 1 render)
 
 ### Group 6 — Tests
-- [ ] `pa.ui.view.markdown/render` (assert on ANSI-stripped output): headings;
+- [x] `pa.ui.view.markdown/render` (assert on ANSI-stripped output): headings;
       emphasis (markers consumed, text kept); inline code; lists (marker
       transformed, nesting preserved); fenced code block; blockquote gutter; table
-      alignment; thematic break; task-list; footnote
-- [ ] Wrapping: long paragraphs wrap to width; soft breaks become spaces; a word
+      alignment; thematic break; task-list; footnote — `pa.ui.view.markdown-test`
+- [x] Wrapping: long paragraphs wrap to width; soft breaks become spaces; a word
       longer than the width hard-splits without overrunning the box
-- [ ] Integration (`conversation-content`): `:markdown` on renders committed
+- [x] Integration (`conversation-content`): `:markdown` on renders committed
       assistant turns; a user turn with markdown syntax stays literal; off shows
       raw source; the live stream is never rendered even with the setting on;
-      frame height unchanged
-- [ ] Default & config: `:markdown` defaults on; `{:settings {:markdown false}}`
-      in `config.edn` disables it at startup
-- [ ] Caching: committed block rendered once across many deltas (no re-parse per
+      frame height unchanged — `pa.ui.view-test`
+- [x] Default & config: `:markdown` defaults on; `{:settings {:markdown false}}`
+      via `:system/settings-loaded` disables it — `pa.runtime.settings-test`
+- [x] Caching: committed block rendered once across many deltas (no re-parse per
       delta); a width change invalidates and re-wraps; toggling `:markdown`
-      invalidates
-- [ ] Regression: non-map conversation entries do not crash the tagging path
+      invalidates — `pa.ui.app-test`
+- [x] Regression: non-map conversation entries do not crash the tagging path
 
 ### Group 7 — Manual verification & cleanup
-- [ ] Re-create a small demo namespace (e.g. `dev/markdown_demo.clj`) or REPL
-      snippet to eyeball rendered output across all node types
-- [ ] Confirm the palette overlap with the app's cyan accent is acceptable for now
+- [x] Manual verification — done periodically by the user at the running app
+      (demo namespace not needed; REPL smoke checks used during development)
+- [x] Confirm the palette overlap with the app's cyan accent is acceptable for now
       (kept per decision) and note it for the follow-up
 
 ## Notes

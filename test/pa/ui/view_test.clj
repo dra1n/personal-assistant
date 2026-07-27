@@ -148,3 +148,61 @@
                 :identity {:identity {:front-matter {:name ""}}}}
                40 nil)]
       (is (str/includes? out "Assistant")))))
+
+;; ---------------------------------------------------------------------------
+;; Markdown rendering (Phase 8) — behind the :markdown setting
+;;
+;; ANSI escapes never contain "**"/"`", so marker presence/absence is a reliable
+;; signal without stripping: rendered = markers consumed, raw = markers present.
+;; ---------------------------------------------------------------------------
+
+(defn- convo-db [md? conversation]
+  {:conversation conversation :settings {:markdown md?}})
+
+(deftest markdown-on-renders-committed-assistant-turn
+  (testing "with :markdown on, a committed assistant turn is markdown-rendered
+            (emphasis markers consumed) while a user turn stays literal"
+    (let [out (view/conversation-content
+               (convo-db true [{:role :user      :content "keep my **stars**"}
+                               {:role :assistant :content "here is **bold** text"}])
+               60 nil)]
+      (is (str/includes? out "bold") "assistant text kept")
+      (is (str/includes? out "keep my **stars**") "user turn is left literal")
+      ;; the only "**" left in the output is the user's, so exactly one pair
+      (is (= 2 (count (re-seq #"\*\*" out))) "assistant emphasis markers consumed"))))
+
+(deftest markdown-off-shows-raw-source
+  (testing "with :markdown off, the assistant turn shows its raw markdown source"
+    (let [out (view/conversation-content
+               (convo-db false [{:role :assistant :content "here is **bold** text"}])
+               60 nil)]
+      (is (str/includes? out "**bold**") "markers left intact when off"))))
+
+(deftest live-stream-never-markdown-rendered
+  (testing "even with :markdown on, the in-flight streamed turn stays plain —
+            a half-open block mid-stream can't garble the preview"
+    (let [out (view/conversation-content
+               (convo-db true [{:role :user :content "hi"}])
+               60 "streaming **not** styled")]
+      (is (str/includes? out "streaming **not** styled") "stream markers untouched"))))
+
+(deftest non-map-conversation-entry-does-not-crash
+  (testing "a non-map sentinel entry passes through the markdown tagging path"
+    (let [out (view/conversation-content
+               (convo-db true [:some-sentinel
+                               {:role :assistant :content "**ok**"}])
+               60 nil)]
+      (is (str/includes? out "ok") "the real turn still renders"))))
+
+(deftest markdown-on-preserves-frame-height
+  (testing "rendering markdown wraps to text-width, so the fixed frame height is
+            unchanged vs markdown off"
+    (let [model  (fn [md?] {:width 50 :height 30 :logs [] :logs-open? false
+                            :focus :input :streaming "" :motd-fallback "tip"
+                            :viewport (vp/viewport "")
+                            :db (convo-db md? [{:role :assistant
+                                                :content "# Title\n\n- a\n- b\n\n**bold** and `code`"}])})
+          on     (view/view (model true))
+          off    (view/view (model false))]
+      (is (= 30 (count (str/split-lines on))) "markdown on fills exactly the height")
+      (is (= 30 (count (str/split-lines off))) "markdown off fills exactly the height"))))
