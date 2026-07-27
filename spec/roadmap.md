@@ -1,6 +1,6 @@
 # Roadmap
 
-Phases are ordered by dependency — each builds on the last. Phases 0–11 are all broken into concrete micro-steps.
+Phases are ordered by dependency — each builds on the last. Phases 0–9 are all broken into concrete micro-steps. Unprioritized future ideas that aren't part of this sequence live in [ideas-backlog.md](ideas-backlog.md) — add to it freely without renumbering anything here.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
@@ -1530,66 +1530,30 @@ Deferred polish (pulled into this phase — scope was "everything"):
 
 Goal: Evolve the assistant into a durable long-term system.
 
-- [ ] Define personality schema in `identity.md` (name, traits, communication style, values)
-- [ ] Inject personality into prompt assembly as a stable system prefix
-- [ ] Implement user model evolution: update `user.md` when new facts are extracted
-- [ ] Implement memory decay: lower retrieval weight for memories beyond age/access thresholds; tune λ against real usage
-- [ ] Implement summarization pipeline: run an LLM summarization pass over old episodic daily memories (older than a configurable age threshold), write distilled summaries as new semantic memory entries in `memory/semantic/`
+> **Note (reviewed against current state):** several original items in this
+> phase are already done elsewhere and have been dropped — `identity.md`
+> already carries a personality schema (`name`, `traits`,
+> `communication-style`, `values` front-matter) and `pa.llm.prompt/assemble`
+> already injects it as a stable system-message prefix; memory decay scoring
+> shipped in Phase 5 (`pa.db.memory/retrieve`).
+>
+> **Reflections folded into summarization, on demand instead of always-injected:**
+> the Phase 6 `periodic-reflection` job (24h heartbeat, LLM digest of the last
+> 7 days of daily notes → `cognition/reflections/`) turned out to be
+> write-only — nothing ever reads those files back — and it duplicates the
+> summarization pipeline below (both are "compress a pile of daily notes with
+> an LLM"). Rather than wire it up as a second always-on job competing for
+> system-prompt token budget, it's retired in favor of one summarization
+> mechanism plus an on-demand `/reflect` command — the same command Phase 7
+> speced as an illustrative example (`:cognition/reflect`) but never actually
+> built.
+
+- [ ] Add a `/rebuild-memory-index` slash command (Phase 7 command framework) → `:memory/rebuild-index` event → calls `(:rebuild! indexer)`. The rebuild logic already exists (`pa.memory.indexer/rebuild-memory-index!`, exposed as `:rebuild!` on the `:memory/indexer` component) but is only reachable from the REPL; this just wires a user-facing admin/recovery command through the existing registry/parse/dispatch machinery.
+- [ ] Implement user model evolution: update `user.md` when new facts are extracted (distinct from the Phase 6 `memory.md` wisdom writer — `user.md` is the curated profile document, not the permanent-facts bullet list)
+- [ ] Retire the standalone Phase 6 `periodic-reflection` job: remove the `:scheduler/periodic-reflection` heartbeat task, the `:reflection/run` effect, and `run-reflection!` (`pa.scheduler.effects`), along with the `cognition/reflections/` writes. Its LLM-digest behavior is superseded by the summarization pipeline + `/reflect` command below.
+- [ ] Implement summarization pipeline: an LLM summarization pass over episodic daily memories, callable both (a) on a configurable age threshold as a background job, and (b) on demand over an explicit window — write distilled summaries as new semantic memory entries in `memory/semantic/` (directory exists per the Phase 2 layout but nothing writes to it yet)
 - [ ] Implement `memory.md` promotion step in the consolidation job: after summarization, identify key insights worth permanent storage and merge them into `memory.md` via the wisdom writer from Phase 6; this is the bulk/background path complementing the per-session extraction path
-- [ ] Implement reflection system: periodic self-assessment of assistant behavior and user patterns
-- [ ] Store reflections in `cognition/reflections/` and inject top-N into context
-- [ ] Confirm personality remains consistent across sessions with identity reload
+- [ ] Implement the `/reflect [topic]` slash command speced in Phase 7 but never built: dispatches `:cognition/reflect`, runs the summarization pipeline on demand over a recent window (default last 7 days, or scoped to `topic` if given), and returns the digest as an assistant turn in the conversation — surfaced only when asked, never always-injected into system context
 - [ ] Write tests for user model evolution: assert `user.md` updates correctly from extracted facts
-- [ ] Write tests for summarization pipeline with fixture episodic memory sets
-- [ ] Write regression tests for personality consistency: fixture session → assert identity fields stable across reload
-
----
-
-## Phase 10 — Optional Advanced Features
-
-These are explicitly deferred and not required for a complete system.
-
-- [ ] Local model support (Ollama or similar)
-- [ ] Voice input / output
-- [ ] Web UI (optional complement to terminal)
-- [ ] Mobile interface
-- [ ] Graph-based memory (entities + relationships)
-- [ ] Semantic planning (multi-step goal decomposition)
-- [ ] Multi-agent experimentation
-- [ ] Autonomous task execution (self-initiated without user trigger)
-
-Semantic memory retrieval (embeddings):
-
-Embeddings add meaningful retrieval quality but bring significant complexity:
-a new `embed` method on the provider protocol, an OpenAI embeddings API
-dependency separate from the chat API, a BLOB column on the `memories` table,
-and Clojure-side cosine similarity over all stored embeddings (a full table
-scan per LLM call — acceptable at personal scale, but worth noting). Deferred
-until recency + FTS retrieval proves insufficient in practice.
-
-- [ ] Add `embed` method to the LLM provider protocol; implement for OpenAI (`text-embedding-3-small`); Anthropic stub returns nil (no embeddings API)
-- [ ] Add `embedding` BLOB column to the `memories` table; generate and store embedding on every `index!` call
-- [ ] Implement semantic retrieval: load all embeddings from SQLite, compute cosine similarity against the query embedding, apply decay scoring, return top-N
-- [ ] Extend combined retrieval to merge recency + keyword + semantic result sets
-- [ ] Write embedding round-trip test: generate embedding, store, retrieve by cosine similarity with a semantically related query
-
----
-
-## Phase 11 — Explicit Cognitive Pipeline
-
-Goal: Formalize and make inspectable all cognition stages.
-
-- [ ] Register pipeline/cognition slash commands on the Phase 7 command framework (`pa.commands.registry`) — e.g. `/rebuild-memory-index` → `:memory/rebuild-index` event → calls `(:rebuild! indexer)`. The registry, parser, and dispatch-as-events wiring already exist from Phase 7; this only adds command entries that front the cognition pipeline.
-- [ ] Define pipeline stage protocol: each stage takes context map → returns updated context map
-- [ ] Implement `interpret` stage: classify user intent, extract entities
-- [ ] Implement `retrieve` stage: call memory retrieval (Phase 5) and attach results to context
-- [ ] Implement `plan` stage: decide which tools (if any) are needed
-- [ ] Implement `tool-select` stage: emit tool invocation effects (Phase 4)
-- [ ] Implement `respond` stage: assemble final prompt and call LLM (Phase 3)
-- [ ] Implement `extract` stage: trigger background extraction if session threshold is met (Phase 6)
-- [ ] Implement `consolidate` stage: trigger background consolidation if thresholds are met
-- [ ] Emit a `:cognition/pipeline-trace` event capturing the full context map at each stage
-- [ ] Make each stage independently testable with fixture context maps
-- [ ] Write unit tests for every pipeline stage: fixture context map in → assert expected context map out
-- [ ] Write integration test for full pipeline run with stub LLM and mocked tools
-- [ ] Write property-based tests for pipeline stage composition (any valid context in → valid context out)
+- [ ] Write tests for summarization pipeline with fixture episodic memory sets, covering both the age-threshold and on-demand-window entry points
+- [ ] Write test for `/reflect`: dispatching `:cognition/reflect` over fixture daily notes produces a digest that appears as a conversation turn (not injected into the system message)
