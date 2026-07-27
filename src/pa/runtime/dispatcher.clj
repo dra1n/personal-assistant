@@ -21,7 +21,15 @@
 (defn- process-event! [event system-context]
   ;; Permitted mutation site 2: accumulate event into :events/recent before handler runs.
   (swap! db/db update :events/recent conj event)
-  (interceptors/run-standard-chain event system-context))
+  ;; A handler or effect that throws must not kill the consumer go-loop — if it
+  ;; did, every later event (including :extraction/done, which delivers the
+  ;; halt promise) would go unprocessed and shutdown would hang on its timeout.
+  ;; Log the failure and keep consuming.
+  (try
+    (interceptors/run-standard-chain event system-context)
+    (catch Throwable t
+      (log/error t "event processing failed — event dropped"
+                 {:event/type (:event/type event)}))))
 
 (defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config settings events identity history memory indexer llm policy deltas]}]
   (let [ch (async/chan 256)

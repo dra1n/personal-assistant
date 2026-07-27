@@ -102,6 +102,20 @@
     (let [result (wisdom/merge-items! *root* ["second" "third"])]
       (is (= ["- first" "- second" "- third"] result)))))
 
+(deftest merge-coerces-non-string-facts
+  (testing "an object fact (as the extraction LLM sometimes returns despite the
+            plain-string instruction) is coerced to a bullet instead of crashing"
+    (let [result (wisdom/merge-items!
+                  *root*
+                  ["a plain string"
+                   {"fact" "user prefers Clojure"}          ; object with a text field
+                   {:title "T" :summary "user lives in Berlin"}
+                   ""])]                                    ; blank dropped
+      (is (= ["- a plain string"
+              "- user prefers Clojure"
+              "- user lives in Berlin"]
+             result)))))
+
 ;; ---------------------------------------------------------------------------
 ;; read-items
 ;; ---------------------------------------------------------------------------
