@@ -36,6 +36,14 @@
                                  :key        (:key event)
                                  :value      (:value event)}}))
 
+;; Dispatched once at dispatcher startup with the :settings map from
+;; <PA_HOME>/config.edn; merges it over the code defaults so config wins.
+(registry/reg-handler :system/settings-loaded
+                      (fn [{:keys [db event]}]
+                        {:db    (tr/merge-settings db (:settings event))
+                         :trace {:event/type :system/settings-loaded
+                                 :settings   (:settings event)}}))
+
 ;; ---------------------------------------------------------------------------
 ;; System lifecycle handlers
 ;; ---------------------------------------------------------------------------

@@ -23,7 +23,7 @@
   (swap! db/db update :events/recent conj event)
   (interceptors/run-standard-chain event system-context))
 
-(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config events identity history memory indexer llm policy deltas]}]
+(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config settings events identity history memory indexer llm policy deltas]}]
   (let [ch (async/chan 256)
         dispatch! (fn [event-map]
                     (async/put! ch (events/make-event event-map)))
@@ -55,6 +55,9 @@
     (when identity
       (dispatch! {:event/type :system/identity-loaded
                   :identity   (:identity identity)}))
+    (when (seq settings)
+      (dispatch! {:event/type :system/settings-loaded
+                  :settings   settings}))
     (log/info "dispatcher started")
     {:channel   ch
      :dispatch! dispatch!}))

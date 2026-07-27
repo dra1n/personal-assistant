@@ -24,10 +24,12 @@
 - [x] Task-list items (`- [ ]` / `- [x]`) and footnotes rendered specially
 
 ### Group 3 — Config-driven default setting
-- [ ] Default `:markdown` to `true` in `pa.state.db/initial-db` (`:settings`)
-- [ ] Read a `:settings` map from `config.edn` at startup and merge it over the
+- [x] Default `:markdown` to `true` in `pa.state.db/initial-db` (`:settings`)
+- [x] Read a `:settings` map from `config.edn` at startup and merge it over the
       code defaults (config wins), so `{:settings {:markdown false}}` disables it
-- [ ] Add a commented `:settings {:markdown true}` example to
+      — `#setting [:settings]` → dispatcher dispatches `:system/settings-loaded`
+      → `tr/merge-settings` via `:db`
+- [x] Add a commented `:settings {:markdown true}` example to
       `resources/templates/config.edn` so the override is discoverable (done)
 
 ### Group 4 — View integration behind the toggle

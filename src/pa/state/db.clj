@@ -22,10 +22,13 @@
    :ui                {}
    :ui/history        []
    :identity          {}
-   ;; In-session command/runtime settings (e.g. :markdown). Changed only via the
-   ;; set-setting transition through the :db effect; read via queries/setting.
-   ;; Not persisted to disk this phase (see Phase 7 requirements — out of scope).
-   :settings          {}})
+   ;; In-session command/runtime settings. Changed only via the set-setting /
+   ;; merge-settings transitions through the :db effect; read via queries/setting.
+   ;; These are the code defaults; a :settings map in <PA_HOME>/config.edn is
+   ;; merged over them at startup (config wins) via the :system/settings-loaded
+   ;; event. :markdown defaults on — assistant replies render as styled markdown
+   ;; unless the user sets {:settings {:markdown false}}.
+   :settings          {:markdown true}})
 
 (def db (atom initial-db))
 
