@@ -3,16 +3,19 @@
             [clojure.core.async :as async]
             [integrant.core :as ig]
             [pa.runtime.dispatcher]
-            [pa.runtime.registry :as registry]))
+            [pa.runtime.registry :as registry]
+            [pa.state.db :as db]))
 
 ;; ---------------------------------------------------------------------------
-;; Fixture: save and restore handler registry between tests
+;; Fixture: save/restore the handler registry and db/db between tests
 ;; ---------------------------------------------------------------------------
 
 (use-fixtures :each
   (fn [f]
     (let [before (registry/snapshot)]
+      (reset! db/db db/initial-db)
       (f)
+      (reset! db/db db/initial-db)
       (registry/restore! before))))
 
 ;; ---------------------------------------------------------------------------
@@ -96,3 +99,34 @@
           ch (:channel d)]
       (stop-dispatcher d)
       (is (nil? (async/poll! ch))))))
+
+;; ---------------------------------------------------------------------------
+;; Shutdown-extraction fallback (see pa.ui.app's :app/quit-requested / ctrl+c
+;; for the primary, UI-driven path this backstops)
+;; ---------------------------------------------------------------------------
+
+(deftest halt-key-runs-extraction-when-not-already-quit-ready
+  (testing "dispatches :extraction/run as a fallback when no ctrl+c quit ran it first"
+    (let [d        (start-dispatcher)
+          received (atom [])
+          ;; Stand in for the real handler: record the call and still deliver
+          ;; :done so halt-key!'s deref doesn't block for its full timeout.
+          _        (registry/reg-handler :extraction/run
+                     (fn [{:keys [event]}]
+                       (swap! received conj event)
+                       {:dispatch {:event/type :extraction/done :done (:done event)}}))]
+      (stop-dispatcher d)
+      (is (= 1 (count @received))))))
+
+(deftest halt-key-skips-extraction-when-already-quit-ready
+  (testing "does not re-dispatch :extraction/run when a prior ctrl+c quit already ran it
+            (re-running would duplicate LLM calls and memory/wisdom writes)"
+    (let [d        (start-dispatcher)
+          received (atom [])
+          _        (registry/reg-handler :extraction/run
+                     (fn [{:keys [event]}]
+                       (swap! received conj event)
+                       {:dispatch {:event/type :extraction/done :done (:done event)}}))]
+      (reset! db/db (assoc db/initial-db :app/quit-ready? true))
+      (stop-dispatcher d)
+      (is (empty? @received)))))

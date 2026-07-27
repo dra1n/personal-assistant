@@ -13,6 +13,17 @@
    {:role :assistant :content "Great choice!"}])
 
 ;; ---------------------------------------------------------------------------
+;; :app/quit-requested handler
+;; ---------------------------------------------------------------------------
+
+(deftest quit-requested-triggers-extraction-run
+  (testing "dispatches :extraction/run with :quit? true — ctrl+c's entry point
+            into the shutdown-extraction chain (see :extraction/done below for
+            where :quit? turns into :app/quit-ready?)"
+    (let [fx ((handler :app/quit-requested) {})]
+      (is (= {:event/type :extraction/run :quit? true} (:dispatch fx))))))
+
+;; ---------------------------------------------------------------------------
 ;; :extraction/run handler
 ;; ---------------------------------------------------------------------------
 
@@ -31,7 +42,7 @@
           fx   ((handler :extraction/run)
                 {:db {:conversation []}
                  :event {:event/type :extraction/run :done done}})]
-      (is (= {:event/type :extraction/done :done done} (:dispatch fx))))))
+      (is (= {:event/type :extraction/done :done done :quit? nil} (:dispatch fx))))))
 
 ;; ---------------------------------------------------------------------------
 ;; :extraction/write-memory handler
@@ -70,6 +81,17 @@
   (testing "does not throw when :done is absent"
     (is (= {} ((handler :extraction/done)
                {:db {} :event {:event/type :extraction/done}})))))
+
+(deftest extraction-done-flips-quit-ready-on-quit
+  (testing "sets :app/quit-ready? in db when the shutdown was UI-initiated"
+    (let [fx ((handler :extraction/done)
+              {:db {:conversation []} :event {:event/type :extraction/done :quit? true}})]
+      (is (true? (get-in fx [:db :app/quit-ready?]))))))
+
+(deftest extraction-done-no-db-effect-without-quit
+  (testing "leaves db untouched for the ordinary (non-quit) extraction path"
+    (is (= {} ((handler :extraction/done)
+               {:db {:conversation []} :event {:event/type :extraction/done}})))))
 
 ;; ---------------------------------------------------------------------------
 ;; :extraction/classify effect

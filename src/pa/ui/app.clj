@@ -26,7 +26,9 @@
      :logs-open?   whether the log panel is expanded
      :focus        :input | :conversation | :logs — the highlighted region
      :log-ch       core.async channel feeding :log/appended messages
-     :width :height terminal dimensions, tracked from :window-size}
+     :width :height terminal dimensions, tracked from :window-size
+     :quitting?    ctrl+c was pressed once — shutdown extraction is running
+                   with the log panel forced open; a second ctrl+c force-quits}
 
   Three focusable regions: the input (where typing lands), the conversation,
   and the log panel. The focused region gets a thick border and is the target
@@ -282,8 +284,21 @@
 
 (defn update-model [model message]
   (cond
-    (and (msg/key-press? message) (msg/key-match? message "ctrl+c"))
+    ;; First ctrl+c: don't tear the UI down yet — request a quit with the log
+    ;; panel forced open, so the shutdown extraction the request triggers logs
+    ;; visibly here instead of only in the file log. The charm program only
+    ;; actually quits once that extraction flips :app/quit-ready? in db (see
+    ;; the :runtime/db-updated branch below). A second ctrl+c while that's in
+    ;; flight forces an immediate quit as an escape hatch.
+    (and (msg/key-press? message) (msg/key-match? message "ctrl+c") (:quitting? model))
     [model charm/quit-cmd]
+
+    (and (msg/key-press? message) (msg/key-match? message "ctrl+c"))
+    [(-> model
+         (assoc :quitting? true :logs-open? true :focus :logs)
+         refresh-conversation
+         refresh-logs)
+     (dispatch-cmd (:dispatch! model) {:event/type :app/quit-requested})]
 
     ;; --- command selector keys (only while open; before history/focus/submit) -
     (and (selector-open? model) (not (:pasting? model)) (msg/key-match? message :up))
@@ -308,6 +323,11 @@
     ;; answer, so the stream stays open through it. Once closed, late deltas
     ;; still buffered on delta-ch are rejected rather than re-growing a ghost
     ;; trailing turn.
+    ;; The ctrl+c-triggered extraction (above) flips :app/quit-ready? once it
+    ;; finishes — only then does the charm program actually quit.
+    (and (= :runtime/db-updated (:type message)) (:app/quit-ready? (:db message)))
+    [model charm/quit-cmd]
+
     (= :runtime/db-updated (:type message))
     (let [new-db        (:db message)
           last-turn     (last (:conversation new-db))

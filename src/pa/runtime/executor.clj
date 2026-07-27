@@ -225,8 +225,8 @@
 ;; go-loop is never blocked. Events are dispatched in order within the
 ;; future, so channel FIFO ordering is preserved.
 
-(defmethod execute-effect :extraction/classify [_ {:keys [turns done]} {:keys [llm-provider dispatch!]}]
-  (letfn [(finish [] (dispatch! {:event/type :extraction/done :done done}))]
+(defmethod execute-effect :extraction/classify [_ {:keys [turns done quit?]} {:keys [llm-provider dispatch!]}]
+  (letfn [(finish [] (dispatch! {:event/type :extraction/done :done done :quit? quit?}))]
     (if-not llm-provider
       (do (log/warn ":extraction/classify skipped — no :llm-provider in ctx") (finish))
       (future

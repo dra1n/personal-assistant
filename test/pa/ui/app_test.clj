@@ -1,6 +1,7 @@
 (ns pa.ui.app-test
   (:require [charm.components.viewport :as vp]
             [charm.message :as msg]
+            [charm.program :as charm]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [pa.commands.builtin]                 ; registers the built-in slash commands
@@ -43,9 +44,52 @@
   (testing "ctrl/alt chords are not treated as text input"
     (let [[m cmd] (app/update-model {:input "x"} (msg/key-press "c" :ctrl true))]
       (is (= "x" (:input m)) "ctrl+c does not append")
-      (is (some? cmd) "ctrl+c yields the quit command"))
+      (is (some? cmd) "ctrl+c yields a command"))
     (let [[m _] (app/update-model {:input "x"} (msg/key-press "a" :alt true))]
       (is (= "x" (:input m)) "alt+a does not append"))))
+
+;; ---------------------------------------------------------------------------
+;; ctrl+c shutdown sequence
+;;
+;; ctrl+c no longer tears the UI down directly: it requests a quit (with the
+;; log panel forced open, so the shutdown extraction that request triggers is
+;; visible here instead of only in the file log) and waits for db to report
+;; :app/quit-ready? before actually issuing charm/quit-cmd. A second ctrl+c
+;; is the escape hatch if that never arrives.
+;; ---------------------------------------------------------------------------
+
+(deftest ctrl-c-requests-quit-with-panel-open-instead-of-quitting-immediately
+  (testing "first ctrl+c opens the log panel, marks :quitting?, and dispatches
+            :app/quit-requested rather than returning charm/quit-cmd directly"
+    (let [events   (atom [])
+          [base _] ((app/init {:db-ch nil :watch-cmd nil :dispatch! #(swap! events conj %)}))
+          [m cmd]  (app/update-model base (msg/key-press "c" :ctrl true))]
+      (is (true? (:quitting? m)))
+      (is (true? (:logs-open? m)))
+      (is (= :logs (:focus m)))
+      (is (not= charm/quit-cmd cmd) "does not quit yet — extraction hasn't run")
+      ((:fn cmd))
+      (is (= [{:event/type :app/quit-requested}] @events)))))
+
+(deftest second-ctrl-c-force-quits-without-waiting-on-extraction
+  (testing "ctrl+c while already :quitting? is the escape hatch: quit now,
+            no further dispatch"
+    (let [events   (atom [])
+          [base _] ((app/init {:db-ch nil :watch-cmd nil :dispatch! #(swap! events conj %)}))
+          quitting (assoc base :quitting? true)
+          [m cmd]  (app/update-model quitting (msg/key-press "c" :ctrl true))]
+      (is (= quitting m) "model is otherwise untouched")
+      (is (= charm/quit-cmd cmd))
+      (is (empty? @events)))))
+
+(deftest quit-ready-db-snapshot-quits-the-program
+  (testing "once shutdown extraction flips :app/quit-ready?, the next runtime
+            snapshot quits the charm program instead of refreshing the view"
+    (let [[base _] ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity}))
+          [m cmd]  (app/update-model base {:type :runtime/db-updated
+                                           :db   {:app/quit-ready? true}})]
+      (is (= base m) "nothing left to render — model passes through untouched")
+      (is (= charm/quit-cmd cmd)))))
 
 (deftest enter-dispatches-user-message-and-clears-buffer
   (testing "Enter dispatches a trimmed :user/message and clears the input"
