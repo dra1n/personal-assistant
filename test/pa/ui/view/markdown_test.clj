@@ -34,11 +34,17 @@
       (is (str/includes? out "foo-bar"))
       (is (not (str/includes? out "`"))))))
 
-(deftest link-text-kept
-  (testing "a link renders its label (the URL is not required in the text)"
-    (let [out (render "see [the docs](http://example.com) today" 60)]
+(deftest link-text-kept-with-faint-url
+  (testing "a link renders its label and appends the href faintly"
+    (let [out (render "see [the docs](http://example.com) today" 80)]
       (is (str/includes? out "the docs"))
+      (is (str/includes? out "(http://example.com)") "href appended")
       (is (not (str/includes? out "]("))))))
+
+(deftest autolink-does-not-repeat-url
+  (testing "when the label already is the URL, it is not appended twice"
+    (let [out (render "<http://example.com>" 80)]
+      (is (= 1 (count (re-seq #"http://example.com" out))) "URL shown once"))))
 
 ;; --- lists ------------------------------------------------------------------
 

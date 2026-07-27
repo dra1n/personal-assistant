@@ -43,7 +43,15 @@
     ;; charm has no SGR 9 (strikethrough); fall back to faint.
     :strikethrough (with-style {:faint true}                    (mapcat inline-chars (:content node)))
     :monospace     (with-style {:fg code-color}                 (mapcat inline-chars (:content node)))
-    :link          (with-style {:underline true :fg link-color} (mapcat inline-chars (:content node)))
+    :link          (let [label (with-style {:underline true :fg link-color}
+                                            (mapcat inline-chars (:content node)))
+                         href  (get-in node [:attrs :href])
+                         ;; the plain label text, to skip the URL when it would
+                         ;; just repeat the label (an autolink like <http://…>)
+                         shown (apply str (map first label))]
+                     (if (and href (not= href shown))
+                       (concat label (map (fn [c] [c {:faint true}]) (str " (" href ")")))
+                       label))
     ;; a superscript-style reference marker, e.g. [1], pointing at a definition
     ;; rendered in the footnotes section at the end of the document.
     :footnote-ref  (map (fn [c] [c {:fg link-color :faint true}]) (str "[" (:label node) "]"))

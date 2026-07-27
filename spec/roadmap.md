@@ -1482,45 +1482,47 @@ current `wrap-text`, so this must be cached.
 
 v1 (this phase):
 
-- [ ] Promote `pa.ui.view.markdown` from the spike branch: the AST-walking
-  renderer with character-level inline wrapping.
-- [ ] Add `io.github.nextjournal/markdown` to `deps.edn`.
-- [ ] Wire into `conversation-content` / `render-turn` behind `:markdown` —
+- [x] Promote `pa.ui.view.markdown` from the spike branch: the AST-walking
+  renderer with character-level inline wrapping. (Reimplemented clean from the
+  spike as a reference, not cherry-picked.)
+- [x] Add `io.github.nextjournal/markdown` to `deps.edn`. (0.7.225)
+- [x] Wire into `conversation-content` / `render-turn` behind `:markdown` —
   **committed assistant turns only**; user, live stream, pending, and tool output
   unaffected; `map?` guard on tagging.
-- [ ] Default the `:markdown` setting to `true` (`pa.state.db`); read a
+- [x] Default the `:markdown` setting to `true` (`pa.state.db`); read a
   `:settings` map from `config.edn` at startup and merge it over the defaults so
-  users can set `{:settings {:markdown false}}`.
-- [ ] Caching: render markdown only on commit; cache the rendered committed block
+  users can set `{:settings {:markdown false}}`. (via `:system/settings-loaded`)
+- [x] Caching: render markdown only on commit; cache the rendered committed block
   in the model / `refresh-conversation` path, invalidated by
   `[committed-conversation width md?]` (new commit, resize, toggle). No per-delta
   markdown parsing.
 
-Deferred polish (later cut — see Caveats):
+Deferred polish (pulled into this phase — scope was "everything"):
 
-- [ ] Code-block polish: align the language line; optional bordered block.
-- [ ] Table polish: inline-styled cells; width-aware column sizing + truncation.
-- [ ] Link polish: optional faint URL / OSC-8 hyperlinks.
-- [ ] Render task-list items and footnotes.
+- [x] Code-block polish: align the language line; optional bordered block. (language
+  line gutter-aligned; bordered box left as the "optional" no-op)
+- [x] Table polish: inline-styled cells; width-aware column sizing + truncation.
+- [x] Link polish: faint URL appended after the label (OSC-8 not used).
+- [x] Render task-list items and footnotes.
 
 ### Tests
 
-- [ ] `pa.ui.view.markdown/render` (assert on ANSI-stripped output): headings;
+- [x] `pa.ui.view.markdown/render` (assert on ANSI-stripped output): headings;
   emphasis (markers consumed, text kept); inline code; lists (marker transformed,
   nesting preserved); fenced code block; blockquote gutter; table alignment;
-  thematic break.
-- [ ] Wrapping: long paragraphs wrap to width; soft breaks become spaces; a word
+  thematic break. (plus task-list, footnote, link URL — `pa.ui.view.markdown-test`)
+- [x] Wrapping: long paragraphs wrap to width; soft breaks become spaces; a word
   longer than the width hard-splits without overrunning the box.
-- [ ] Integration (`conversation-content`): `:markdown` on renders committed
+- [x] Integration (`conversation-content`): `:markdown` on renders committed
   **assistant** turns; a user turn with markdown syntax stays literal; off shows
   raw source; the live stream is never markdown-rendered even with the setting on;
   frame height unchanged.
-- [ ] Default & config: `:markdown` defaults on; a `config.edn`
+- [x] Default & config: `:markdown` defaults on; a `config.edn`
   `{:settings {:markdown false}}` disables it at startup.
-- [ ] Caching: the committed block is rendered once across many deltas (no
+- [x] Caching: the committed block is rendered once across many deltas (no
   re-parse per delta); a width change (resize) invalidates and re-wraps; toggling
   `:markdown` invalidates.
-- [ ] Non-map conversation entries do not crash the tagging path (regression).
+- [x] Non-map conversation entries do not crash the tagging path (regression).
 
 ---
 
