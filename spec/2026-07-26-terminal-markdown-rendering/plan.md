@@ -15,13 +15,13 @@
       word longer than `width` without overrunning the frame
 
 ### Group 2 — Block node coverage
-- [ ] Headings, strong / em / inline-code / strikethrough (→ `:faint`) / link
-- [ ] Bullet + numbered lists, including nesting; blockquote gutter
-- [ ] Fenced code blocks (with gutter-aligned language line; optional bordered
-      block) and thematic breaks
-- [ ] GFM tables with per-cell inline styling and width-aware column sizing /
+- [x] Headings, strong / em / inline-code / strikethrough (→ `:faint`) / link
+- [x] Bullet + numbered lists, including nesting; blockquote gutter
+- [x] Fenced code blocks (with gutter-aligned language line; optional bordered
+      block — gutter-aligned; bordered box left as the "optional" no-op)
+- [x] GFM tables with per-cell inline styling and width-aware column sizing /
       truncation
-- [ ] Task-list items (`- [ ]` / `- [x]`) and footnotes rendered specially
+- [x] Task-list items (`- [ ]` / `- [x]`) and footnotes rendered specially
 
 ### Group 3 — Config-driven default setting
 - [ ] Default `:markdown` to `true` in `pa.state.db/initial-db` (`:settings`)
