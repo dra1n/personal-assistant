@@ -184,16 +184,29 @@
                             base))))
 
 ;; ---------------------------------------------------------------------------
+;; App lifecycle
+;; ---------------------------------------------------------------------------
+
+;; ctrl+c's entry point: names the user's intent ("quit") rather than reaching
+;; for :extraction/run directly, and triggers it as an effect. :extraction/run
+;; stays reusable, ordinary memory-extraction plumbing; :quit? is the only
+;; thing that ties this run to a shutdown (see :extraction/done below).
+(registry/reg-handler :app/quit-requested
+                      (fn [_]
+                        {:dispatch {:event/type :extraction/run :quit? true}}))
+
+;; ---------------------------------------------------------------------------
 ;; Memory extraction
 ;; ---------------------------------------------------------------------------
 
 (registry/reg-handler :extraction/run
                       (fn [{:keys [db event]}]
                         (let [turns (:conversation db)
-                              done  (:done event)]
+                              done  (:done event)
+                              quit? (:quit? event)]
                           (if (seq turns)
-                            {:extraction/classify {:turns turns :done done}}
-                            {:dispatch {:event/type :extraction/done :done done}}))))
+                            {:extraction/classify {:turns turns :done done :quit? quit?}}
+                            {:dispatch {:event/type :extraction/done :done done :quit? quit?}}))))
 
 (registry/reg-handler :extraction/write-memory
                       (fn [{:keys [event]}]
@@ -206,8 +219,14 @@
 ;; Exception to the no-side-effects rule: delivers the halt coordination
 ;; promise so ig/halt-key! unblocks and closes the channel. This is
 ;; infrastructure glue, not domain logic — the promise never touches db state.
+;;
+;; :quit? marks a UI-initiated shutdown (ctrl+c): flipping :app/quit-ready?
+;; in db lets pa.ui.app see it via the normal :runtime/db-updated subscription
+;; and only then quit the charm program, so extraction's log lines land in the
+;; still-live UI instead of firing after the terminal has already torn down.
 (registry/reg-handler :extraction/done
-                      (fn [{:keys [event]}]
+                      (fn [{:keys [db event]}]
                         (when-let [p (:done event)]
                           (deliver p :ok))
-                        {}))
+                        (cond-> {}
+                          (:quit? event) (assoc :db (assoc db :app/quit-ready? true)))))

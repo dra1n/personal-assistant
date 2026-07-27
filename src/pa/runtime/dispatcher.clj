@@ -71,9 +71,16 @@
      :dispatch! dispatch!}))
 
 (defmethod ig/halt-key! :pa.runtime/dispatcher [_ {:keys [channel dispatch!]}]
-  (let [done (promise)]
-    (dispatch! {:event/type :extraction/run :done done})
-    (when-not (deref done 120000 nil)
-      (log/warn "extraction timed out — session memories may not have been saved")))
+  ;; A ctrl+c quit already ran extraction in front of the UI (see
+  ;; pa.ui.app / :extraction/done's :quit? branch) before the charm program
+  ;; exited and this halt fired — re-running it here would duplicate LLM
+  ;; calls and memory/wisdom writes. Only run it as a fallback (e.g. a
+  ;; SIGTERM with no UI in the loop) when that hasn't already happened.
+  (if (:app/quit-ready? (db/current-db))
+    (log/info "extraction already completed before shutdown — skipping")
+    (let [done (promise)]
+      (dispatch! {:event/type :extraction/run :done done})
+      (when-not (deref done 120000 nil)
+        (log/warn "extraction timed out — session memories may not have been saved"))))
   (async/close! channel)
   (log/info "dispatcher stopped"))
