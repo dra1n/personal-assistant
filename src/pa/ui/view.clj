@@ -16,7 +16,8 @@
             [pa.ui.input.view :as input-view]
             [pa.ui.selector.view :as selector-view]
             [pa.ui.view.common :as common]
-            [pa.ui.view.layout :as layout]))
+            [pa.ui.view.layout :as layout]
+            [pa.ui.view.markdown :as markdown]))
 
 ;; --- conversation content ---------------------------------------------------
 
@@ -78,7 +79,7 @@
            (pos? more) (conj (style/styled (str "… +" more " more lines") :faint true)))
          (str/join "\n"))))
 
-(defn- render-turn [{:keys [role content tool-calls pending?]} width names]
+(defn- render-turn [{:keys [role content tool-calls pending? markdown?]} width names]
   (let [w     (max 1 width)
         label (case role
                 :user      (style/styled (or (:user names) "You")            :fg common/accent :bold true)
@@ -86,14 +87,18 @@
                 (style/styled (name (or role :system)) :faint true))
         ;; An assistant turn that only calls a tool has blank content; show the
         ;; call(s) faintly instead of an empty bubble. A turn may carry both
-        ;; (some models add commentary alongside a tool call).
+        ;; (some models add commentary alongside a tool call). `markdown?` is set
+        ;; by conversation-content only on committed assistant turns when the
+        ;; :markdown setting is on — tool output and the live stream never carry
+        ;; it, so they keep their plain rendering.
         parts (cond-> []
                 pending?
                 (conj (style/styled "thinking…" :faint true))
                 (not (str/blank? content))
-                (conj (if (= :tool role)
-                        (collapsed-tool-output (str content) w)
-                        (wrap-text (str content) w)))
+                (conj (cond
+                        (= :tool role) (collapsed-tool-output (str content) w)
+                        markdown?      (markdown/render (str content) w)
+                        :else          (wrap-text (str content) w)))
                 (seq tool-calls)
                 (conj (faint-lines (str/join "\n" (map #(tool-call-line % w) tool-calls)) w)))]
     ;; One blank line under the label so it stands out as a header; the gap
@@ -117,7 +122,15 @@
   empty state is handled by the placeholder view, not here."
   ([db width streaming] (conversation-content db width streaming false))
   ([db width streaming pending?]
-   (let [turns (cond-> (vec (queries/conversation db))
+   (let [md?    (queries/setting db :markdown)
+         ;; Tag committed assistant turns so render-turn markdown-renders them.
+         ;; Guarded on map? — non-map sentinel entries pass through untouched.
+         ;; Only committed turns are tagged; the live stream and pending turns
+         ;; below are conj'd without the flag, so they stay plain.
+         tag    (fn [t] (if (and md? (map? t) (= :assistant (:role t)))
+                          (assoc t :markdown? true)
+                          t))
+         turns (cond-> (mapv tag (queries/conversation db))
                  (not (str/blank? streaming))
                  (conj {:role :assistant :content streaming})
 

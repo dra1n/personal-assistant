@@ -33,12 +33,12 @@
       `resources/templates/config.edn` so the override is discoverable (done)
 
 ### Group 4 — View integration behind the toggle
-- [ ] In `conversation-content` / `render-turn` (`pa.ui.view`), route committed
+- [x] In `conversation-content` / `render-turn` (`pa.ui.view`), route committed
       **assistant**, non-tool turns through `markdown/render` when
       `(queries/setting db :markdown)` is on; everything else keeps `wrap-text`
-- [ ] Tag committed assistant turns with the `:markdown` setting; guard tagging on
+- [x] Tag committed assistant turns with the `:markdown` setting; guard tagging on
       `map?` so non-map sentinel entries are left untouched
-- [ ] Ensure user turns, the live stream, pending turns, and tool output are never
+- [x] Ensure user turns, the live stream, pending turns, and tool output are never
       markdown-rendered
 
 ### Group 5 — Caching in the refresh path
