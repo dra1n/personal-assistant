@@ -12,10 +12,9 @@
 
 (use-fixtures :each
   (fn [f]
+    (reset! db/db db/initial-db)
     (let [before (registry/snapshot)]
-      (reset! db/db db/initial-db)
       (f)
-      (reset! db/db db/initial-db)
       (registry/restore! before))))
 
 ;; ---------------------------------------------------------------------------
