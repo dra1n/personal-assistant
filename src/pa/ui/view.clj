@@ -16,7 +16,8 @@
             [pa.ui.input.view :as input-view]
             [pa.ui.selector.view :as selector-view]
             [pa.ui.view.common :as common]
-            [pa.ui.view.layout :as layout]))
+            [pa.ui.view.layout :as layout]
+            [pa.ui.view.markdown :as markdown]))
 
 ;; --- conversation content ---------------------------------------------------
 
@@ -78,7 +79,7 @@
            (pos? more) (conj (style/styled (str "… +" more " more lines") :faint true)))
          (str/join "\n"))))
 
-(defn- render-turn [{:keys [role content tool-calls pending?]} width names]
+(defn- render-turn [{:keys [role content tool-calls pending? markdown?]} width names]
   (let [w     (max 1 width)
         label (case role
                 :user      (style/styled (or (:user names) "You")            :fg common/accent :bold true)
@@ -86,14 +87,18 @@
                 (style/styled (name (or role :system)) :faint true))
         ;; An assistant turn that only calls a tool has blank content; show the
         ;; call(s) faintly instead of an empty bubble. A turn may carry both
-        ;; (some models add commentary alongside a tool call).
+        ;; (some models add commentary alongside a tool call). `markdown?` is set
+        ;; by conversation-content only on committed assistant turns when the
+        ;; :markdown setting is on — tool output and the live stream never carry
+        ;; it, so they keep their plain rendering.
         parts (cond-> []
                 pending?
                 (conj (style/styled "thinking…" :faint true))
                 (not (str/blank? content))
-                (conj (if (= :tool role)
-                        (collapsed-tool-output (str content) w)
-                        (wrap-text (str content) w)))
+                (conj (cond
+                        (= :tool role) (collapsed-tool-output (str content) w)
+                        markdown?      (markdown/render (str content) w)
+                        :else          (wrap-text (str content) w)))
                 (seq tool-calls)
                 (conj (faint-lines (str/join "\n" (map #(tool-call-line % w) tool-calls)) w)))]
     ;; One blank line under the label so it stands out as a header; the gap
@@ -107,26 +112,59 @@
   [{:keys [db streaming]}]
   (and (empty? (queries/conversation db)) (str/blank? streaming)))
 
+(defn- turn-names [db]
+  {:user      (queries/user-name db)
+   :assistant (queries/assistant-name db)})
+
+(defn committed-content
+  "Render only the committed conversation turns (no live stream). Committed
+  assistant turns are tagged with `:markdown?` when the `:markdown` setting is
+  on, so render-turn markdown-renders them; tagging is guarded on `map?` so a
+  non-map sentinel entry passes through untouched. Returns \"\" when there are
+  no committed turns. Pure and stable while a response streams — the caller
+  caches its result and re-renders only the live tail per delta."
+  [db width]
+  (let [md?   (queries/setting db :markdown)
+        tag   (fn [t] (if (and md? (map? t) (= :assistant (:role t)))
+                        (assoc t :markdown? true)
+                        t))
+        turns (mapv tag (queries/conversation db))]
+    ;; Two blank lines between turns — wider than the label's own bottom gap.
+    (str/join "\n\n\n" (map #(render-turn % width (turn-names db)) turns))))
+
+(defn streaming-tail
+  "Render the trailing live turn (if any): the in-progress streamed response as
+  an assistant turn, or — when `pending?` and no deltas have arrived yet — a
+  faint thinking… placeholder (the wait for the first token or a tool call to
+  finish). Never markdown-rendered, so a half-open block mid-stream can't
+  garble the preview. Returns \"\" when there is no live turn."
+  [db width streaming pending?]
+  (let [names (turn-names db)]
+    (cond
+      (not (str/blank? streaming))
+      (render-turn {:role :assistant :content streaming} width names)
+
+      (and pending? (seq (queries/conversation db)))
+      (render-turn {:role :assistant :pending? true} width names)
+
+      :else "")))
+
 (defn conversation-content
-  "Render the committed conversation, plus the in-progress streamed response
-  (if any) as a trailing live assistant turn. When `pending?` is true and no
-  deltas have arrived yet, a faint thinking… placeholder turn is shown instead
-  (the wait for the first token, or for a tool call to finish). Turn labels
-  use the identity names when set, falling back to capitalized
+  "Render the committed conversation plus the in-progress streamed response (if
+  any) as a trailing live turn — the committed block above the live tail. Turn
+  labels use the identity names when set, falling back to capitalized
   \"You\"/\"Assistant\". Returns an empty string when there are no turns — the
-  empty state is handled by the placeholder view, not here."
+  empty state is handled by the placeholder view, not here.
+
+  This composes `committed-content` and `streaming-tail`; the streaming refresh
+  path (pa.ui.app) calls those two directly so it can cache the committed block
+  and skip re-parsing markdown on every delta."
   ([db width streaming] (conversation-content db width streaming false))
   ([db width streaming pending?]
-   (let [turns (cond-> (vec (queries/conversation db))
-                 (not (str/blank? streaming))
-                 (conj {:role :assistant :content streaming})
-
-                 (and pending? (str/blank? streaming) (seq (queries/conversation db)))
-                 (conj {:role :assistant :pending? true}))
-         names {:user      (queries/user-name db)
-                :assistant (queries/assistant-name db)}]
-     ;; Two blank lines between turns — wider than the label's own bottom gap.
-     (str/join "\n\n\n" (map #(render-turn % width names) turns)))))
+   (->> [(committed-content db width)
+         (streaming-tail db width streaming pending?)]
+        (remove str/blank?)
+        (str/join "\n\n\n"))))
 
 ;; --- log content ------------------------------------------------------------
 

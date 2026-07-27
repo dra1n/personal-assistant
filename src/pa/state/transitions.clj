@@ -60,6 +60,13 @@
   [db k v]
   (assoc-in db [:settings k] v))
 
+(defn merge-settings
+  "Merge a settings map over the current :settings (the given map wins). Used at
+  startup to layer <PA_HOME>/config.edn settings over the code defaults via the
+  :system/settings-loaded handler + :db effect."
+  [db m]
+  (update db :settings merge m))
+
 (defn load-scheduled-tasks [db tasks]
   (assoc db :tasks/scheduled (vec tasks)))
 

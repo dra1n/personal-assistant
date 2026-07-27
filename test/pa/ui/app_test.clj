@@ -7,7 +7,8 @@
             [pa.ui.app :as app]
             [pa.ui.input.view :as input-view]
             [pa.ui.selector.state :as selector]
-            [pa.ui.view :as view]))
+            [pa.ui.view :as view]
+            [pa.ui.view.markdown :as markdown]))
 
 (defn- model-with-turns
   "An initialised model sized to a terminal with `n` turns of content, so the
@@ -604,3 +605,44 @@
       (is (= "git diff"   (:input m1)) "first ↑ shows most recent entry")
       (is (= "git status" (:input m2)) "second ↑ shows older entry")
       (is (= "git diff"   (:input m3)) "↓ steps forward through history"))))
+
+;; ---------------------------------------------------------------------------
+;; Markdown render caching (Phase 8) — refresh-conversation caches the rendered
+;; committed block, so markdown is not re-parsed on every :llm/delta.
+;; ---------------------------------------------------------------------------
+
+(def ^:private refresh #'app/refresh-conversation)
+
+(defn- md-model [md? streaming]
+  {:width 40 :height 30 :streaming streaming :streaming-open? true
+   :db {:conversation [{:role :assistant :content "# T\n\n**bold** and `code`"}]
+        :settings {:markdown md?}}})
+
+(defn- counting-render [f]
+  (let [n (atom 0) orig markdown/render]
+    (with-redefs [markdown/render (fn [& a] (swap! n inc) (apply orig a))]
+      (f))
+    @n))
+
+(deftest markdown-committed-block-cached-across-deltas
+  (testing "the committed block is rendered once, not once per streamed delta"
+    (is (= 1 (counting-render
+              (fn []
+                (let [m0 (refresh (md-model true ""))]
+                  (reduce (fn [m i] (refresh (assoc m :streaming (str "tok" i))))
+                          m0 (range 30)))))))))
+
+(deftest markdown-cache-invalidates-on-resize
+  (testing "a width change (terminal resize) re-renders the committed block"
+    (is (= 2 (counting-render
+              (fn []
+                (let [m0 (refresh (md-model true ""))]
+                  (refresh (assoc m0 :width 30)))))))))
+
+(deftest markdown-cache-invalidates-on-toggle
+  (testing "toggling :markdown invalidates: on renders, off skips, on re-renders"
+    (is (= 2 (counting-render
+              (fn []
+                (let [m0 (refresh (md-model true ""))
+                      m1 (refresh (assoc-in m0 [:db :settings :markdown] false))]
+                  (refresh (assoc-in m1 [:db :settings :markdown] true)))))))))

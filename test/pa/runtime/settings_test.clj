@@ -26,3 +26,19 @@
                 {:db (:db on) :event {:event/type :settings/set :key :markdown :value false}})]
       (is (true? (queries/setting (:db on) :markdown)))
       (is (false? (queries/setting (:db off) :markdown))))))
+
+(deftest markdown-defaults-on
+  (testing ":markdown is seeded true in the initial runtime state"
+    (is (true? (queries/setting db/initial-db :markdown)))))
+
+(deftest settings-loaded-merges-config-over-defaults
+  (testing ":system/settings-loaded merges the config :settings map over the
+            code defaults (config wins); an empty/absent map leaves defaults"
+    (let [disable ((handler :system/settings-loaded)
+                   {:db db/initial-db
+                    :event {:event/type :system/settings-loaded :settings {:markdown false}}})
+          empty   ((handler :system/settings-loaded)
+                   {:db db/initial-db
+                    :event {:event/type :system/settings-loaded :settings {}}})]
+      (is (false? (queries/setting (:db disable) :markdown)) "config disables the default")
+      (is (true? (queries/setting (:db empty) :markdown)) "empty config keeps the default on"))))

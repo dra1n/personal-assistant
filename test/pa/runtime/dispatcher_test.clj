@@ -72,6 +72,24 @@
         (is ((:dispatch! d) {:event/type :test/unknown-event-type}))
         (finally (stop-dispatcher d))))))
 
+(deftest throwing-handler-does-not-kill-the-go-loop
+  (testing "an exception in one handler is logged and dropped; the consumer
+            loop keeps processing later events (so shutdown can't hang waiting
+            on an event that never gets consumed)"
+    (let [d        (start-dispatcher)
+          received (atom nil)
+          _        (registry/reg-handler :test/boom
+                     (fn [_] (throw (ex-info "kaboom" {}))))
+          _        (registry/reg-handler :test/after
+                     (fn [coeffects] (reset! received coeffects)))]
+      (try
+        ((:dispatch! d) {:event/type :test/boom})
+        ((:dispatch! d) {:event/type :test/after :payload 7})
+        (Thread/sleep 50)
+        (is (some? @received) "the event after the throwing one was still processed")
+        (is (= 7 (get-in @received [:event :payload])))
+        (finally (stop-dispatcher d))))))
+
 (deftest dispatcher-channel-closed-on-halt
   (testing "channel is closed after halt"
     (let [d  (start-dispatcher)

@@ -11,4 +11,5 @@
  ;;                   :model    "claude-sonnet-4-6"}}
  ;; :portal {:enabled? true
  ;;          :launcher "vs-code"}
+ ;; :settings {:markdown true}                              ; render assistant replies as styled markdown (default true)
  }

@@ -21,6 +21,7 @@
  :ui/deltas               {}
 
  :pa.runtime/dispatcher   {:config   {:env :production}
+                           :settings #setting [:settings]
                            :events   #ig/ref :storage/events
                            :identity #ig/ref :storage/identity
                            :history  #ig/ref :storage/history

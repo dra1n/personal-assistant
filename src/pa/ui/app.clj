@@ -59,21 +59,37 @@
   "Rebuild the conversation viewport from db + size (plus any in-progress
   streamed response). Tails the latest turn unless the conversation is
   focused and the user has scrolled up — then the position is held so history
-  can be read without being yanked away by new turns or streamed deltas."
-  [{:keys [db streaming viewport focus] :as model}]
+  can be read without being yanked away by new turns or streamed deltas.
+
+  Markdown rendering of the committed block is expensive relative to plain
+  wrapping, and this runs on every :llm/delta. So the rendered committed block
+  is cached in :conv-cache keyed by [committed-conversation width md?]: it is
+  re-rendered only when a turn commits, the terminal resizes, or the :markdown
+  setting toggles. During streaming the cache hits and only the plain live tail
+  is re-rendered each delta — no markdown work per token."
+  [{:keys [db streaming viewport focus conv-cache] :as model}]
   (let [at-bottom? (or (nil? viewport) (vp/viewport-at-bottom? viewport))
         prev-off   (:y-offset viewport)
         ;; The stream is open but no delta has arrived yet — waiting on the
         ;; first token, or on a tool call to finish. Shown as a thinking… turn.
         pending?   (and (:streaming-open? model) (str/blank? streaming))
+        width      (layout/text-width model)
+        cache-key  [(queries/conversation db) width (queries/setting db :markdown)]
+        committed  (if (= (:key conv-cache) cache-key)
+                     (:block conv-cache)
+                     (view/committed-content db width))
+        content    (->> [committed (view/streaming-tail db width streaming pending?)]
+                         (remove str/blank?)
+                         (str/join "\n\n\n"))
         vp0        (-> (or viewport (vp/viewport ""))
-                       (vp/viewport-set-content
-                        (view/conversation-content db (layout/text-width model) streaming pending?))
+                       (vp/viewport-set-content content)
                        (vp/viewport-set-dimensions 0 (layout/viewport-height model)))]
-    (assoc model :viewport
-           (if (and (= focus :conversation) (not at-bottom?))
-             (vp/viewport-scroll-to vp0 (or prev-off 0))
-             (vp/scroll-to-bottom vp0)))))
+    (-> model
+        (assoc :conv-cache {:key cache-key :block committed})
+        (assoc :viewport
+               (if (and (= focus :conversation) (not at-bottom?))
+                 (vp/viewport-scroll-to vp0 (or prev-off 0))
+                 (vp/scroll-to-bottom vp0))))))
 
 (defn- refresh-logs
   "Rebuild the log viewport from the ring buffer. Tails (scroll to bottom)

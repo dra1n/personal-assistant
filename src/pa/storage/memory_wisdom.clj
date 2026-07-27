@@ -41,6 +41,21 @@
 (defn- normalize [bullet]
   (-> bullet str/trim (str/replace #"^-\s+" "") str/lower-case))
 
+(defn- coerce-fact
+  "Best-effort plain string for a fact item. Facts are meant to be strings, but
+  the extraction LLM sometimes returns an object (e.g. {\"fact\": \"…\"} or a
+  {title, summary} pair) despite the prompt asking for plain strings — passing
+  that map straight to str/trim throws. Pull a sensible string out of a map, or
+  fall back to its string values joined; leave strings untouched."
+  [x]
+  (cond
+    (string? x) x
+    (map? x)    (let [x (into {} (map (fn [[k v]] [(keyword k) v]) x))]
+                  (or (some #(let [v (get x %)] (when (string? v) v))
+                            [:fact :text :summary :value :title :memory :note :content])
+                      (->> (vals x) (filter string?) (str/join " "))))
+    :else       (str x)))
+
 (defn- ensure-bullet [s]
   (let [t (str/trim s)]
     (if (str/starts-with? t "- ") t (str "- " t))))
@@ -56,6 +71,8 @@
           existing         (vec (parse-bullets rest))
           seen             (set (map normalize existing))
           fresh            (->> new-facts
+                                (map coerce-fact)
+                                (remove str/blank?)
                                 (map ensure-bullet)
                                 (remove #(seen (normalize %))))
           all              (into existing fresh)

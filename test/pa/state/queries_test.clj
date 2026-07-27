@@ -118,9 +118,13 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest setting-returns-nil-when-unset
-  (testing "returns nil on initial db and for an absent key"
-    (is (nil? (queries/setting base-db :markdown)))
+  (testing "returns nil for an absent key"
+    (is (nil? (queries/setting base-db :nonexistent)))
     (is (nil? (queries/setting (assoc base-db :settings {:markdown true}) :other)))))
+
+(deftest setting-markdown-defaults-on
+  (testing ":markdown is seeded true in the initial db defaults"
+    (is (true? (queries/setting base-db :markdown)))))
 
 (deftest setting-returns-stored-value
   (testing "returns the stored value for a set key"
