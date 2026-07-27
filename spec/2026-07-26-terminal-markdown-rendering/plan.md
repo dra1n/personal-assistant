@@ -42,12 +42,13 @@
       markdown-rendered
 
 ### Group 5 — Caching in the refresh path
-- [ ] Render markdown only on commit; cache the rendered committed block in the
-      model / `refresh-conversation` path (`pa.ui.app`)
-- [ ] Cache key `[committed-conversation width md?]`; invalidate on new commit,
+- [x] Render markdown only on commit; cache the rendered committed block in the
+      model / `refresh-conversation` path (`pa.ui.app`) — split
+      `conversation-content` into pure `committed-content` + `streaming-tail`
+- [x] Cache key `[committed-conversation width md?]`; invalidate on new commit,
       terminal resize (width change), and `:markdown` toggle
-- [ ] Append the plain streaming turn on top of the cached block each frame — no
-      markdown parse per `:llm/delta`
+- [x] Append the plain streaming turn on top of the cached block each frame — no
+      markdown parse per `:llm/delta` (verified: 20 deltas → 1 render)
 
 ### Group 6 — Tests
 - [ ] `pa.ui.view.markdown/render` (assert on ANSI-stripped output): headings;
