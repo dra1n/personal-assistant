@@ -1,6 +1,6 @@
 # Roadmap
 
-Phases are ordered by dependency — each builds on the last. Phases 0–9 are all broken into concrete micro-steps. Unprioritized future ideas that aren't part of this sequence live in [ideas-backlog.md](ideas-backlog.md) — add to it freely without renumbering anything here.
+Phases are ordered by dependency — each builds on the last. Phases 0–10 are all broken into concrete micro-steps. Unprioritized future ideas that aren't part of this sequence live in [ideas-backlog.md](ideas-backlog.md) — add to it freely without renumbering anything here.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
@@ -1526,7 +1526,195 @@ Deferred polish (pulled into this phase — scope was "everything"):
 
 ---
 
-## Phase 9 — Personality & Long-Term Evolution
+## Phase 9 — MCP Support
+
+Goal: Let the assistant connect to external MCP (Model Context Protocol) servers
+over stdio, exposing their tools, resources, and prompts through the existing
+tool and command machinery instead of new bespoke machinery — matching the
+shape of Claude Code's own MCP support (tools, resources, prompts; JSON config).
+`design-notes.md`'s "MCP / no-code tools" section sketched this back in Phase 4:
+the tool registry is already runtime-mutable, so wiring an MCP server becomes
+"add a config entry," not "write code." **playwright-mcp** is the first server
+wired end-to-end.
+
+Out of scope for this phase: remote transports (SSE/HTTP) — only local stdio
+servers, which covers playwright-mcp and most local MCP servers; deferred to
+[ideas-backlog.md](ideas-backlog.md) if a remote server is ever needed.
+
+### Architecture principles
+
+- **MCP calls still flow through `:tool/invoke` → `:tool/result`** — the same
+  observability, dry-run, structured logging, and replay guarantees as native
+  tools (fs, web, YouTube). No hidden execution path.
+- **Own policy family.** `pa.tools.mcp.policy` is a sibling to
+  `pa.tools.fs.policy`, not a generalization of it — an MCP servers allowlist
+  (trusted servers only), config-shaped rather than path-shaped, and sourced
+  from `config.edn` (see below) rather than a dedicated file.
+- **Session-lifecycle component**, matching the Phase 6 model: connect (spawn +
+  handshake + register tools/prompts) on `ig/init-key`, disconnect (close
+  stdin, terminate the process) on `ig/halt-key!`. No daemon, no background
+  reconnection loop.
+- **Namespaced by server.** Tool, prompt, and resource identifiers are
+  qualified by server name (`:mcp.playwright/browser_navigate`) so two servers
+  can't collide and provenance is visible in logs, `/help`, and the tool
+  advertisement sent to the LLM.
+- **Degrade, don't crash.** A server that fails to connect (missing binary,
+  handshake timeout, malformed config) simply contributes no tools/resources/
+  prompts — it never blocks app startup or takes down other servers. Enabled
+  servers connect concurrently.
+
+### Configuration (`config.edn`)
+
+Claude Code's server config (`.mcp.json`, an `mcpServers` map of name →
+`{command, args, env}`) translated to EDN and folded into the existing user
+settings file — a new `:mcp` key alongside the `:llm`, `:portal`, and
+`:settings` keys `config.edn` already carries, read through the same
+`#setting [path]` aero plumbing `resources/system.edn` already uses (no new
+config-loading machinery):
+
+```clojure
+;; <PA_HOME>/config.edn
+;; :enabled? false keeps a configured server inert until you opt in —
+;; connecting spawns a real subprocess and, on first run, may download a
+;; package over the network.
+{:mcp {:servers {:playwright {:transport :stdio
+                              :command   "npx"
+                              :args      ["-y" "@playwright/mcp@latest"]
+                              :env       {}
+                              :enabled?  false}}}}
+```
+
+- [ ] Add a commented `:mcp {:servers {...}}` example block (the `:playwright`
+  entry above, `:enabled? false`) to `resources/templates/config.edn`,
+  matching the existing commented `:llm`/`:portal`/`:settings` blocks — no new
+  template file or bootstrap change needed.
+- [ ] Wire `:tool.mcp/policy` into `resources/system.edn`:
+  `{:servers #setting [:mcp :servers]}`, mirroring how `:llm/provider` and
+  `:pa.observability/portal` already pull their config out of `config.edn`.
+- [ ] `pa.tools.mcp.policy` — `ig/init-key` normalizes and validates the
+  `:servers` map handed in via config into
+  `{:servers {name -> {:transport :command :args :env :enabled?}}}`. A missing
+  `:mcp` key yields no servers (same default-deny spirit as `tools.md`); a
+  malformed entry is dropped with a warning, not a startup crash.
+
+### JSON-RPC / stdio transport
+
+- [ ] `pa.tools.mcp.client` — spawn a server subprocess via `ProcessBuilder`
+  (`:command` + `:args` + `:env`, stderr piped to logs), write/read
+  newline-delimited JSON-RPC 2.0 messages over stdin/stdout. A dedicated
+  reader thread demuxes responses to in-flight requests by numeric id via
+  promises (the same async-hop shape already used for `:llm/invoke` and
+  `:extraction/classify` in `pa.runtime.executor`).
+- [ ] Implement the MCP `initialize` handshake (`protocolVersion`,
+  `clientInfo`, `capabilities`) → capture the server's declared capabilities
+  (`tools`, `resources`, `prompts`), then send `notifications/initialized`.
+- [ ] Implement `tools/list`, `tools/call`, `resources/list`,
+  `resources/read`, `prompts/list`, `prompts/get` as thin JSON-RPC
+  request/response wrappers over the transport.
+- [ ] Per-server connect timeout (config, default e.g. 15000ms). All enabled
+  servers connect concurrently at startup; a timed-out or erroring handshake
+  logs a warning and leaves that server disconnected without delaying the
+  others or the app.
+- [ ] Clean shutdown: close stdin (EOF signal), wait briefly for the process
+  to exit, then `.destroyForcibly` if it hasn't. Invoked per connected server
+  from `ig/halt-key!`.
+
+### Integrant component
+
+- [ ] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`,
+  connects to every enabled server concurrently, and for each successful connection
+  registers its tools and prompts (below) and caches its resource/prompt
+  listings; `halt-key!` disconnects every connected client. Wired into
+  `pa.runtime/dispatcher`'s ctx map alongside `:tool.fs/policy` so tool,
+  resource, and prompt fns can reach the live clients.
+
+### Tools
+
+- [ ] `pa.tools.mcp` — for each connected server, translate every `tools/list`
+  entry (`name`, `description`, `inputSchema`) into a `reg-tool` call under
+  `:mcp.<server>/<tool-name>`. The registered `:fn` proxies to `tools/call` on
+  that server's client; an MCP error response is thrown as `ex-info`
+  (`{:type :mcp/tool-error}`) so it surfaces as a normal `:tool/status :error`
+  result, identical to a native tool failure.
+- [ ] `inputSchema` (JSON Schema) is used directly as the tool's `:schema` —
+  `pa.tools.registry/validate-args` already speaks JSON-Schema-shaped EDN, so
+  only JSON→EDN keywordization is needed, no schema translation.
+- [ ] No further wiring needed for LLM tool-calling: `registry/advertise`
+  already enumerates the whole registry, and the Phase 4b multi-hop tool-call
+  loop is tool-source-agnostic — MCP tools chain exactly like native ones.
+
+### Resources
+
+- [ ] `pa.tools.mcp/list-resources` / `read-resource` — thin wrappers
+  returning `{:uri :name :mime-type :content}` per connected server.
+- [ ] `@`-mention affordance in the terminal input — the extension point
+  Phase 7 flagged (the overlay list component "could later back an `@`-style
+  resource mention") but didn't build. Typing `@` opens the same overlay used
+  by the command selector, populated from every connected server's
+  `resources/list` (rows labelled `server:uri`); selecting one reads the
+  resource and inserts its content into the outgoing message as attached
+  context — not a tool call.
+- [ ] Reuses the Phase 7 selector state machine unmodified: `@` triggers it
+  the same way `/` does in `pa.ui.app`, sharing filter/highlight/Esc mechanics
+  from `pa.ui.selector`.
+
+### Prompts
+
+- [ ] `pa.tools.mcp/list-prompts` / `get-prompt` — thin wrappers; `get-prompt`
+  returns the server-rendered message list for the given arguments.
+- [ ] Each connected server's prompts are registered as dynamic slash commands
+  (`reg-command`) at connect time, named `<server>.<prompt-name>` — the
+  concrete realization of the `:select`-picker extension point Phase 7
+  documented but left unbuilt. A prompt with zero or one declared argument
+  maps to `:none` / `:free-text` respectively (the single argument's value
+  passed straight through); prompts with 2+ named arguments are a documented,
+  deferred limitation (playwright-mcp ships none, so nothing blocks on it).
+- [ ] `->event` for an MCP-prompt command dispatches a new
+  `:mcp/prompt-invoke` event; its handler calls `get-prompt`, appends the
+  returned messages to the conversation, and continues the turn via
+  `:llm/invoke` — the same path a normal `:user/message` turn takes.
+
+### playwright-mcp — first supported server
+
+- [ ] Ship the `:playwright` entry in the `config.edn` template as specified
+  above — present but commented out and `:enabled? false` by default, so no
+  subprocess spawns or network downloads happen until a user opts in.
+- [ ] REPL/manual verification: flip `:enabled? true`, start the system,
+  confirm `registered-tools` includes the `:mcp.playwright/*` tools
+  (`browser_navigate`, `browser_click`, `browser_snapshot`, …), and a
+  tool-calling turn ("open example.com and tell me the page title") completes
+  end-to-end through `:tool/invoke` → `:tool/result`.
+
+### Tests
+
+- [ ] `pa.tools.mcp.policy` — fixture `:servers` config map → assert
+  servers/`enabled?`/malformed-entry-dropped behavior.
+- [ ] `pa.tools.mcp.client` — JSON-RPC framing round-trip (request →
+  correlated response) against a fake stdio pair (`PipedInputStream`/
+  `PipedOutputStream` standing in for a server), not a real subprocess.
+- [ ] Handshake test: fixture `initialize` response → capabilities parsed
+  correctly; a timed-out handshake marks the server disconnected without
+  throwing or blocking other servers.
+- [ ] Tool registration test: fixture `tools/list` response → each tool is
+  `reg-tool`'d under its namespaced key with the JSON Schema carried through
+  as `:schema`.
+- [ ] Tool proxy test: `:tool/invoke` on an `:mcp.*` tool → fake client
+  returns a `tools/call` result → assert `:tool/status :ok`; an MCP error
+  response → assert `:tool/status :error`.
+- [ ] Resource listing/read tests against a fake client; `@`-mention selector
+  test (mirrors the Phase 7 `/` selector tests): typing `@` opens the overlay
+  populated from fixture resources, selecting one inserts its content into
+  the input buffer.
+- [ ] Prompt registration + dispatch test: fixture `prompts/list` → commands
+  registered; invoking one dispatches `:mcp/prompt-invoke` → handler calls
+  `get-prompt` and feeds the returned messages into `:llm/invoke`.
+- [ ] Startup resilience test: one configured server that fails to connect
+  (bad command) does not prevent other enabled servers from connecting or the
+  system from starting.
+
+---
+
+## Phase 10 — Personality & Long-Term Evolution
 
 Goal: Evolve the assistant into a durable long-term system.
 
