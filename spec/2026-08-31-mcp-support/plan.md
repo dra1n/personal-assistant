@@ -45,9 +45,88 @@ Each group folds in its own tests — a group is done only when it is tested.
 - [x] A single resource may return several `:contents` entries — join their text, and skip binary (`:blob`) entries rather than inlining them into a message
 - [x] `@`-mention affordance in the terminal input: typing `@` opens the same overlay used by the command selector, populated from every connected server's cached `resources/list`, rows labelled `server:uri`
 - [x] ~~Reuse the Phase 7 selector state machine unmodified~~ — **generalized instead**, not forked. `pa.ui.selector.state` was hardwired to slash commands in two places (`name-phase?` tested for `/`; `matches` read the command registry), so "unmodified" was not reachable. It now takes a *source* — `{:trigger :anchored? :match :rows}` — and `pa.ui.selector.sources` builds one for commands and one for resources. Both overlays are the same machine, and the Phase 7 tests carry every original assertion through the command source
-- [x] Selecting a resource reads it and inserts its content into the outgoing message as attached context — not a tool call
+- [x] ~~Selecting a resource reads it and inserts its content into the input buffer~~ — **superseded by Group 6b**: the content is attached when the message is sent, not spliced into the line being typed
 - [x] Tests: resource listing and read against a fake client
 - [x] Tests: `@` selector, mirroring the Phase 7 `/` selector tests — typing `@` opens the overlay populated from fixture resources; selecting one inserts its content into the input buffer
+
+### Group 6b — Mentions resolve at send time, not in the input line
+
+Revises Group 6, which spliced a resource's text straight into the input buffer.
+That put a whole document on the line a person is still writing and mixed their
+words with the content in one undifferentiated blob. Instead the mention stays a
+short reference while typing, and the content is attached to the message on its
+way to the model.
+
+**How the attachment is framed** — the choices below are the established
+practice for putting retrieved documents in front of a model, and each one is
+load-bearing:
+
+- **Delimit with tags carrying provenance.** Each resource is wrapped in
+  `<resource uri="…" name="…" mime-type="…">`, inside one `<attached-resources>`
+  block. Tagged delimiters are what long-context guidance recommends over bare
+  concatenation, and the metadata lets the model say *which* document it is
+  answering from.
+- **Documents first, question last.** The block precedes the person's own text
+  in the same user message. Models attend most reliably to the end of a long
+  message, and the question is what should sit there.
+- **Say it is data, not instruction.** A resource is third-party text that can
+  contain "ignore your previous instructions". One system-message line, added
+  only when a turn carries attachments, states that attached resources are
+  material the user supplied for reference and are never instructions.
+- **Leave the person's words alone.** The typed text — mentions and all — is
+  passed through verbatim, so the transcript reads as written and the model can
+  see which reference goes with which document.
+- **Cap each resource.** One oversized resource otherwise blows the context
+  window, which fails the whole request rather than that one attachment.
+
+- [ ] UI: selecting a mention inserts `@server:uri ` into the buffer and nothing
+      else. This removes the resource read from the update loop entirely —
+      `read-resource-cmd`, the `::resource-read` message, and `:mcp-clients` in
+      the model all go away, and the UI stops doing I/O
+- [ ] `pa.tools.mcp/parse-mentions` — pure: given text and the connected
+      servers' cached resource listings, return the resources mentioned. Resolve
+      against *known* `server:uri` labels rather than guessing where a URI ends,
+      so trailing punctuation ("…@everything:demo://notes.") can't corrupt it. An
+      unmatched mention stays literal text
+- [ ] `:user/message` handler: with no mentions, today's path is untouched
+      (straight to `:llm/invoke`). With mentions, emit a new
+      `:mcp/resolve-mentions` effect instead, carrying the resolved references
+- [ ] `:mcp/resolve-mentions` effect (`pa.runtime.executor`): read each resource
+      off-thread through the registry's live clients — the same `future` +
+      `dispatch!` hop `:llm/invoke` already uses — then dispatch
+      `:mcp/mentions-resolved` with the contents
+- [ ] `:mcp/mentions-resolved` handler: attach to the pending user turn via a
+      `tr/` transition, store the event, and emit the `:llm/invoke` that
+      `:user/message` would have. Because the resolved text lives in this
+      persisted event, replay reconstructs the attachments without touching MCP —
+      the same reason replay never calls the LLM
+- [ ] Conversation turns gain `:attachments [{:server :uri :name :mime-type
+      :content}]`. The turn's `:content` stays exactly what was typed, so the
+      transcript and history are unchanged
+- [ ] `pa.llm.prompt/conversation->message` renders attachments into the outgoing
+      user message per the framing above; `assemble` adds the one-line system note
+      when any turn in the conversation carries attachments
+- [ ] Per-resource size cap with an explicit truncation marker, so a large
+      document degrades to a prefix instead of failing the request
+- [ ] A resource that cannot be read attaches an error note rather than silently
+      vanishing — the model must not believe it read something it did not — and
+      logs why. The turn still goes through
+- [ ] Show attachments in the transcript under the user turn (name + mime type),
+      so what was sent is visible rather than implied
+- [ ] Tests: `parse-mentions` over real label shapes — several mentions, trailing
+      punctuation, an unknown server, a mention inside a word, no mentions at all
+- [ ] Tests: `:user/message` with no mentions still emits `:llm/invoke` directly
+      (the no-MCP path must not change), and with mentions emits
+      `:mcp/resolve-mentions` instead
+- [ ] Tests: the effect reads through a fake client and dispatches
+      `:mcp/mentions-resolved`; a failing read still dispatches, carrying the error
+- [ ] Tests: `:mcp/mentions-resolved` attaches to the turn and emits `:llm/invoke`
+- [ ] Tests: prompt assembly — attachments render before the typed text, inside
+      tagged delimiters with their metadata; the system note appears only when
+      attachments exist; oversized content is truncated with its marker
+- [ ] Tests: replaying `:user/message` + `:mcp/mentions-resolved` from the event
+      log rebuilds the attachments with no MCP client present
+- [ ] Tests: UI — selecting a mention inserts the reference and issues no command
 
 ### Group 7 — Prompts as slash commands
 - [ ] `pa.tools.mcp/list-prompts` and `get-prompt` — thin wrappers; `get-prompt` returns the server-rendered message list for the given arguments
