@@ -33,11 +33,10 @@
 (defn configure!
   "Install the appenders. Idempotent.
 
-  Entry points call this *before* ig/init rather than relying on the
-  :pa.logging/timbre component: nothing depends on that component, so Integrant
-  sorts it last, and in app mode (where set-console! has already silenced
-  stdout) every other component's init-time logging would go nowhere — the
-  startup diagnostics are exactly the ones worth keeping."
+  Applied by the :pa.logging/timbre component, which every other component
+  refs (see resources/system.edn) so that it initialises first: components
+  init-log before their appenders exist otherwise, and in app mode — where
+  set-console! has already silenced stdout — those lines are simply lost."
   []
   (log/merge-config!
    {:min-level :debug
@@ -46,9 +45,6 @@
                                 :enabled? @console?)}}))
 
 (defmethod ig/init-key :pa.logging/timbre [_ _opts]
-  ;; Re-applied here so the component still owns the config in its own right —
-  ;; a REPL reset or a system started without going through an entry point
-  ;; still ends up correctly configured.
   (configure!)
   (log/info "logging initialized")
   {})

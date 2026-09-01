@@ -1,29 +1,42 @@
+;; Every component refs :pa.logging/timbre as :logging. That dependency is
+;; real — they all log during init — and stating it is what orders logging
+;; first, so startup diagnostics reach the appenders instead of the void, and
+;; last on halt, so shutdown logging outlives what it reports on. Nothing reads
+;; the ref; it exists to order the graph. A new component that logs should
+;; carry it too.
 {:pa.logging/timbre       {}
 
- :pa.observability/portal {:enabled? #boolean #or [#env PORTAL_ENABLED #setting [:portal :enabled?] false]
+ :pa.observability/portal {:logging  #ig/ref :pa.logging/timbre
+                           :enabled? #boolean #or [#env PORTAL_ENABLED #setting [:portal :enabled?] false]
                            :launcher #or [#env PORTAL_LAUNCHER #setting [:portal :launcher] "vs-code"]}
 
- :storage/fs              {}
- :storage/identity        {:fs #ig/ref :storage/fs}
- :storage/events          {:fs #ig/ref :storage/fs}
- :storage/history         {:fs #ig/ref :storage/fs}
- :memory/store            {:fs #ig/ref :storage/fs}
- :db/sqlite               {:fs #ig/ref :storage/fs}
- :memory/indexer          {:db #ig/ref :db/sqlite :fs #ig/ref :storage/fs}
- :llm/provider            {:provider  #keyword #or [#env LLM_PROVIDER #setting [:llm :provider] "openai"]
+ :storage/fs              {:logging #ig/ref :pa.logging/timbre}
+ :storage/identity        {:logging #ig/ref :pa.logging/timbre :fs #ig/ref :storage/fs}
+ :storage/events          {:logging #ig/ref :pa.logging/timbre :fs #ig/ref :storage/fs}
+ :storage/history         {:logging #ig/ref :pa.logging/timbre :fs #ig/ref :storage/fs}
+ :memory/store            {:logging #ig/ref :pa.logging/timbre :fs #ig/ref :storage/fs}
+ :db/sqlite               {:logging #ig/ref :pa.logging/timbre :fs #ig/ref :storage/fs}
+ :memory/indexer          {:logging #ig/ref :pa.logging/timbre
+                           :db      #ig/ref :db/sqlite
+                           :fs      #ig/ref :storage/fs}
+ :llm/provider            {:logging   #ig/ref :pa.logging/timbre
+                           :provider  #keyword #or [#env LLM_PROVIDER #setting [:llm :provider] "openai"]
                            :openai    {:api-key  #or [#env OPENAI_API_KEY #setting [:llm :openai :api-key]]
                                        :base-url #or [#env OPENAI_BASE_URL #setting [:llm :openai :base-url] "https://api.openai.com/v1"]
                                        :model    #or [#env OPENAI_MODEL #setting [:llm :openai :model] "gpt-5"]}
                            :anthropic {:api-key  #or [#env ANTHROPIC_API_KEY #setting [:llm :anthropic :api-key]]
                                        :base-url #or [#env ANTHROPIC_BASE_URL #setting [:llm :anthropic :base-url] "https://api.anthropic.com/v1"]
                                        :model    #or [#env ANTHROPIC_MODEL #setting [:llm :anthropic :model] "claude-sonnet-4-6"]}}
- :tool.fs/policy          {:fs #ig/ref :storage/fs}
- :tool.mcp/policy         {:servers            #setting [:mcp :servers]
+ :tool.fs/policy          {:logging #ig/ref :pa.logging/timbre :fs #ig/ref :storage/fs}
+ :tool.mcp/policy         {:logging            #ig/ref :pa.logging/timbre
+                           :servers            #setting [:mcp :servers]
                            :connect-timeout-ms #setting [:mcp :connect-timeout-ms]}
- :mcp/registry            {:policy #ig/ref :tool.mcp/policy}
- :ui/deltas               {}
+ :mcp/registry            {:logging #ig/ref :pa.logging/timbre
+                           :policy  #ig/ref :tool.mcp/policy}
+ :ui/deltas               {:logging #ig/ref :pa.logging/timbre}
 
- :pa.runtime/dispatcher   {:config   {:env :production}
+ :pa.runtime/dispatcher   {:logging  #ig/ref :pa.logging/timbre
+                           :config   {:env :production}
                            :settings #setting [:settings]
                            :events   #ig/ref :storage/events
                            :identity #ig/ref :storage/identity
@@ -35,9 +48,11 @@
                            :mcp      #ig/ref :mcp/registry
                            :deltas   #ig/ref :ui/deltas}
 
- :pa/scheduler            {:fs         #ig/ref :storage/fs
+ :pa/scheduler            {:logging    #ig/ref :pa.logging/timbre
+                           :fs         #ig/ref :storage/fs
                            :dispatcher #ig/ref :pa.runtime/dispatcher}
 
- :pa.ui/terminal          {:dispatcher #ig/ref :pa.runtime/dispatcher
+ :pa.ui/terminal          {:logging    #ig/ref :pa.logging/timbre
+                           :dispatcher #ig/ref :pa.runtime/dispatcher
                            :deltas     #ig/ref :ui/deltas
                            :llm        #ig/ref :llm/provider}}
