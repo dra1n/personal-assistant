@@ -5,9 +5,15 @@
             [pa.tools.mcp.client :as client]
             [pa.tools.mcp.policy :as policy]
             [pa.tools.mcp.registry :as registry]
+            [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
 
-(use-fixtures :each (fn [f] (log/with-min-level :error (f))))
+(use-fixtures :each
+  (fn [f]
+    ;; The registry registers MCP tools globally; snapshot so tests don't leak.
+    (let [snap (tools/snapshot)]
+      (log/with-min-level :error
+        (try (f) (finally (tools/restore! snap)))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Fake clients. The transport itself is covered in pa.tools.mcp.client-test
@@ -16,7 +22,8 @@
 ;; test, and no subprocess is ever spawned.
 ;; ---------------------------------------------------------------------------
 
-(defn- fake-conn [name & {:keys [capabilities] :or {capabilities {:resources {} :prompts {}}}}]
+(defn- fake-conn [name & {:keys [capabilities]
+                          :or {capabilities {:tools {} :resources {} :prompts {}}}}]
   {:name name :closed? (atom false) :capabilities (atom capabilities)})
 
 (defn- closed? [conn] @(:closed? conn))
@@ -29,9 +36,10 @@
 (defmacro ^:private with-fakes
   "Stub the client namespace. `connect` maps server name -> connection (or nil
   to simulate a server that won't connect); listings default to empty."
-  [{:keys [connect resources prompts]} & body]
+  [{:keys [connect tools resources prompts]} & body]
   `(with-redefs [client/connect        (fn [nm# _#] (get ~connect nm#))
                  client/supports?      (fn [conn# cap#] (boolean (get @(:capabilities conn#) cap#)))
+                 client/list-tools     (fn [conn#] (get ~tools (:name conn#) []))
                  client/list-resources (fn [conn#] (get ~resources (:name conn#) []))
                  client/list-prompts   (fn [conn#] (get ~prompts (:name conn#) []))
                  client/close!         (fn [conn#] (reset! (:closed? conn#) true) nil)]
@@ -130,6 +138,7 @@
   (testing "a broken resources/list still leaves the server connected for its tools"
     (with-redefs [client/connect        (fn [nm _] (fake-conn nm))
                   client/supports?      (constantly true)
+                  client/list-tools     (fn [_] [])
                   client/list-resources (fn [_] (throw (ex-info "boom" {})))
                   client/list-prompts   (fn [_] [{:name "p"}])
                   client/close!         (constantly nil)]
@@ -145,6 +154,7 @@
 (defn- start [servers fakes]
   (with-redefs [client/connect        (fn [nm _] (get (:connect fakes) nm))
                 client/supports?      (fn [conn cap] (boolean (get @(:capabilities conn) cap)))
+                client/list-tools     (fn [conn] (get (:tools fakes) (:name conn) []))
                 client/list-resources (fn [conn] (get (:resources fakes) (:name conn) []))
                 client/list-prompts   (fn [conn] (get (:prompts fakes) (:name conn) []))
                 client/close!         (fn [conn] (reset! (:closed? conn) true) nil)]
@@ -199,3 +209,33 @@
                       :mcp/registry    {:policy (ig/ref :tool.mcp/policy)}})]
     (is (= #{} (registry/connected-servers (:mcp/registry sys))))
     (is (nil? (ig/halt! sys)))))
+
+;; ---------------------------------------------------------------------------
+;; Tool registration is part of the connection's lifecycle
+;; ---------------------------------------------------------------------------
+
+(deftest connecting-registers-the-servers-tools
+  (let [sys (start {:pw {}} {:connect {:pw (fake-conn :pw)}
+                             :tools   {:pw [{:name "browser_navigate"} {:name "browser_click"}]}})
+        reg (:mcp/registry sys)]
+    (is (= #{:mcp.pw/browser_navigate :mcp.pw/browser_click} (registry/registered-tools reg)))
+    (testing "and they are live in the global tool registry, where :tool/invoke looks"
+      (is (some? (tools/get-tool :mcp.pw/browser_navigate))))
+    (with-redefs [client/close! (fn [conn] (reset! (:closed? conn) true) nil)]
+      (ig/halt! sys))))
+
+(deftest halting-withdraws-the-servers-tools
+  (testing "no tool name outlives the connection it proxies to"
+    (let [sys (start {:pw {}} {:connect {:pw (fake-conn :pw)}
+                               :tools   {:pw [{:name "browser_navigate"}]}})]
+      (is (some? (tools/get-tool :mcp.pw/browser_navigate)))
+      (with-redefs [client/close! (fn [conn] (reset! (:closed? conn) true) nil)]
+        (ig/halt! sys))
+      (is (nil? (tools/get-tool :mcp.pw/browser_navigate))))))
+
+(deftest a-server-that-never-connected-registers-nothing
+  (let [sys (start {:good {} :bad {}} {:connect {:good (fake-conn :good) :bad nil}
+                                       :tools   {:good [{:name "ok"}]}})]
+    (is (= #{:mcp.good/ok} (registry/registered-tools (:mcp/registry sys))))
+    (with-redefs [client/close! (fn [conn] (reset! (:closed? conn) true) nil)]
+      (ig/halt! sys))))

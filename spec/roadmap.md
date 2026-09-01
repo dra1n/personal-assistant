@@ -1621,7 +1621,7 @@ config-loading machinery):
 
 ### Integrant component
 
-- [~] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`,
+- [x] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`,
   connects to every enabled server concurrently, and for each successful connection
   registers its tools and prompts (below) and caches its resource/prompt
   listings; `halt-key!` disconnects every connected client. Wired into
@@ -1630,16 +1630,16 @@ config-loading machinery):
 
 ### Tools
 
-- [ ] `pa.tools.mcp` — for each connected server, translate every `tools/list`
+- [x] `pa.tools.mcp` — for each connected server, translate every `tools/list`
   entry (`name`, `description`, `inputSchema`) into a `reg-tool` call under
   `:mcp.<server>/<tool-name>`. The registered `:fn` proxies to `tools/call` on
   that server's client; an MCP error response is thrown as `ex-info`
   (`{:type :mcp/tool-error}`) so it surfaces as a normal `:tool/status :error`
   result, identical to a native tool failure.
-- [ ] `inputSchema` (JSON Schema) is used directly as the tool's `:schema` —
+- [x] `inputSchema` (JSON Schema) is used directly as the tool's `:schema` —
   `pa.tools.registry/validate-args` already speaks JSON-Schema-shaped EDN, so
   only JSON→EDN keywordization is needed, no schema translation.
-- [ ] No further wiring needed for LLM tool-calling: `registry/advertise`
+- [x] No further wiring needed for LLM tool-calling: `registry/advertise`
   already enumerates the whole registry, and the Phase 4b multi-hop tool-call
   loop is tool-source-agnostic — MCP tools chain exactly like native ones.
 
@@ -1695,10 +1695,10 @@ config-loading machinery):
 - [x] Handshake test: fixture `initialize` response → capabilities parsed
   correctly; a timed-out handshake marks the server disconnected without
   throwing or blocking other servers.
-- [ ] Tool registration test: fixture `tools/list` response → each tool is
+- [x] Tool registration test: fixture `tools/list` response → each tool is
   `reg-tool`'d under its namespaced key with the JSON Schema carried through
   as `:schema`.
-- [ ] Tool proxy test: `:tool/invoke` on an `:mcp.*` tool → fake client
+- [x] Tool proxy test: `:tool/invoke` on an `:mcp.*` tool → fake client
   returns a `tools/call` result → assert `:tool/status :ok`; an MCP error
   response → assert `:tool/status :error`.
 - [ ] Resource listing/read tests against a fake client; `@`-mention selector

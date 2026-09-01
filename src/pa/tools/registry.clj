@@ -33,6 +33,16 @@
   (swap! registry assoc tool-name spec)
   tool-name)
 
+(defn unreg-tool
+  "Remove tool-name from the registry. Returns tool-name.
+
+  Registrations are normally permanent — native tools self-register at load
+  time and stay. Dynamic families (an MCP server's tools) need the inverse, so
+  a tool name cannot outlive the connection standing behind it."
+  [tool-name]
+  (swap! registry dissoc tool-name)
+  tool-name)
+
 (defn get-tool
   "Return the tool spec for tool-name as {:fn :schema :description}, or nil."
   [tool-name]

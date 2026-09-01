@@ -30,11 +30,11 @@ against a real server.
 - [x] Protocol wrappers: `tools/list`, `tools/call`, `resources/list`, `resources/read`,
       `prompts/list`, `prompts/get` — request shape asserted, fixture response decoded to
       keywordized EDN
-- [ ] Tool registration: fixture `tools/list` → each tool `reg-tool`'d under
+- [x] Tool registration: fixture `tools/list` → each tool `reg-tool`'d under
       `:mcp.<server>/<tool-name>` with `inputSchema` carried through verbatim as `:schema`
-- [ ] Tool proxy success: `:tool/invoke` on an `:mcp.*` tool → fake client returns a
+- [x] Tool proxy success: `:tool/invoke` on an `:mcp.*` tool → fake client returns a
       `tools/call` result → `:tool/status :ok`
-- [ ] Tool proxy failure: an MCP error response → `ex-info` `{:type :mcp/tool-error}` →
+- [x] Tool proxy failure: an MCP error response → `ex-info` `{:type :mcp/tool-error}` →
       `:tool/status :error`, indistinguishable in shape from a native tool failure
 - [ ] Resources: listing and read against a fake client return `{:uri :name :mime-type
       :content}`
@@ -63,7 +63,7 @@ against a real server.
       pair — observable, structured-logged, and replayable like any native tool
 - [ ] Server provenance is visible: MCP tools are distinguishable by name in logs, in
       `/help`, and in the tool advertisement sent to the LLM
-- [ ] Two servers exposing an identically named tool do not collide
+- [x] Two servers exposing an identically named tool do not collide
 - [ ] A server killed mid-session degrades gracefully — its tool calls fail as
       `:tool/status :error`, and the rest of the assistant keeps working
 - [ ] `ig/halt-key!` leaves no orphaned subprocesses: stdin closed, process exited (or
@@ -80,7 +80,7 @@ against a real server.
       resource, and prompt fns can reach live clients through it
 - [ ] `:mcp` config resolves through the existing `#setting [path]` aero plumbing — no new
       config-loading code
-- [ ] `registry/advertise` includes MCP tools with no MCP-specific changes, and the Phase 4b
+- [x] `registry/advertise` includes MCP tools with no MCP-specific changes, and the Phase 4b
       multi-hop loop chains an MCP tool call like a native one
 - [ ] `pa.ui.selector` is unmodified, or changed only in ways the Phase 7 `/` selector tests
       still fully cover

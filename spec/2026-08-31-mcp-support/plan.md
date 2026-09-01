@@ -26,19 +26,19 @@ Each group folds in its own tests — a group is done only when it is tested.
 - [x] Tests: each wrapper against a fake client — request shape asserted, fixture response decoded
 
 ### Group 4 — `:mcp/registry` Integrant component
-- [~] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`, connects to every enabled server concurrently, registers each connection's tools and prompts, and caches its resource/prompt listings
+- [x] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`, connects to every enabled server concurrently, registers each connection's tools and prompts, and caches its resource/prompt listings
 - [x] `halt-key!` disconnects every connected client
 - [x] Wire `:mcp/registry` into `pa.runtime/dispatcher`'s ctx map alongside `:tool.fs/policy`, so tool, resource, and prompt fns can reach live clients
 - [x] Tests: startup resilience — one configured server with a bad command does not prevent other enabled servers from connecting or the system from starting
 - [x] Tests: `halt-key!` disconnects every client, including after a partially failed startup
 
 ### Group 5 — Tools
-- [ ] `pa.tools.mcp` — for each connected server, translate every `tools/list` entry (`name`, `description`, `inputSchema`) into a `reg-tool` under `:mcp.<server>/<tool-name>`
-- [ ] Use `inputSchema` directly as the tool's `:schema` — `pa.tools.registry/validate-args` already speaks JSON-Schema-shaped EDN, so only keywordization is needed
-- [ ] The registered `:fn` proxies to `tools/call` on that server's client; an MCP error response is thrown as `ex-info` with `{:type :mcp/tool-error}` so it surfaces as a normal `:tool/status :error`
-- [ ] Confirm no further LLM tool-calling wiring is needed — `registry/advertise` enumerates the whole registry and the Phase 4b multi-hop loop is tool-source-agnostic (if either assumption fails, fix the general mechanism, don't special-case MCP)
-- [ ] Tests: fixture `tools/list` → each tool `reg-tool`'d under its namespaced key with the JSON Schema carried through as `:schema`
-- [ ] Tests: `:tool/invoke` on an `:mcp.*` tool → fake client returns a `tools/call` result → `:tool/status :ok`; an MCP error response → `:tool/status :error`
+- [x] `pa.tools.mcp` — for each connected server, translate every `tools/list` entry (`name`, `description`, `inputSchema`) into a `reg-tool` under `:mcp.<server>/<tool-name>`
+- [x] Use `inputSchema` directly as the tool's `:schema` — `pa.tools.registry/validate-args` already speaks JSON-Schema-shaped EDN, so only keywordization is needed
+- [x] The registered `:fn` proxies to `tools/call` on that server's client; an MCP error response is thrown as `ex-info` with `{:type :mcp/tool-error}` so it surfaces as a normal `:tool/status :error`
+- [x] Confirm no further LLM tool-calling wiring is needed — `registry/advertise` enumerates the whole registry and the Phase 4b multi-hop loop is tool-source-agnostic (if either assumption fails, fix the general mechanism, don't special-case MCP)
+- [x] Tests: fixture `tools/list` → each tool `reg-tool`'d under its namespaced key with the JSON Schema carried through as `:schema`
+- [x] Tests: `:tool/invoke` on an `:mcp.*` tool → fake client returns a `tools/call` result → `:tool/status :ok`; an MCP error response → `:tool/status :error`
 
 ### Group 6 — Resources & the `@`-mention
 - [ ] `pa.tools.mcp/list-resources` and `read-resource` — thin wrappers returning `{:uri :name :mime-type :content}` per connected server

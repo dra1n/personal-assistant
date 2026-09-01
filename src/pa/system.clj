@@ -17,6 +17,7 @@
             [pa.llm.component]
             [pa.scheduler.core]
             [pa.tools.fs.policy]
+            [pa.tools.mcp]
             [pa.tools.mcp.policy]
             [pa.tools.mcp.registry]
             [pa.tools.fs]

@@ -21,8 +21,10 @@
   `@`-mention overlay and the slash-command registry need them synchronously
   while a user is typing. Tools are not cached: they are registered into
   `pa.tools.registry` instead, so the LLM advertisement and `:tool/invoke`
-  find them exactly where native tools live."
+  find them exactly where native tools live. Their names are kept per server
+  so disconnecting can withdraw them again."
   (:require [integrant.core :as ig]
+            [pa.tools.mcp :as mcp]
             [pa.tools.mcp.client :as client]
             [pa.tools.mcp.policy :as policy]
             [taoensso.timbre :as log]))
@@ -57,6 +59,8 @@
   [name server]
   (when-let [conn (client/connect name server)]
     [name {:client    conn
+           :tools     (mcp/register-tools!
+                       name conn (cached-listing conn :tools client/list-tools))
            :resources (cached-listing conn :resources client/list-resources)
            :prompts   (cached-listing conn :prompts client/list-prompts)}]))
 
@@ -110,6 +114,11 @@
   (into [] (mapcat (fn [[server entries]] (map #(assoc % :server server) entries)))
         (get registry k)))
 
+(defn registered-tools
+  "Every MCP tool name currently registered, across all connected servers."
+  [registry]
+  (into #{} cat (vals (:tools registry))))
+
 (defn all-resources [registry] (tagged registry :resources))
 (defn all-prompts   [registry] (tagged registry :prompts))
 
@@ -123,10 +132,14 @@
               {:enabled   (count (policy/enabled-servers policy))
                :connected (sort (keys entries))})
     {:clients   (update-vals entries :client)
+     :tools     (update-vals entries :tools)
      :resources (update-vals entries :resources)
      :prompts   (update-vals entries :prompts)}))
 
-(defmethod ig/halt-key! :mcp/registry [_ {:keys [clients]}]
+(defmethod ig/halt-key! :mcp/registry [_ {:keys [clients tools]}]
+  ;; Withdraw the tools first: once the connections are closed, a registration
+  ;; left standing would proxy to a dead server.
+  (run! mcp/unregister-tools! (vals tools))
   (doseq [[name conn] clients]
     (try
       (client/close! conn)
