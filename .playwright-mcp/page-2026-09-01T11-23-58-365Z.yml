@@ -1,0 +1,230 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Back to Anthropic Courses" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - generic [aria-hidden] [ref=e6]: 
+      - link [ref=e7] [cursor=pointer]:
+        - /url: https://anthropic.com
+        - img "Go home" [ref=e8]
+    - generic [ref=e9]:
+      - generic "Header Navigation" [ref=e10]:
+        - link "Anthropic Academy" [ref=e11] [cursor=pointer]:
+          - /url: https://www.anthropic.com/learn
+        - link "Courses" [ref=e12] [cursor=pointer]:
+          - /url: /
+      - generic:  
+      - link "Sign In" [ref=e14] [cursor=pointer]:
+        - /url: https://anthropic.skilljar.com/auth/login?next=%2Fai-fluency-framework-foundations%2F291886
+  - generic [ref=e16]:
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - link "Anthropic Academy" [ref=e21] [cursor=pointer]:
+            - /url: https://www.anthropic.com/learn
+          - text: /
+          - link "Courses" [ref=e22] [cursor=pointer]:
+            - /url: https://anthropic.skilljar.com/
+        - 'heading "AI Fluency: Framework & Foundations" [level=1] [ref=e23]'
+        - region "Claude Academy notice" [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e29]:
+              - generic [ref=e30]: This course now lives on Claude Academy.
+              - generic [ref=e31]: If you take courses here through your company or employer, you can keep learning on this site.
+            - link "Go to the course on Claude Academy" [ref=e32] [cursor=pointer]:
+              - /url: https://academy.claude.com/courses/ai-fluency-framework-foundations?utm_source=skilljar&utm_medium=banner&utm_content=body
+            - button "Dismiss" [ref=e33] [cursor=pointer]: ✕
+        - paragraph [ref=e34]: Learn to collaborate with AI systems effectively, efficiently, ethically, and safely
+        - generic [ref=e35]:
+          - link "Enroll in Course" [ref=e36] [cursor=pointer]:
+            - /url: https://anthropic.skilljar.com/checkout/17mii0ye0vhrr?next=%2Fai-fluency-framework-foundations%2F291886
+          - generic [ref=e37]: FREE
+        - generic [ref=e38]:
+          - text: Already registered?
+          - link "Sign In" [ref=e39] [cursor=pointer]:
+            - /url: /auth/login?next=%2Fai-fluency-framework-foundations
+        - generic [ref=e40]:
+          - link "Share on X" [ref=e41] [cursor=pointer]:
+            - /url: "#"
+          - link "Share on LinkedIn" [ref=e45] [cursor=pointer]:
+            - /url: "#"
+      - generic [ref=e49]:
+        - iframe [ref=e55]:
+          - generic [ref=f2e1]:
+            - generic "YouTube Video Player" [ref=f2e3]
+            - generic [ref=f2e5]:
+              - generic:
+                - generic:
+                  - generic [ref=f2e6] [cursor=pointer]
+                  - button "Play video" [ref=f2e10] [cursor=pointer]
+                  - button "Hide player controls" [ref=f2e14] [cursor=pointer]
+                  - generic [ref=f2e16]:
+                    - generic [ref=f2e21]:
+                      - generic [ref=f2e22]:
+                        - 'link "AI Fluency: Framework & Foundations Course Trailer" [ref=f2e23] [cursor=pointer]':
+                          - /url: https://www.youtube.com/watch?v=-UN9sNqQ0t4
+                        - link "Anthropic" [ref=f2e24] [cursor=pointer]:
+                          - /url: /channel/UCrDwWp7EBBv4NwvScIpBDOA
+                      - generic [ref=f2e26]:
+                        - button [ref=f2e27] [cursor=pointer]:
+                          - img "thumbnail-image" [ref=f2e28]
+                        - generic [ref=f2e30]:
+                          - generic: Anthropic
+                          - generic: 780K subscribers
+                    - generic [ref=f2e31]:
+                      - button "Share" [ref=f2e34] [cursor=pointer]
+                      - link "Watch on YouTube" [ref=f2e45] [cursor=pointer]:
+                        - /url: https://www.youtube.com/watch?v=-UN9sNqQ0t4
+                        - generic [ref=f2e46]: Watch on
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - generic [ref=e58]: "14"
+            - generic [ref=e59]: lectures
+          - generic [ref=e60]:
+            - generic [ref=e61]: "1.1"
+            - generic [ref=e62]: hours of video
+          - generic [ref=e63]:
+            - generic [ref=e64]: "1"
+            - generic [ref=e65]: quiz
+          - generic [ref=e66]:
+            - generic [ref=e67]: ✓
+            - generic [ref=e68]: Certificate of completion
+    - generic [ref=e69]:
+      - generic [ref=e71]:
+        - heading "About this course" [level=2] [ref=e72]
+        - paragraph
+        - paragraph [ref=e73]: At Anthropic, we believe that empowering people with AI, and ensuring that AI makes safe contributions to society, requires engaging with a wide range of human perspectives and experiences. Responsible AI development and engagement isn't something any single discipline or viewpoint can fully address. It demands collaborative approaches that span a wide range of technical, creative, business, scientific, and educational domains. That's why we partnered with educators who bring complementary expertise to create this foundational course on AI collaboration.
+        - paragraph [ref=e74]: "This course is the result of a long partnership between Anthropic and professors Rick Dakan from Ringling College of Art and Design and Joseph Feller from University College Cork. Rick and Joe developed the AI Fluency Framework in 2023-2024, based on their research exploring how AI tools like Claude were transforming creative and business processes. When we saw the framework, we immediately recognized a shared vision: helping people interact with AI effectively and responsibly, beyond just “cool prompts.” Their framework offered exactly the kind of multidisciplinary perspective we believe is essential for navigating AI’s impact on society."
+        - paragraph [ref=e75]: The AI Fluency Framework they created — four interconnected competencies (Delegation, Description, Discernment, and Diligence) — enables more effective, efficient, ethical, and safe human-AI collaboration, regardless of which new AI models or tools emerge. We collaborated to develop this course based on their framework, bringing together our collective expertise in AI systems, education, creativity, and business innovation. The work was supported in part by the Higher Education Authority (Ireland) through the National Forum for the Enhancement of Teaching and Learning.
+        - paragraph [ref=e76]: This framework has already informed undergraduate and postgraduate courses at both Ringling College and University College Cork, as well as staff training initiatives and community outreach events. Now, we’re excited to share these insights more broadly through this open online course.
+        - paragraph [ref=e77]: Our goal is to make AI Fluency accessible and useful to everyone, no matter what stage of AI expertise you find yourself at. We hope you find it valuable in navigating the evolving landscape of AI collaboration.
+        - paragraph
+      - generic [ref=e78]:
+        - heading "Course sections" [level=2] [ref=e79]
+        - generic [ref=e80]:
+          - generic [ref=e82]:
+            - heading "AI Fundamentals & Framework" [level=3] [ref=e83]
+            - text: 10 lessons
+          - paragraph [ref=e84]: Establish foundational understanding of generative AI systems and why developing AI fluency matters for effective collaboration. Introduces the 4D Framework as a structured approach to human-AI interaction, covering core capabilities and limitations of current AI technologies. Provides the conceptual grounding needed to approach AI tools strategically rather than reactively.
+          - generic [ref=e85]: Course preview images
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - img "Three ways to interact with ai"
+            - generic [ref=e88]:
+              - img "key takeaways"
+            - generic [ref=e89]:
+              - img "three pillars that make ai possible"
+        - generic [ref=e90]:
+          - generic [ref=e92]:
+            - heading "Practical AI Skills" [level=3] [ref=e93]
+            - text: 10 lessons
+          - paragraph [ref=e94]: "Develop hands-on competencies for effective AI collaboration through the four core areas of the framework: delegation, description, discernment, and diligence. Learn systematic approaches to project planning with AI, crafting effective prompts, evaluating outputs critically, and iterating through the description-discernment loop. Emphasizes practical application across creative, business, and educational contexts."
+          - generic [ref=e95]: Course preview images
+          - generic [ref=e96]:
+            - generic [ref=e97]:
+              - img "product descriptions"
+            - generic [ref=e98]:
+              - img "foundational prompting tips"
+            - generic [ref=e99]:
+              - img "creation diligence"
+      - generic [ref=e100]:
+        - heading "About the instructors" [level=2] [ref=e101]
+        - generic [ref=e103]:
+          - generic [ref=e104]:
+            - img "Drew Bent" [ref=e105]
+            - generic [ref=e106]:
+              - heading "Drew Bent" [level=3] [ref=e107]
+              - paragraph [ref=e108]: Drew leads education research at Anthropic. He previously co-founded the tutoring non-profit Schoolhouse.world with Sal Khan, which he ran from 2020-24 and now sits on the board. Prior to that, he wrote code at Khan Academy, taught high school math, and has been tutoring students for over a decade. Drew has degrees in physics & CS from MIT, and an education master's from Stanford.
+          - generic [ref=e109]:
+            - img "Rick Dakan" [ref=e110]
+            - generic [ref=e111]:
+              - heading "Rick Dakan" [level=3] [ref=e112]
+              - paragraph [ref=e113]: Rick is the AI Coordinator and a professor at Ringling College of Art and Design in Sarasota, Florida where he teaches creative writing, interactive experience design, and AI courses. He also oversees the college's Undergraduate Certificate in Artificial Intelligence and the Professional Certificate in Fundamentals of AI for Creatives. He is a game designer and author of more than thirty games and books from video games and tabletop games to novels, nonfiction, and comics.
+          - generic [ref=e114]:
+            - img "Joseph Feller" [ref=e115]
+            - generic [ref=e116]:
+              - heading "Joseph Feller" [level=3] [ref=e117]
+              - paragraph [ref=e118]: Joseph is Professor of Information Systems and Digital Transformation at the Cork University Business School, University College Cork, Ireland. His current work focuses on AI-human hybrid creativity, innovation, and learning. His research has been published in Information Systems Research, Journal of MIS, Journal of the AIS, Journal of Information Technology, Information Systems Journal, European Journal of Information Systems, and Journal of Strategic Information Systems, and has been funded by the European Commission, Irish Research Council, Irish HEA, and other funding bodies.
+              - paragraph
+          - generic [ref=e119]:
+            - img "Maggie Vo" [ref=e120]
+            - generic [ref=e121]:
+              - heading "Maggie Vo" [level=3] [ref=e122]
+              - paragraph [ref=e123]: Maggie founded and leads Anthropic's education team. She has a varied applied research background from Harvard University, with a career and education that spans fields such as game design, organizational behavior, tech and consumer goods, and human behavioral psychology. Maggie has held previous roles at top consulting firms and innovative startups alike. Prior to Anthropic, she worked in AI strategy consulting.
+              - paragraph
+      - generic [ref=e124]:
+        - heading "AI diligence statement" [level=2] [ref=e125]
+        - generic [ref=e127]:
+          - paragraph [ref=e128]: "In the development of the AI Fluency: Framework and Foundations course, we engaged in extensive collaboration with Claude 3.7 from Anthropic."
+          - paragraph [ref=e129]: "The base content for this course came from:"
+          - list [ref=e130]:
+            - listitem [ref=e131]: The AI Fluency Framework Practical Summary Document by Rick Dakan (at Ringling College of Art and Design) and Joseph Feller (at University College Cork) and related working documents and research notes
+            - listitem [ref=e132]: Slide decks and lecture transcripts from multiple university courses, guest lectures, and research talks delivered by Feller and/or Dakan
+            - listitem [ref=e133]: Technical/practical content provided by Maggie Vo and Drew Bent (Anthropic)
+          - paragraph [ref=e134]: Throughout this process, Claude assisted one or more of the human authors with structural development, resource and exercise design, and content drafting, critiquing, editing and rewriting. The human authors wrote, designed, edited and provided continual vision, expertise, critical judgment, and domain knowledge and made all final decisions about both content and approach.
+          - paragraph [ref=e135]: All AI-generated and co-created content underwent thorough validation, editing, and curation by the human authors. The final materials accurately reflect the human authors' understanding, expertise, and intended pedagogical approach. While AI assistance was instrumental in producing these materials, the human authors maintain responsibility for the content.
+          - paragraph [ref=e136]: This disclosure is made in the spirit of transparency advocated by the AI Fluency Framework and to acknowledge the evolving role of AI in educational content development and other creative and intellectual work.
+  - contentinfo [ref=e137]:
+    - generic [ref=e139]:
+      - heading "Data and Privacy" [level=2] [ref=e140]
+      - generic [ref=e142]:
+        - generic [ref=e143]:
+          - checkbox "What is Skilljar and why am I logging into it?" [ref=e144] [cursor=pointer]: 
+          - generic [ref=e145] [cursor=pointer]: What is Skilljar and why am I logging into it?
+          - article:
+            - paragraph [ref=e150]: Skilljar is a learning management system that hosts our educational content. You're logging into it to access the Anthropic course materials. This separate platform allows us to provide interactive learning experiences, track your progress, and ensure you have access to all course resources in an organized way.
+        - generic [ref=e151]:
+          - checkbox "What information does Skilljar collect about my learning activity?" [ref=e152] [cursor=pointer]: 
+          - generic [ref=e153] [cursor=pointer]: What information does Skilljar collect about my learning activity?
+          - article:
+            - paragraph [ref=e158]:
+              - text: Skilljar collects basic learning analytics such as course progress, lesson completion status, quiz scores, and time spent on materials. This data helps us understand how you're progressing through the course and allows us to provide you with completion certificates. All data collection is focused on improving your learning experience, and is subject to
+              - link "Skilljar's Privacy Policy" [ref=e159] [cursor=pointer]:
+                - /url: https://www.skilljar.com/privacy
+              - text: .
+        - generic [ref=e160]:
+          - checkbox "How is my Skilljar data different from my Anthropic account data?" [ref=e161] [cursor=pointer]: 
+          - generic [ref=e162] [cursor=pointer]: How is my Skilljar data different from my Anthropic account data?
+          - article:
+            - paragraph [ref=e167]: Skilljar only tracks your learning progress within this course platform, while your Anthropic account manages your access to the Anthropic Console and/or Claude AI services.
+        - generic [ref=e168]:
+          - checkbox "Is Skilljar secure? Where is my data stored?" [ref=e169] [cursor=pointer]: 
+          - generic [ref=e170] [cursor=pointer]: Is Skilljar secure? Where is my data stored?
+          - article:
+            - paragraph [ref=e175]: Yes, Skilljar employs industry-standard security measures including data encryption, secure hosting, and regular security audits. Your learning data is stored on secure servers with appropriate access controls. Skilljar is SOC 2 compliant and follows best practices for data protection to ensure your information remains safe and private.
+        - generic [ref=e176]:
+          - checkbox "How do I delete my learning activity or account?" [ref=e177] [cursor=pointer]: 
+          - generic [ref=e178] [cursor=pointer]: How do I delete my learning activity or account?
+          - article:
+            - paragraph [ref=e183]:
+              - text: To request deletion of your learning data or account, email
+              - link "academy-support@anthropic.com" [ref=e184] [cursor=pointer]:
+                - /url: mailto:academy-support@anthropic.com
+              - text: . Your request will be processed in accordance with applicable privacy laws and our data retention policies. Note that some data may need to be retained for legitimate business purposes, such as compliance or security, but we'll delete all personal information where legally permissible.
+        - generic [ref=e185]:
+          - checkbox "Do I need an Anthropic account to access the learning content?" [ref=e186] [cursor=pointer]: 
+          - generic [ref=e187] [cursor=pointer]: Do I need an Anthropic account to access the learning content?
+          - article:
+            - paragraph [ref=e192]: No, you don't need an Anthropic account to access this learning content. The course is hosted on Skilljar and only requires a Skilljar account for access. However, if you want to use Claude AI services after completing the course, you would need to create a separate Anthropic account at claude.ai.
+    - generic [ref=e193]:
+      - navigation [ref=e194]
+      - generic [ref=e200]:
+        - generic [ref=e201]: © 2026 Anthropic PBC
+        - list [ref=e202]:
+          - listitem [ref=e203]:
+            - link [ref=e204] [cursor=pointer]:
+              - /url: https://www.youtube.com/@anthropic-ai
+          - listitem [ref=e208]:
+            - link "Visit our LinkedIn page" [ref=e209] [cursor=pointer]:
+              - /url: https://www.linkedin.com/company/anthropicresearch
+          - listitem [ref=e213]:
+            - link "Visit our X (formerly Twitter) profile" [ref=e214] [cursor=pointer]:
+              - /url: https://x.com/AnthropicAI
+  - contentinfo [ref=e218]:
+    - list [ref=e220]:
+      - listitem [ref=e221]: © 2026
+    - link "powered by Skilljar (opens in new tab)" [ref=e224] [cursor=pointer]:
+      - /url: http://www.skilljar.com/
+      - generic [ref=e225]: powered by
+      - img "Skilljar" [ref=e226]
+      - generic [ref=e227]: (opens in new tab)

@@ -41,7 +41,8 @@ Each group folds in its own tests — a group is done only when it is tested.
 - [x] Tests: `:tool/invoke` on an `:mcp.*` tool → fake client returns a `tools/call` result → `:tool/status :ok`; an MCP error response → `:tool/status :error`
 
 ### Group 6 — Resources & the `@`-mention
-- [ ] `pa.tools.mcp/list-resources` and `read-resource` — thin wrappers returning `{:uri :name :mime-type :content}` per connected server
+- [ ] `pa.tools.mcp/list-resources` and `read-resource` — shape a resource into `{:server :uri :name :mime-type :content}`. Note `:name` and `:description` come from the *listing*; `resources/read` returns only `{:uri :mimeType :text}` per content entry, so the display name must be carried over from the cached listing rather than read back
+- [ ] A single resource may return several `:contents` entries — join their text, and skip binary (`:blob`) entries rather than inlining them into a message
 - [ ] `@`-mention affordance in the terminal input: typing `@` opens the same overlay used by the command selector, populated from every connected server's cached `resources/list`, rows labelled `server:uri`
 - [ ] Reuse the Phase 7 selector state machine unmodified — `@` triggers it the way `/` does in `pa.ui.app`, sharing filter/highlight/Esc mechanics from `pa.ui.selector`
 - [ ] Selecting a resource reads it and inserts its content into the outgoing message as attached context — not a tool call
@@ -51,8 +52,9 @@ Each group folds in its own tests — a group is done only when it is tested.
 ### Group 7 — Prompts as slash commands
 - [ ] `pa.tools.mcp/list-prompts` and `get-prompt` — thin wrappers; `get-prompt` returns the server-rendered message list for the given arguments
 - [ ] Register each connected server's prompts as dynamic slash commands via `reg-command`, named `<server>.<prompt-name>` — the first concrete user of the `:select`-picker extension point Phase 7 documented but left unbuilt
-- [ ] Argument mapping: zero declared arguments → `:none`; one → `:free-text` (value passed straight through); 2+ named arguments are skipped with a warning and documented as a deferred limitation
+- [ ] Argument mapping keyed on **required** arguments, not declared ones: zero required → `:none`; exactly one required → `:free-text` (that value passed through, optional arguments omitted); 2+ required are skipped with a warning and documented as a deferred limitation. Declared-count would skip a prompt usable with a single value — see the observed shapes below
 - [ ] `->event` for an MCP-prompt command dispatches `:mcp/prompt-invoke`; its handler calls `get-prompt`, appends the returned messages to the conversation, and continues the turn via `:llm/invoke` — the same path a `:user/message` turn takes
+- [ ] Flatten each returned message's `:content` map (`{:type "text" :text "…"}`) into the plain string our conversation messages carry; a non-text content part is dropped with a warning rather than passed through as a map
 - [ ] Register `:mcp/prompt-invoke` in the event registry/spec alongside existing events
 - [ ] Tests: fixture `prompts/list` → commands registered under the right names with the right argument kinds; a 2+-argument prompt is skipped, not crashed on
 - [ ] Tests: invoking a prompt command dispatches `:mcp/prompt-invoke` → handler calls `get-prompt` and feeds the returned messages into `:llm/invoke`
@@ -66,6 +68,31 @@ Each group folds in its own tests — a group is done only when it is tested.
 ### Group 9 — Roadmap & docs
 - [ ] Tick off the Phase 9 items in `spec/roadmap.md` as each group lands
 - [ ] Note the 2+-argument-prompt limitation and the stdio-only transport decision where a future reader will find them (roadmap Phase 9 section + `ideas-backlog.md` entry for remote transports)
+
+## Reference shapes (observed, not assumed)
+
+Taken from a live `@modelcontextprotocol/server-everything` 2.0.0 session on
+2026-09-01, so Group 6 and 7 fixtures match what a server really sends. The last
+two bugs in this phase both came from fixtures that read nicely in EDN but were
+not what the transport produces.
+
+- **capabilities**: `{:tools {:listChanged true} :prompts {:listChanged true}
+  :resources {:subscribe true :listChanged true} :logging {} :completions {} :tasks {…}}`
+- **`resources/list` entry**: `{:uri "demo://resource/static/document/architecture.md"
+  :name "architecture.md" :mimeType "text/markdown" :description "…"}`
+- **`resources/read` result**: `{:contents [{:uri "…" :mimeType "text/markdown" :text "…"}]}`
+  — no `:name`, and `:contents` is a vector.
+- **`prompts/list` entry**: `{:name "args-prompt" :title "Arguments Prompt"
+  :description "…" :arguments [{:name "city" :description "…" :required true}
+  {:name "state" :required false}]}` — note `:required` is absent on some
+  arguments rather than `false`, and a prompt carries a `:title`.
+- **`prompts/get` result**: `{:messages [{:role "user" :content {:type "text"
+  :text "…"}}]}` — `:content` is a map, not a string, and `:description` may be absent.
+
+The server's four prompts are `simple-prompt` (0 arguments), `args-prompt`
+(1 required + 1 optional), `completable-prompt` and `resource-prompt` (2 required
+each). Keying the argument mapping on *required* count makes two of the four
+usable; keying it on declared count would make only one.
 
 ## Notes
 

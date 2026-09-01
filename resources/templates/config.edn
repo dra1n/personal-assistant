@@ -23,5 +23,13 @@
  ;;                              :command   "npx"
  ;;                              :args      ["-y" "@playwright/mcp@latest"]
  ;;                              :env       {}
+ ;;                              :enabled?  false}
+ ;;                 ;; The reference server, which exercises every MCP feature
+ ;;                 ;; — tools, resources, and prompts. Useful for checking that
+ ;;                 ;; the integration works before pointing it at a real server.
+ ;;                 :everything {:transport :stdio
+ ;;                              :command   "npx"
+ ;;                              :args      ["-y" "@modelcontextprotocol/server-everything"]
+ ;;                              :env       {}
  ;;                              :enabled?  false}}}
  }
