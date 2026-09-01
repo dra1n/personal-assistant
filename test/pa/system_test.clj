@@ -38,11 +38,18 @@
     (let [sys (start-test-system)]
       (is (nil? (ig/halt! sys))))))
 
-(deftest mcp-policy-grants-no-servers-by-default
-  (testing "a default install configures no MCP servers, so nothing is ever spawned"
-    (let [sys (start-test-system)]
+(deftest mcp-policy-is-wired
+  (testing "the policy component initializes as part of the full system"
+    ;; Shape only, never contents: :servers reflects whatever this machine's
+    ;; config.edn declares, so asserting on it would make the suite depend on
+    ;; the developer's personal config. Default-deny and malformed-entry
+    ;; behavior are covered in pa.tools.mcp.policy-test against fixtures.
+    (let [sys (start-test-system)
+          pol (:tool.mcp/policy sys)]
       (is (contains? sys :tool.mcp/policy))
-      (is (empty? (policy/enabled-servers (:tool.mcp/policy sys))))
+      (is (map? (:servers pol)))
+      (is (pos-int? (:connect-timeout-ms pol)))
+      (is (every? :command (vals (policy/enabled-servers pol))))
       (ig/halt! sys))))
 
 (deftest event-bus-lifecycle

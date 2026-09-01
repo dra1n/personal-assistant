@@ -43,9 +43,9 @@
   (doto ^BufferedWriter writes (.write line) (.write "\n") (.flush)))
 
 (defmacro ^:private with-server
-  "Run body with a fake server bound to `sym`, always disconnecting after."
-  [sym & body]
-  `(let [~sym (fake-server)]
+  "Like with-open, for a fake server: binds it and always disconnects after."
+  [[sym init] & body]
+  `(let [~sym ~init]
      (try ~@body (finally (client/close! (:conn ~sym))))))
 
 (defn- await! [fut] (deref fut 2000 ::timed-out))
@@ -55,7 +55,7 @@
 ;; ---------------------------------------------------------------------------
 
 (deftest request-response-round-trip
-  (with-server srv
+  (with-server [srv (fake-server)]
     (let [result (future (client/request! (:conn srv) "tools/list" {} 2000))
           req    (take-message! srv)]
       (testing "the request is well-formed JSON-RPC 2.0 with a numeric id"
@@ -69,7 +69,7 @@
         (is (= {:tools [{:name "browser_navigate"}]} (await! result)))))))
 
 (deftest params-are-passed-through
-  (with-server srv
+  (with-server [srv (fake-server)]
     (let [result (future (client/request! (:conn srv) "tools/call"
                                           {:name "browser_navigate"
                                            :arguments {:url "https://example.com"}}
@@ -82,7 +82,7 @@
 
 (deftest responses-are-correlated-by-id
   (testing "two in-flight requests answered out of order each get their own result"
-    (with-server srv
+    (with-server [srv (fake-server)]
       (let [a    (future (client/request! (:conn srv) "first" {} 2000))
             b    (future (client/request! (:conn srv) "second" {} 2000))
             reqs (into {} (map (juxt :method :id)) [(take-message! srv) (take-message! srv)])]
@@ -95,7 +95,7 @@
         (is (= {:which "b"} (await! b)))))))
 
 (deftest notifications-carry-no-id
-  (with-server srv
+  (with-server [srv (fake-server)]
     (client/notify! (:conn srv) "notifications/initialized" {})
     (let [msg (take-message! srv)]
       (is (= "notifications/initialized" (:method msg)))
@@ -110,7 +110,7 @@
        (catch clojure.lang.ExceptionInfo e (:type (ex-data e)))))
 
 (deftest error-response-throws-rpc-error
-  (with-server srv
+  (with-server [srv (fake-server)]
     (let [result (future (ex-type #(client/request! (:conn srv) "tools/call" {} 2000)))
           req    (take-message! srv)]
       (send! srv {:jsonrpc "2.0" :id (:id req)
@@ -118,7 +118,7 @@
       (is (= :mcp/rpc-error (await! result))))))
 
 (deftest error-response-carries-the-servers-error
-  (with-server srv
+  (with-server [srv (fake-server)]
     (let [result (future (try (client/request! (:conn srv) "tools/call" {} 2000)
                               (catch clojure.lang.ExceptionInfo e e)))
           req    (take-message! srv)]
@@ -129,14 +129,14 @@
         (is (= {:code -32602 :message "unknown tool"} (:error (ex-data e))))))))
 
 (deftest request-times-out
-  (with-server srv
+  (with-server [srv (fake-server)]
     (let [result (future (ex-type #(client/request! (:conn srv) "tools/list" {} 100)))]
       (take-message! srv)                                   ; received, never answered
       (is (= :mcp/timeout (await! result))))))
 
 (deftest server-eof-fails-pending-requests-immediately
   (testing "a dead server fails in-flight requests rather than making them wait out the timeout"
-    (with-server srv
+    (with-server [srv (fake-server)]
       (let [result (future (ex-type #(client/request! (:conn srv) "tools/list" {} 30000)))]
         (take-message! srv)
         (.close ^PipedOutputStream (:raw srv))              ; server exits
@@ -148,7 +148,7 @@
     (is (= :mcp/closed (ex-type #(client/request! (:conn srv) "tools/list" {} 100))))))
 
 (deftest unparseable-lines-do-not-kill-the-connection
-  (with-server srv
+  (with-server [srv (fake-server)]
     (send-raw! srv "not json at all")
     (send-raw! srv "{\"jsonrpc\": broken")
     (let [result (future (client/request! (:conn srv) "tools/list" {} 2000))
@@ -158,7 +158,7 @@
 
 (deftest server-initiated-requests-are-refused-not-ignored
   (testing "we advertise no client capabilities, so the server gets method-not-found"
-    (with-server srv
+    (with-server [srv (fake-server)]
       (send! srv {:jsonrpc "2.0" :id 99 :method "sampling/createMessage" :params {}})
       (let [reply (take-message! srv)]
         (is (= 99 (:id reply)))
@@ -174,7 +174,7 @@
    :capabilities    {:tools {} :resources {:subscribe false}}})
 
 (deftest handshake-negotiates-and-captures-capabilities
-  (with-server srv
+  (with-server [srv (fake-server)]
     (let [result (future (client/handshake! (:conn srv) 2000))
           req    (take-message! srv)]
       (testing "initialize advertises our protocol version and client info"
@@ -193,7 +193,7 @@
       (is (= {:name "playwright" :version "1.0.0"} @(:server-info (:conn srv)))))))
 
 (deftest handshake-tolerates-a-different-negotiated-version
-  (with-server srv
+  (with-server [srv (fake-server)]
     (let [result (future (client/handshake! (:conn srv) 2000))
           req    (take-message! srv)]
       (send! srv {:jsonrpc "2.0" :id (:id req)
@@ -203,14 +203,14 @@
 
 (deftest initialize-returns-nil-on-a-timed-out-handshake
   (testing "a silent server leaves us disconnected — no throw, nothing to clean up later"
-    (with-server srv
+    (with-server [srv (fake-server)]
       (let [result (future (client/initialize! (:conn srv) 100))]
         (take-message! srv)                                 ; initialize, never answered
         (is (nil? (await! result)))
         (is (not (client/connected? (:conn srv))))))))
 
 (deftest initialize-returns-nil-when-the-server-errors
-  (with-server srv
+  (with-server [srv (fake-server)]
     (let [result (future (client/initialize! (:conn srv) 2000))
           req    (take-message! srv)]
       (send! srv {:jsonrpc "2.0" :id (:id req)
