@@ -35,8 +35,10 @@ subprocess spawns and no package downloads until the user opts in.
   `:mcp-<server>/<tool-name>`, proxying to `tools/call`; MCP errors surface as
   `:tool/status :error`.
 - **Resources** — `list-resources` / `read-resource` wrappers, plus an `@`-mention
-  affordance in the terminal input reusing the Phase 7 selector state machine unmodified;
-  selecting a resource inserts its content into the outgoing message as attached context.
+  affordance in the terminal input, reusing the Phase 7 selector state machine (generalized
+  over a source rather than forked — see the plan). Selecting a resource inserts a short
+  `@server:uri` reference; the content is resolved and attached to the message on its way to
+  the model, never spliced into the line being typed.
 - **Prompts** — `list-prompts` / `get-prompt` wrappers; each connected server's prompts
   registered as dynamic slash commands named `<server>.<prompt-name>`; a new
   `:mcp/prompt-invoke` event whose handler appends the returned messages to the
