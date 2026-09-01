@@ -29,11 +29,13 @@
 (def ^:private conn {:name :playwright})
 
 (def ^:private navigate
+  ;; Exactly what the transport yields for a real tools/list entry: keys
+  ;; keywordized, but the strings *inside* :required left as JSON wrote them.
   {:name        "browser_navigate"
    :description "Navigate to a URL"
    :inputSchema {:type       "object"
                  :properties {:url {:type "string"}}
-                 :required   [:url]}})
+                 :required   ["url"]}})
 
 ;; ---------------------------------------------------------------------------
 ;; Registration

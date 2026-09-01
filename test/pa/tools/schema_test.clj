@@ -12,6 +12,37 @@
 ;; ---------------------------------------------------------------------------
 ;; Unit tests: validate-args directly
 
+;; A schema written by hand in EDN names its arguments with keywords; one that
+;; came from JSON (an MCP server's inputSchema) names them with strings, since
+;; keywordizing a JSON object's keys leaves the strings *inside* :required
+;; alone. validate-args has to accept both — it did not, and every MCP tool
+;; call failed with "Missing required argument(s)" while the argument was
+;; sitting right there in the args map.
+
+(def ^:private json-schema
+  {:type       "object"
+   :properties {:url {:type "string"} :timeout {:type "integer"}}
+   :required   ["url"]})
+
+(deftest json-schema-required-names-are-strings
+  (testing "a JSON-derived :required is satisfied by the keyword-keyed args map"
+    (is (nil? (tools/validate-args json-schema {:url "https://example.com"})))
+    (is (nil? (tools/validate-args json-schema {:url "https://example.com" :timeout 5}))))
+  (testing "and a genuinely missing argument is still reported, by name"
+    (is (= "Missing required argument(s): url" (tools/validate-args json-schema {})))
+    (is (= "Missing required argument(s): url"
+           (tools/validate-args json-schema {:timeout 5})))))
+
+(deftest json-schema-types-are-still-checked
+  (is (some? (tools/validate-args json-schema {:url 42})))
+  (is (some? (tools/validate-args json-schema {:url "u" :timeout "soon"}))))
+
+(deftest keyword-and-string-required-are-equivalent
+  (doseq [required [[:url] ["url"]]]
+    (let [schema (assoc json-schema :required required)]
+      (is (nil? (tools/validate-args schema {:url "u"})) (pr-str required))
+      (is (some? (tools/validate-args schema {})) (pr-str required)))))
+
 (deftest empty-schema-always-passes
   (testing "{} schema accepts any args, including empty"
     (is (nil? (tools/validate-args {} {})))
