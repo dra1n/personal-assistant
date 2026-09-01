@@ -218,9 +218,9 @@
   (let [sys (start {:pw {}} {:connect {:pw (fake-conn :pw)}
                              :tools   {:pw [{:name "browser_navigate"} {:name "browser_click"}]}})
         reg (:mcp/registry sys)]
-    (is (= #{:mcp.pw/browser_navigate :mcp.pw/browser_click} (registry/registered-tools reg)))
+    (is (= #{:mcp-pw/browser_navigate :mcp-pw/browser_click} (registry/registered-tools reg)))
     (testing "and they are live in the global tool registry, where :tool/invoke looks"
-      (is (some? (tools/get-tool :mcp.pw/browser_navigate))))
+      (is (some? (tools/get-tool :mcp-pw/browser_navigate))))
     (with-redefs [client/close! (fn [conn] (reset! (:closed? conn) true) nil)]
       (ig/halt! sys))))
 
@@ -228,14 +228,14 @@
   (testing "no tool name outlives the connection it proxies to"
     (let [sys (start {:pw {}} {:connect {:pw (fake-conn :pw)}
                                :tools   {:pw [{:name "browser_navigate"}]}})]
-      (is (some? (tools/get-tool :mcp.pw/browser_navigate)))
+      (is (some? (tools/get-tool :mcp-pw/browser_navigate)))
       (with-redefs [client/close! (fn [conn] (reset! (:closed? conn) true) nil)]
         (ig/halt! sys))
-      (is (nil? (tools/get-tool :mcp.pw/browser_navigate))))))
+      (is (nil? (tools/get-tool :mcp-pw/browser_navigate))))))
 
 (deftest a-server-that-never-connected-registers-nothing
   (let [sys (start {:good {} :bad {}} {:connect {:good (fake-conn :good) :bad nil}
                                        :tools   {:good [{:name "ok"}]}})]
-    (is (= #{:mcp.good/ok} (registry/registered-tools (:mcp/registry sys))))
+    (is (= #{:mcp-good/ok} (registry/registered-tools (:mcp/registry sys))))
     (with-redefs [client/close! (fn [conn] (reset! (:closed? conn) true) nil)]
       (ig/halt! sys))))

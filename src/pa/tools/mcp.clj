@@ -8,8 +8,13 @@
   `registry/advertise` exactly like a filesystem or network tool — with the
   same logging, dry-run, and replay guarantees.
 
-  Names are namespaced by server (`:mcp.playwright/browser_navigate`) so two
+  Names are namespaced by server (`:mcp-playwright/browser_navigate`) so two
   servers cannot collide and provenance is visible wherever a tool name is.
+  The namespace is `mcp-<server>`, not `mcp.<server>`, because tool names reach
+  provider APIs through `encode-name`, and OpenAI accepts only
+  `[A-Za-z0-9_-]` there — a dot 400s the entire request, not just that tool.
+  For the same reason a server tool whose own name breaks that rule is skipped
+  rather than registered: one unusable name would poison every LLM call.
 
   The server's `inputSchema` is used verbatim as the tool's `:schema`: it is
   JSON Schema, `pa.tools.registry/validate-args` already speaks JSON-Schema
@@ -28,10 +33,22 @@
             [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
 
+(def provider-safe-name
+  "Tool names travel to provider APIs, which are stricter than keywords are.
+  OpenAI's function names must match [A-Za-z0-9_-]{1,64}; we hold both halves
+  of a name to that so the pair survives encoding."
+  #"[A-Za-z0-9_-]+")
+
+(defn- safe-segment
+  "Coerce a server name into something a provider will accept as part of a
+  function name. Server names come from user config, so they can be anything."
+  [server]
+  (str/replace (name server) #"[^A-Za-z0-9_-]" "_"))
+
 (defn tool-key
-  "The registry name for `tool` on `server`: `:mcp.<server>/<tool>`."
+  "The registry name for `tool` on `server`: `:mcp-<server>/<tool>`."
   [server tool]
-  (keyword (str "mcp." (name server)) tool))
+  (keyword (str "mcp-" (safe-segment server)) tool))
 
 (defn- text-content
   "The text parts of an MCP content vector, joined — what a person or a model
@@ -76,7 +93,7 @@
   [server conn tool-list]
   (into []
         (keep (fn [{tool :name :keys [description inputSchema]}]
-                (if (and (string? tool) (not (str/blank? tool)))
+                (if (and (string? tool) (re-matches provider-safe-name (str tool)))
                   (tools/reg-tool
                    (tool-key server tool)
                    {:fn          (proxy-fn server conn tool)
@@ -86,8 +103,8 @@
                     :schema      (or inputSchema {})
                     :description (or description
                                      (str tool " (" (name server) " MCP server)"))})
-                  (do (log/warn "mcp: skipping tool with no usable name"
-                                {:server server :tool tool})
+                  (do (log/warn "mcp: skipping tool whose name a provider API would reject"
+                                {:server server :tool tool :must-match (str provider-safe-name)})
                       nil))))
         tool-list))
 

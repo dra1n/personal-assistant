@@ -111,6 +111,23 @@
    :body    body
    :as      as})
 
+(defn- post!
+  "POST, converting a non-2xx into an ex-info that carries the API's own
+  explanation. hato hands back the error body as an unread stream, so the one
+  thing worth logging — why the request was rejected — is otherwise discarded."
+  [http url opts]
+  (try
+    (http/post http url opts)
+    (catch clojure.lang.ExceptionInfo e
+      (let [{:keys [status body]} (ex-data e)
+            detail (when body (try (slurp body) (catch Throwable _ nil)))]
+        (if status
+          (throw (ex-info (str "OpenAI API returned " status
+                               (when detail (str ": " detail)))
+                          {:type :llm/api-error :status status :detail detail}
+                          e))
+          (throw e))))))
+
 (defn- require-key! [api-key]
   (when (str/blank? api-key)
     (throw (ex-info "OpenAI API key missing — set OPENAI_API_KEY or pass :api-key"
@@ -189,16 +206,16 @@
     (require-key! api-key)
     (let [model* (or (:model opts) model)
           body   (request-body model* messages false opts)
-          resp   (http/post http (str base-url "/chat/completions")
-                            (post-opts api-key body :string))]
+          resp   (post! http (str base-url "/chat/completions")
+                        (post-opts api-key body :string))]
       (parse-message (-> (json/read-str (:body resp) :key-fn keyword)
                          (get-in [:choices 0 :message])))))
   (stream [_ messages opts on-delta]
     (require-key! api-key)
     (let [model* (or (:model opts) model)
           body   (request-body model* messages true opts)
-          resp   (http/post http (str base-url "/chat/completions")
-                            (post-opts api-key body :stream))]
+          resp   (post! http (str base-url "/chat/completions")
+                        (post-opts api-key body :stream))]
       (consume-stream! (:body resp) on-delta))))
 
 (defn make-provider

@@ -1555,7 +1555,7 @@ servers, which covers playwright-mcp and most local MCP servers; deferred to
   stdin, terminate the process) on `ig/halt-key!`. No daemon, no background
   reconnection loop.
 - **Namespaced by server.** Tool, prompt, and resource identifiers are
-  qualified by server name (`:mcp.playwright/browser_navigate`) so two servers
+  qualified by server name (`:mcp-playwright/browser_navigate`) so two servers
   can't collide and provenance is visible in logs, `/help`, and the tool
   advertisement sent to the LLM.
 - **Degrade, don't crash.** A server that fails to connect (missing binary,
@@ -1632,7 +1632,7 @@ config-loading machinery):
 
 - [x] `pa.tools.mcp` — for each connected server, translate every `tools/list`
   entry (`name`, `description`, `inputSchema`) into a `reg-tool` call under
-  `:mcp.<server>/<tool-name>`. The registered `:fn` proxies to `tools/call` on
+  `:mcp-<server>/<tool-name>`. The registered `:fn` proxies to `tools/call` on
   that server's client; an MCP error response is thrown as `ex-info`
   (`{:type :mcp/tool-error}`) so it surfaces as a normal `:tool/status :error`
   result, identical to a native tool failure.

@@ -187,6 +187,36 @@
         (is (= "Read a file." (get-in fns [0 :function :description])))
         (is (= "object" (get-in fns [0 :function :parameters :type])))))))
 
+(def ^:private openai-function-name
+  "OpenAI rejects a request whose function names fall outside this — and it
+  rejects the whole request, not the offending tool."
+  #"[a-zA-Z0-9_-]{1,64}")
+
+(deftest encoded-tool-names-are-accepted-by-the-api-test
+  (testing "every advertised name survives encoding as a legal function name"
+    (let [captured (atom nil)
+          client   (fake-client captured {:body (sse-stream ["data: [DONE]"])})
+          prov     (test-provider {:http client})
+          tools    [{:name :fs/read-file :description "d" :parameters {}}
+                    {:name :network/web-search :description "d" :parameters {}}
+                    ;; An MCP tool. A dotted namespace here (:mcp.playwright/…)
+                    ;; encoded to "mcp.playwright__browser_click" and 400'd every
+                    ;; single turn, not just calls to that tool.
+                    {:name :mcp-playwright/browser_click :description "d" :parameters {}}]]
+      (provider/stream prov [{:role :user :content "hi"}] {:tools tools} (fn [_]))
+      (let [names (->> (json/read-str (:body (:opts @captured)) :key-fn keyword)
+                       :tools
+                       (map #(get-in % [:function :name])))]
+        (is (= 3 (count names)))
+        (doseq [n names]
+          (is (re-matches openai-function-name n)
+              (str n " would be rejected by the API")))))))
+
+(deftest tool-name-encoding-round-trips-test
+  (testing "a decoded name is the keyword the registry knows, MCP tools included"
+    (doseq [k [:fs/read-file :network/web-search :mcp-playwright/browser_click]]
+      (is (= k (#'openai/decode-name (#'openai/encode-name k)))))))
+
 (deftest request-serializes-tool-turns-test
   (testing "assistant tool-call and tool-result turns serialize to OpenAI shapes"
     (let [captured (atom nil)

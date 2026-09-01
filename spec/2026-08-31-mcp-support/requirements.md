@@ -32,7 +32,7 @@ subprocess spawns and no package downloads until the user opts in.
   `ig/init-key`, registering tools and prompts per connection, disconnecting all at
   `ig/halt-key!`, and wired into `pa.runtime/dispatcher`'s ctx map beside `:tool.fs/policy`.
 - **Tools** — `pa.tools.mcp` translates each `tools/list` entry into a `reg-tool` under
-  `:mcp.<server>/<tool-name>`, proxying to `tools/call`; MCP errors surface as
+  `:mcp-<server>/<tool-name>`, proxying to `tools/call`; MCP errors surface as
   `:tool/status :error`.
 - **Resources** — `list-resources` / `read-resource` wrappers, plus an `@`-mention
   affordance in the terminal input reusing the Phase 7 selector state machine unmodified;
@@ -77,10 +77,13 @@ subprocess spawns and no package downloads until the user opts in.
 3. **Session-lifecycle component, matching the Phase 6 model.** Connect (spawn + handshake
    + register) on `ig/init-key`; disconnect (close stdin, wait, `.destroyForcibly`) on
    `ig/halt-key!`.
-4. **Namespaced by server.** Tools are `:mcp.<server>/<tool-name>`, prompts are
+4. **Namespaced by server.** Tools are `:mcp-<server>/<tool-name>`, prompts are
    `<server>.<prompt-name>`, resources are labelled `server:uri`. Two servers cannot
    collide, and provenance is visible in logs, `/help`, and the tool advertisement sent to
-   the LLM.
+   the LLM. A hyphen rather than a dot: tool names reach provider APIs through the
+   provider's name encoding, and OpenAI accepts only `[A-Za-z0-9_-]{1,64}` for a function
+   name — rejecting the *entire request*, not the offending tool, when one falls outside.
+   A server tool whose own name breaks that rule is skipped for the same reason.
 5. **Degrade, don't crash.** A missing binary, a handshake timeout, or a malformed config
    entry contributes no tools/resources/prompts and logs a warning. It never blocks app
    startup, and never takes down another server. Enabled servers connect concurrently.
