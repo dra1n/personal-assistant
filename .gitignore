@@ -4,6 +4,7 @@
 .clj-kondo/
 .calva/
 .portal/
+.playwright-mcp/
 .nrepl-port
 .env
 target/
