@@ -63,16 +63,22 @@
 (defn- await-connect
   "Collect one server's connect result within its budget. A connect that
   overruns is abandoned — and reaped in the background if it later succeeds, so
-  an abandoned server never leaves an orphaned subprocess behind."
+  an abandoned server never leaves an orphaned subprocess behind.
+
+  The sentinel matters: connect-server returns nil for a server that failed
+  outright, which a nil timeout default would misreport as a timeout (and has
+  already been logged, with its actual reason, by the client)."
   [{:keys [name budget fut]}]
-  (or (deref fut budget nil)
+  (let [result (deref fut budget ::timeout)]
+    (if (= ::timeout result)
       (do (log/warn "mcp: server did not finish connecting in time — skipping"
                     {:server name :budget-ms budget})
           (future (when-let [[_ {:keys [client]}] (deref fut)]
                     (log/warn "mcp: abandoned server connected late — disconnecting"
                               {:server name})
                     (client/close! client)))
-          nil)))
+          nil)
+      result)))
 
 (defn connect-all
   "Connect every enabled server concurrently. Returns `{name -> entry}` for

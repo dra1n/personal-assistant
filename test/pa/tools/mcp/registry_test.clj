@@ -1,5 +1,6 @@
 (ns pa.tools.mcp.registry-test
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing use-fixtures]]
             [integrant.core :as ig]
             [pa.tools.mcp.client :as client]
             [pa.tools.mcp.policy :as policy]
@@ -49,6 +50,25 @@
       (let [entries (registry/connect-all (pol {:a {} :off {:enabled? false}}))]
         (is (= #{:a} @attempted) "a disabled server is never even attempted")
         (is (= #{:a} (set (keys entries))))))))
+
+(defn- captured-logs
+  "Run f, collecting the messages it logs."
+  [f]
+  (let [msgs (atom [])]
+    (log/with-merged-config
+      {:min-level :debug
+       :appenders {:capture {:enabled? true :fn #(swap! msgs conj (force (:msg_ %)))}
+                   :println {:enabled? false}
+                   :file    {:enabled? false}}}
+      (f))
+    @msgs))
+
+(deftest a-server-that-fails-fast-is-not-reported-as-a-timeout
+  (testing "an unstartable server is skipped for the reason the client logged, not a timeout"
+    (with-fakes {:connect {:bad nil}}
+      (let [msgs (captured-logs #(registry/connect-all (pol {:bad {}})))]
+        (is (not-any? #(str/includes? % "did not finish connecting") msgs)
+            (str "misreported as a timeout: " (pr-str msgs)))))))
 
 (deftest a-server-that-fails-to-connect-does-not-affect-the-others
   (with-fakes {:connect {:good (fake-conn :good) :bad nil}}

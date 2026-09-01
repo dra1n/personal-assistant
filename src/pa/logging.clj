@@ -30,12 +30,26 @@
 ;; The :println appender always carries its :fn (so set-console! can re-enable
 ;; it), but its :enabled? tracks the console? flag. The file appender is the
 ;; durable record and stays on in every mode.
-(defmethod ig/init-key :pa.logging/timbre [_ _opts]
+(defn configure!
+  "Install the appenders. Idempotent.
+
+  Entry points call this *before* ig/init rather than relying on the
+  :pa.logging/timbre component: nothing depends on that component, so Integrant
+  sorts it last, and in app mode (where set-console! has already silenced
+  stdout) every other component's init-time logging would go nowhere — the
+  startup diagnostics are exactly the ones worth keeping."
+  []
   (log/merge-config!
    {:min-level :debug
     :appenders {:file    (log/spit-appender {:fname (log-file)})
                 :println (assoc (log/println-appender {:stream :auto})
-                                :enabled? @console?)}})
+                                :enabled? @console?)}}))
+
+(defmethod ig/init-key :pa.logging/timbre [_ _opts]
+  ;; Re-applied here so the component still owns the config in its own right —
+  ;; a REPL reset or a system started without going through an entry point
+  ;; still ends up correctly configured.
+  (configure!)
   (log/info "logging initialized")
   {})
 

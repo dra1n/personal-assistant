@@ -1,7 +1,7 @@
 (ns pa.system
   (:require [integrant.core :as ig]
             [pa.config :as config]
-            [pa.logging]
+            [pa.logging :as logging]
             [pa.observability]
             [pa.commands.builtin]
             [pa.commands.handlers]
@@ -31,6 +31,9 @@
 (defonce ^:private state (atom nil))
 
 (defn start! []
+  ;; Before ig/init: :pa.logging/timbre sorts last, so components initialising
+  ;; ahead of it would otherwise log into the void. See pa.logging/configure!.
+  (logging/configure!)
   (let [sys (ig/init (config/system-config))]
     (reset! state sys)
     sys))
