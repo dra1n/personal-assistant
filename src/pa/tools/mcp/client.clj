@@ -38,6 +38,13 @@
   being polite about it."
   2000)
 
+(def ^:private stderr-settle-ms
+  "How long to let the stderr drain catch up before reporting a failed
+  handshake. The drain runs on its own thread, and a server that dies during
+  startup often writes its reason a beat after the failure surfaces here — an
+  empty tail is exactly the case where the reason matters most."
+  200)
+
 (def ^:private stderr-tail-lines
   "How many recent stderr lines to keep for failure diagnostics. A server that
   won't start usually explains why on stderr, and that explanation is the
@@ -307,6 +314,7 @@
                  :capabilities (keys (:capabilities result))})
       conn)
     (catch Throwable e
+      (Thread/sleep stderr-settle-ms)
       (log/warn "mcp: handshake failed — server disconnected"
                 {:server name :error (ex-message e) :stderr (stderr-tail conn)})
       (close! conn)

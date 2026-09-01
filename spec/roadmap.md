@@ -1676,10 +1676,10 @@ config-loading machinery):
 
 ### playwright-mcp — first supported server
 
-- [ ] Ship the `:playwright` entry in the `config.edn` template as specified
+- [x] Ship the `:playwright` entry in the `config.edn` template as specified
   above — present but commented out and `:enabled? false` by default, so no
   subprocess spawns or network downloads happen until a user opts in.
-- [ ] REPL/manual verification: flip `:enabled? true`, start the system,
+- [~] REPL/manual verification: flip `:enabled? true`, start the system,
   confirm `registered-tools` includes the `:mcp-playwright/*` tools
   (`browser_navigate`, `browser_click`, `browser_snapshot`, …), and a
   tool-calling turn ("open example.com and tell me the page title") completes

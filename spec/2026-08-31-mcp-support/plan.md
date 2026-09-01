@@ -139,9 +139,9 @@ load-bearing:
 - [x] Tests: invoking a prompt command dispatches `:mcp/prompt-invoke` → handler calls `get-prompt` and feeds the returned messages into `:llm/invoke`
 
 ### Group 8 — playwright-mcp end-to-end
-- [ ] Confirm the shipped `:playwright` template entry is present, commented out, and `:enabled? false`, so no subprocess spawns and no package downloads until a user opts in
-- [ ] Manual verification: flip `:enabled? true`, start the system, confirm `registered-tools` includes the `:mcp-playwright/*` tools (`browser_navigate`, `browser_click`, `browser_snapshot`, …)
-- [ ] Manual verification: a tool-calling turn ("open example.com and tell me the page title") completes end-to-end through `:tool/invoke` → `:tool/result`
+- [x] Confirm the shipped `:playwright` template entry is present, commented out, and `:enabled? false`, so no subprocess spawns and no package downloads until a user opts in
+- [x] Manual verification: flip `:enabled? true`, start the system, confirm `registered-tools` includes the `:mcp-playwright/*` tools (`browser_navigate`, `browser_click`, `browser_snapshot`, …)
+- [~] Manual verification: a tool-calling turn ("open example.com and tell me the page title") completes end-to-end through `:tool/invoke` → `:tool/result`
 - [ ] Record the manual session outcome (tool list + the completed turn) in the PR description
 
 ### Group 9 — Roadmap & docs

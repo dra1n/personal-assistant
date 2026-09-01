@@ -22,6 +22,14 @@
  ;;       :servers {:playwright {:transport :stdio           ; local stdio is the only transport today
  ;;                              :command   "npx"
  ;;                              :args      ["-y" "@playwright/mcp@latest"]
+ ;;                              ;; playwright-mcp needs Node 20+, and npx finds
+ ;;                              ;; node through PATH — so the server quietly
+ ;;                              ;; fails to start if the app is launched from a
+ ;;                              ;; shell using an older default (a fresh
+ ;;                              ;; terminal, a desktop launcher, a cron job).
+ ;;                              ;; Pin it here and it no longer depends on who
+ ;;                              ;; started the app:
+ ;;                              ;;   :env {"PATH" "/path/to/node20+/bin:/usr/bin:/bin"}
  ;;                              :env       {}
  ;;                              :enabled?  false}
  ;;                 ;; The reference server, which exercises every MCP feature
