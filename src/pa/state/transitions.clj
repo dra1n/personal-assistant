@@ -17,6 +17,22 @@
 (defn add-conversation-entry [db entry]
   (update db :conversation conj entry))
 
+(defn- last-user-index [conversation]
+  (->> (map-indexed vector conversation)
+       (filter (fn [[_ entry]] (= :user (:role entry))))
+       last
+       first))
+
+(defn attach-resources
+  "Attach resolved @-mentioned resources to the most recent user turn. The
+  turn's :content stays exactly what was typed — the attachments ride alongside
+  it, so the transcript and the history entry are unaffected and only prompt
+  assembly reads them."
+  [db attachments]
+  (if-let [idx (and (seq attachments) (last-user-index (:conversation db)))]
+    (assoc-in db [:conversation idx :attachments] (vec attachments))
+    db))
+
 (defn clear-conversation
   "Reset the active conversation context to empty so the next LLM turn carries
   no prior turns. A context reset only — persisted events on disk are untouched.

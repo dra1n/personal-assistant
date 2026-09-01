@@ -9,8 +9,8 @@
   selector-spec, the selector overlay's view-model, so selector-lines can size the
   overlay without pulling in the render."
   (:require [clojure.string :as str]
-            [pa.commands.registry :as commands]
             [pa.state.queries :as queries]
+            [pa.ui.selector.sources :as sources]
             [pa.ui.selector.state :as selector]
             [pa.ui.view.overlay :as overlay]))
 
@@ -48,19 +48,19 @@
 ;; --- command selector overlay -----------------------------------------------
 
 (defn selector-spec
-  "The command-selector overlay's data — {:rows :index :help} — or nil when the
-  overlay is closed. Shared by the layout sizing (selector-lines) and the render
-  (pa.ui.selector.view/selector-overlay) so the two never drift. Rows are name +
-  derived usage hint; help is the highlighted command's description."
-  [{:keys [selector input] :as _model}]
-  (when (selector/open? selector input)
-    (let [specs (vec (selector/matches input))
-          index (get selector :selector/index 0)]
-      {:rows  (mapv (fn [s] {:label (str "/" (:command s))
-                             :hint  (commands/usage-hint s)})
-                    specs)
-       :index index
-       :help  (:description (get specs index))})))
+  "The overlay's data — {:rows :index :help} — or nil when it is closed. Shared
+  by the layout sizing (selector-lines) and the render
+  (pa.ui.selector.view/selector-overlay) so the two never drift. The rows come
+  from whichever source the buffer is invoking (a slash command or an
+  @-mention); help is the highlighted row's description."
+  [{:keys [selector input] :as model}]
+  (let [source (sources/active model)]
+    (when (selector/open? source selector input)
+      (let [rows  (vec (selector/matches source input))
+            index (get selector :selector/index 0)]
+        {:rows  (mapv #(select-keys % [:label :hint]) rows)
+         :index index
+         :help  (:help (get rows index))}))))
 
 (defn selector-lines
   "Vertical lines the selector overlay occupies (0 when closed). Subtracted from

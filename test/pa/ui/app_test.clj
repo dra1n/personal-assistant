@@ -7,6 +7,7 @@
             [pa.commands.builtin]                 ; registers the built-in slash commands
             [pa.ui.app :as app]
             [pa.ui.input.view :as input-view]
+            [pa.ui.selector.sources :as sources]
             [pa.ui.selector.state :as selector]
             [pa.ui.view :as view]
             [pa.ui.view.markdown :as markdown]))
@@ -175,9 +176,12 @@
   [model s]
   (reduce (fn [m ch] (first (app/update-model m (msg/key-press (str ch))))) model s))
 
-(defn- sel-open? [m] (selector/open? (:selector m) (:input m)))
-(defn- match-names [m] (mapv :command (selector/matches (:input m))))
-(defn- highlighted-name [m] (:command (selector/highlighted (:selector m) (:input m))))
+;; The overlay is driven by whichever source the buffer invokes — commands
+;; here, mentions in the @-tests below.
+(defn- sel-open? [m] (selector/open? (sources/active m) (:selector m) (:input m)))
+(defn- match-names [m] (mapv (comp :command :value) (selector/matches (sources/active m) (:input m))))
+(defn- highlighted-name [m]
+  (:command (:value (selector/highlighted (sources/active m) (:selector m) (:input m)))))
 
 (deftest selector-opens-on-slash-and-filters-by-prefix
   (let [m1 (type-str (fresh) "/")]
@@ -690,3 +694,69 @@
                 (let [m0 (refresh (md-model true ""))
                       m1 (refresh (assoc-in m0 [:db :settings :markdown] false))]
                   (refresh (assoc-in m1 [:db :settings :markdown] true)))))))))
+
+
+;; ---------------------------------------------------------------------------
+;; @-mention overlay — the same machine as the / selector, over resources
+;; ---------------------------------------------------------------------------
+
+(def ^:private test-resources
+  [{:server :everything :uri "demo://resource/static/document/architecture.md"
+    :name "architecture.md" :mime-type "text/markdown" :description "architecture"}
+   {:server :everything :uri "demo://notes" :name "notes" :mime-type "text/plain"}])
+
+(defn- mention-model []
+  (first ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity
+                     :resources test-resources}))))
+
+(deftest mention-overlay-opens-on-at-and-filters
+  (let [m (type-str (mention-model) "read @arch")]
+    (is (sel-open? m) "typing @ opens the overlay mid-sentence")
+    (is (= ["@everything:demo://resource/static/document/architecture.md"]
+           (mapv :label (selector/matches (sources/active m) (:input m)))))))
+
+(deftest mention-overlay-closes-on-escape
+  (let [m         (type-str (mention-model) "read @arch")
+        [dismissed _] (app/update-model m (msg/key-press :escape))]
+    (is (sel-open? m))
+    (is (not (sel-open? dismissed)) "Esc dismisses the mention overlay too")
+    (is (= "read @arch" (:input dismissed)) "and leaves the buffer alone")))
+
+(deftest mention-overlay-moves-the-highlight
+  (let [m  (type-str (mention-model) "@demo")
+        [m' _] (app/update-model m (msg/key-press :down))]
+    (is (= 2 (count (selector/matches (sources/active m) (:input m)))))
+    (is (= "@everything:demo://notes"
+           (:label (selector/highlighted (sources/active m') (:selector m') (:input m')))))))
+
+(deftest selecting-a-mention-inserts-a-reference-not-a-document
+  (testing "the line stays readable; the content is attached when the message is sent"
+    (let [m (type-str (mention-model) "read @arch")
+          [after cmd] (app/update-model m (msg/key-press :enter))]
+      (is (= "read @everything:demo://resource/static/document/architecture.md "
+             (:input after)))
+      (is (nil? cmd) "the UI does no I/O of its own")
+      (is (not (sel-open? after)) "the overlay closes once the reference is complete"))))
+
+(deftest a-mention-can-be-followed-by-more-typing
+  (testing "the trailing space leaves the sentence to be continued"
+    (let [m (type-str (mention-model) "read @arch")
+          [after _] (app/update-model m (msg/key-press :enter))
+          done      (type-str after "and summarize")]
+      (is (= (str "read @everything:demo://resource/static/document/architecture.md "
+                  "and summarize")
+             (:input done)))
+      (is (not (sel-open? done))))))
+
+(deftest a-mention-mid-sentence-replaces-only-its-own-token
+  (let [m (type-str (mention-model) "compare @notes")
+        [after _] (app/update-model m (msg/key-press :enter))]
+    (is (= "compare @everything:demo://notes " (:input after)))))
+
+(deftest slash-and-at-do-not-interfere
+  (testing "a slash mid-line stays inert, and a session without resources is unchanged"
+    (let [m (type-str (mention-model) "see docs/readme")]
+      (is (not (sel-open? m))))
+    (let [m (type-str (mention-model) "/hel")]
+      (is (sel-open? m))
+      (is (= "/" (:trigger (sources/active m)))))))

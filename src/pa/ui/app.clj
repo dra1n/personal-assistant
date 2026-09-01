@@ -48,6 +48,7 @@
             [pa.state.db :as db]
             [pa.state.queries :as queries]
             [pa.ui.input.state :as input]
+            [pa.ui.selector.sources :as sources]
             [pa.ui.selector.state :as selector]
             [pa.ui.subscribe :as subscribe]
             [pa.ui.view :as view]
@@ -125,7 +126,8 @@
 
 (defn init
   "Return a charm init fn. Returns the initial model plus the startup commands."
-  [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd delta-ch watch-delta-cmd llm-model]}]
+  [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd delta-ch watch-delta-cmd llm-model
+           resources]}]
   (fn []
     [(-> {:db           (db/current-db)
           :llm-model    llm-model
@@ -140,6 +142,10 @@
           :input        ""
           :cursor       0
           :selector     selector/initial
+          ;; Mentionable MCP resources, handed over at startup by
+          ;; :pa.ui/terminal. Names and uris only — reading one is the
+          ;; runtime's job, at send time.
+          :resources    resources
           :nav/index    nil
           :nav/draft    ""
           :pasting?     false
@@ -205,10 +211,13 @@
   buffer here — the single choke point for buffer edits — so the overlay's
   open/closed state and highlight stay consistent wherever the buffer changes."
   [model ti]
-  (let [value (tin/value ti)]
-    (-> model
-        (assoc :ti ti :input value :cursor (:pos ti))
-        (update :selector selector/sync-state value))))
+  (let [value (tin/value ti)
+        model (assoc model :ti ti :input value :cursor (:pos ti))]
+    ;; The source is derived from the *new* buffer: typing `@` mid-sentence
+    ;; switches which overlay is in play, and sync-state must reconcile
+    ;; against the one that is actually open.
+    (assoc model :selector (selector/sync-state (sources/active model)
+                                                (:selector model) value))))
 
 (defn- splice-input
   "Insert s verbatim at the cursor — used for newlines and tabs (paste,
@@ -271,16 +280,27 @@
 ;; intercepted in update-model ahead of history navigation and the text path.
 
 (defn- selector-open? [model]
-  (selector/open? (:selector model) (:input model)))
+  (selector/open? (sources/active model) (:selector model) (:input model)))
+
+(defn- replace-token
+  "Swap the trigger token under the cursor for `replacement`."
+  [model source replacement]
+  (let [{:keys [start end]} (selector/token source (:input model))
+        buffer (:input model)]
+    (set-input model (str (subs buffer 0 start) replacement (subs buffer end)))))
 
 (defn- complete-selected
-  "Enter/Tab in the overlay: replace the buffer with the highlighted command name
-  plus a trailing space, ready for argument entry (sync-input then closes the
-  overlay, since the buffer has left the name phase). A no-op with no highlight."
+  "Enter/Tab in the overlay: replace the trigger token with the highlighted
+  row's label plus a trailing space. For a command that is the name, ready for
+  argument entry; for a resource it is the `@server:uri` reference, which the
+  runtime resolves into an attachment when the message is sent. The UI does no
+  I/O of its own — a document belongs in the message, not in the line someone
+  is still writing. Returns [model cmd]."
   [model]
-  (if-let [spec (selector/highlighted (:selector model) (:input model))]
-    (refresh-conversation (set-input model (str "/" (:command spec) " ")))
-    model))
+  (let [source (sources/active model)]
+    (if-let [row (selector/highlighted source (:selector model) (:input model))]
+      [(refresh-conversation (replace-token model source (str (:label row) " "))) nil]
+      [model nil])))
 
 (defn update-model [model message]
   (cond
@@ -302,14 +322,16 @@
 
     ;; --- command selector keys (only while open; before history/focus/submit) -
     (and (selector-open? model) (not (:pasting? model)) (msg/key-match? message :up))
-    [(update model :selector selector/move (:input model) -1) nil]
+    [(assoc model :selector (selector/move (sources/active model) (:selector model)
+                                           (:input model) -1)) nil]
 
     (and (selector-open? model) (not (:pasting? model)) (msg/key-match? message :down))
-    [(update model :selector selector/move (:input model) 1) nil]
+    [(assoc model :selector (selector/move (sources/active model) (:selector model)
+                                           (:input model) 1)) nil]
 
     (and (selector-open? model) (not (:pasting? model))
          (or (msg/key-match? message :enter) (msg/key-match? message :tab)))
-    [(complete-selected model) nil]
+    (complete-selected model)
 
     (and (selector-open? model) (not (:pasting? model)) (msg/key-match? message :escape))
     [(update model :selector selector/dismiss) nil]

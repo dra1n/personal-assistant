@@ -206,3 +206,16 @@
           off    (view/view (model false))]
       (is (= 30 (count (str/split-lines on))) "markdown on fills exactly the height")
       (is (= 30 (count (str/split-lines off))) "markdown off fills exactly the height"))))
+
+(deftest attached-resources-are-shown-under-the-turn
+  (testing "what reaches the model is visible in the transcript"
+    (let [out (view/conversation-content
+               {:conversation
+                [{:role :user :content "summarize @s:demo://a"
+                  :attachments [{:name "a.md" :uri "demo://a" :mime-type "text/markdown"}
+                                {:name "b.md" :uri "demo://b" :error "server is not connected"}]}]}
+               60 nil)]
+      (is (str/includes? out "summarize @s:demo://a"))
+      (is (str/includes? out "a.md"))
+      (is (str/includes? out "text/markdown"))
+      (is (str/includes? out "not read: server is not connected")))))

@@ -7,9 +7,9 @@
 (defonce ^{:doc "When false, the stdout (:println) appender is silenced. The
   terminal UI and the app entrypoint set this false so logs don't corrupt the
   charm-rendered frame; REPL sessions leave it true for inline console output.
-  Held as a flag (not just a runtime toggle) because :pa.logging/timbre may
-  initialise after the UI — re-reading it on init keeps console state from
-  flapping back on regardless of Integrant's init order."}
+  Held as a flag (not just a runtime toggle) because the choice is often made
+  before the appenders exist — pa.core silences the console before ig/init —
+  so configure! reads it when installing :println rather than assuming on."}
   console?
   (atom true))
 
@@ -30,12 +30,22 @@
 ;; The :println appender always carries its :fn (so set-console! can re-enable
 ;; it), but its :enabled? tracks the console? flag. The file appender is the
 ;; durable record and stays on in every mode.
-(defmethod ig/init-key :pa.logging/timbre [_ _opts]
+(defn configure!
+  "Install the appenders. Idempotent.
+
+  Applied by the :pa.logging/timbre component, which every other component
+  refs (see resources/system.edn) so that it initialises first: components
+  init-log before their appenders exist otherwise, and in app mode — where
+  set-console! has already silenced stdout — those lines are simply lost."
+  []
   (log/merge-config!
    {:min-level :debug
     :appenders {:file    (log/spit-appender {:fname (log-file)})
                 :println (assoc (log/println-appender {:stream :auto})
-                                :enabled? @console?)}})
+                                :enabled? @console?)}}))
+
+(defmethod ig/init-key :pa.logging/timbre [_ _opts]
+  (configure!)
   (log/info "logging initialized")
   {})
 

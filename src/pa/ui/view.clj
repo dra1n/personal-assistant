@@ -79,7 +79,20 @@
            (pos? more) (conj (style/styled (str "… +" more " more lines") :faint true)))
          (str/join "\n"))))
 
-(defn- render-turn [{:keys [role content tool-calls pending? markdown?]} width names]
+(defn- attachment-lines
+  "One faint line per @-mentioned resource sent with a turn. What reaches the
+  model should be visible in the transcript, not implied by a reference."
+  [attachments width]
+  (faint-lines
+   (str/join "\n"
+             (map (fn [{:keys [name uri mime-type error]}]
+                    (str "📎 " (or name uri)
+                         (when mime-type (str " (" mime-type ")"))
+                         (when error (str " — not read: " error))))
+                  attachments))
+   width))
+
+(defn- render-turn [{:keys [role content tool-calls attachments pending? markdown?]} width names]
   (let [w     (max 1 width)
         label (case role
                 :user      (style/styled (or (:user names) "You")            :fg common/accent :bold true)
@@ -100,7 +113,9 @@
                         markdown?      (markdown/render (str content) w)
                         :else          (wrap-text (str content) w)))
                 (seq tool-calls)
-                (conj (faint-lines (str/join "\n" (map #(tool-call-line % w) tool-calls)) w)))]
+                (conj (faint-lines (str/join "\n" (map #(tool-call-line % w) tool-calls)) w))
+                (seq attachments)
+                (conj (attachment-lines attachments w)))]
     ;; One blank line under the label so it stands out as a header; the gap
     ;; between turns (below) is wider, so the label groups with its own body.
     (str label "\n\n" (str/join "\n\n" parts))))

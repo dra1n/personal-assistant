@@ -31,7 +31,7 @@
       (log/error t "event processing failed — event dropped"
                  {:event/type (:event/type event)}))))
 
-(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config settings events identity history memory indexer llm policy deltas]}]
+(defmethod ig/init-key :pa.runtime/dispatcher [_ {:keys [config settings events identity history memory indexer llm policy mcp deltas]}]
   (let [ch (async/chan 256)
         dispatch! (fn [event-map]
                     (async/put! ch (events/make-event event-map)))
@@ -51,6 +51,7 @@
                                   :retrieve-memories! (:retrieve-memories! indexer)
                                   :llm-provider       llm
                                   :tool.fs/policy     policy
+                                  :mcp/registry       mcp
                                   :http               (http/hato-client)
                                   :emit-delta!        emit-delta!}}]
     (async/go-loop []

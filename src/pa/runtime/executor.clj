@@ -5,6 +5,8 @@
             [pa.memory.extraction :as extraction]
             [pa.memory.records :as records]
             [pa.state.db :as db]
+            [pa.tools.mcp :as mcp]
+            [pa.tools.mcp.client :as client]
             [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
 
@@ -137,6 +139,80 @@
           (dispatch! {:event/type :assistant/response
                       :content (str "⚠ LLM error: " (.getMessage e))}))))
     (log/warn ":llm/invoke called but no :llm-provider in ctx — is :llm/provider wired?")))
+
+;; --- :mcp/resolve-mentions ----------------------------------------------
+;;
+;; params: {:content <the message text>, :resources [<resource rows>]}
+;; ctx must contain :dispatch! and, to read anything, :mcp/registry.
+;;
+;; Reads each @-mentioned resource off-thread and dispatches
+;; :mcp/mentions-resolved with the results — the same future + dispatch! hop
+;; :llm/invoke uses. A resource that cannot be read is attached as an error
+;; rather than dropped: the model must not be left believing it read something
+;; it did not. The event is dispatched either way, because the person's message
+;; is waiting on it.
+
+(defn- read-mention
+  [registry {:keys [server uri] :as row}]
+  (if-let [conn (get-in registry [:clients server])]
+    (try
+      (mcp/read-resource conn row)
+      (catch Throwable e
+        (log/warn "mcp: could not read mentioned resource"
+                  {:server server :uri uri :error (ex-message e)})
+        (assoc row :error (ex-message e))))
+    (do (log/warn "mcp: mentioned resource's server is not connected" {:server server :uri uri})
+        (assoc row :error "server is not connected"))))
+
+(defmethod execute-effect :mcp/resolve-mentions
+  [_ {:keys [content resources]} {:keys [dispatch!] :as ctx}]
+  (let [registry (:mcp/registry ctx)]
+    (future
+      (let [attachments (mapv #(read-mention registry %) resources)]
+        (dispatch! {:event/type  :mcp/mentions-resolved
+                    :content     content
+                    :attachments attachments})))))
+
+;; --- :mcp/get-prompt ----------------------------------------------------
+;;
+;; params: {:server <kw>, :prompt <string>, :arguments {<name> <value>}}
+;; ctx must contain :dispatch! and :mcp/registry.
+;;
+;; Renders a prompt on its server and dispatches :mcp/prompt-resolved with the
+;; messages it returned. A failure surfaces as :command/rejected — the person
+;; typed a slash command, so the answer belongs where a usage error would go,
+;; not in a silent log line.
+
+(defmethod execute-effect :mcp/get-prompt
+  [_ {:keys [server prompt arguments]} {:keys [dispatch!] :as ctx}]
+  (let [conn (get-in ctx [:mcp/registry :clients server])]
+    (if-not conn
+      (do (log/warn "mcp: prompt's server is not connected" {:server server :prompt prompt})
+          (dispatch! {:event/type :command/rejected
+                      :command    (mcp/prompt-command-name server prompt)
+                      :reason     :mcp/not-connected
+                      :message    (str (name server) " is not connected")}))
+      (future
+        (try
+          (let [messages (mcp/prompt-messages (client/get-prompt conn prompt arguments))]
+            (if (seq messages)
+              (dispatch! {:event/type :mcp/prompt-resolved
+                          :server     server
+                          :prompt     prompt
+                          :messages   messages})
+              (dispatch! {:event/type :command/rejected
+                          :command    (mcp/prompt-command-name server prompt)
+                          :reason     :mcp/empty-prompt
+                          :message    (str "/" (mcp/prompt-command-name server prompt)
+                                           " returned nothing to say")})))
+          (catch Throwable e
+            (log/warn "mcp: could not render prompt"
+                      {:server server :prompt prompt :error (ex-message e)})
+            (dispatch! {:event/type :command/rejected
+                        :command    (mcp/prompt-command-name server prompt)
+                        :reason     :mcp/prompt-error
+                        :message    (str "/" (mcp/prompt-command-name server prompt)
+                                         " failed: " (ex-message e))})))))))
 
 ;; --- :tool/invoke -------------------------------------------------------
 ;;

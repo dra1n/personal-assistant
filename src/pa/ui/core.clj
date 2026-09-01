@@ -3,6 +3,8 @@
             [clojure.core.async :as async]
             [integrant.core :as ig]
             [pa.logging :as logging]
+            [pa.tools.mcp :as mcp-tools]
+            [pa.tools.mcp.registry :as mcp]
             [pa.ui.app :as app]
             [pa.ui.subscribe :as subscribe]
             [pa.ui.view :as view]
@@ -26,18 +28,20 @@
 ;; Integrant component — assembles subscribe + app, manages lifecycle
 ;; ---------------------------------------------------------------------------
 
-(defmethod ig/init-key :pa.ui/terminal [_ {:keys [dispatcher deltas llm]}]
+(defmethod ig/init-key :pa.ui/terminal [_ {:keys [dispatcher deltas llm mcp]}]
   (let [{:keys [db-ch tap-sink watch-cmd]}          (subscribe/make-subscription)
         {:keys [log-ch log-appender watch-log-cmd]} (subscribe/make-log-subscription)
         _                        (add-tap tap-sink)
         ;; Route logs into the in-app panel; silence the stdout appender,
         ;; which would otherwise scribble over the charm-rendered frame.
-        ;; set-console! also flips the flag so a later pa.logging init can't
-        ;; re-enable :println. (The file appender stays on.)
+        ;; set-console! also records the choice, so any later re-application
+        ;; of the timbre config honours it. (The file appender stays on.)
         _                        (logging/set-console! false)
         _                        (log/merge-config! {:appenders {:panel log-appender}})
         {:keys [quit! result]}   (charm/run-async
-                                  {:init   (app/init {:db-ch           db-ch
+                                  {:init   (app/init {:resources       (mapv mcp-tools/resource-row
+                                                                          (mcp/all-resources mcp))
+                                                      :db-ch           db-ch
                                                       :watch-cmd       watch-cmd
                                                       :dispatch!       (:dispatch! dispatcher)
                                                       :llm-model       (:model llm)

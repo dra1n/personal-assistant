@@ -33,6 +33,16 @@
   (swap! registry assoc tool-name spec)
   tool-name)
 
+(defn unreg-tool
+  "Remove tool-name from the registry. Returns tool-name.
+
+  Registrations are normally permanent — native tools self-register at load
+  time and stay. Dynamic families (an MCP server's tools) need the inverse, so
+  a tool name cannot outlive the connection standing behind it."
+  [tool-name]
+  (swap! registry dissoc tool-name)
+  tool-name)
+
 (defn get-tool
   "Return the tool spec for tool-name as {:fn :schema :description}, or nil."
   [tool-name]
@@ -65,22 +75,41 @@
     "object"  (map? v)
     true))
 
+(defn- arg-key
+  "Normalize a schema's argument name to the keyword an args map is keyed by.
+
+  Schemas arrive from two places and disagree on this. A native tool's schema is
+  hand-written EDN, so it names arguments with keywords (:required [:path]).
+  A schema from an MCP server is JSON Schema: keywordizing its keys on the way
+  in leaves the strings inside :required untouched, so it names them as JSON
+  wrote them. Both forms name the same argument."
+  [k]
+  (if (keyword? k) k (keyword (str k))))
+
+(defn- prop-type
+  "The declared type of a property, whichever key shape the schema uses."
+  [prop]
+  (or (:type prop) (get prop "type")))
+
 (defn validate-args
   "Returns nil if args satisfy schema, or a descriptive error string on failure.
   Checks: all :required keys are present; each :properties entry whose key is
-  present in args has the declared type. An empty schema {} always passes."
+  present in args has the declared type. An empty schema {} always passes.
+  Argument names may be keywords or strings — see arg-key."
   [schema args]
-  (let [required   (seq (:required schema))
+  (let [required   (map arg-key (or (:required schema) []))
         properties (:properties schema)]
     (or
-     (when-let [missing (seq (remove #(contains? args %) (or required [])))]
+     (when-let [missing (seq (remove #(contains? args %) required))]
        (str "Missing required argument(s): " (str/join ", " (map name missing))))
      (when properties
-       (some (fn [[prop-kw {:keys [type]}]]
-               (when (and type (contains? args prop-kw))
-                 (when-not (type-matches? type (get args prop-kw))
-                   (str "Argument " (name prop-kw) " must be " type
-                        " but got " (pr-str (get args prop-kw))))))
+       (some (fn [[prop spec]]
+               (let [k (arg-key prop)
+                     t (prop-type spec)]
+                 (when (and t (contains? args k))
+                   (when-not (type-matches? t (get args k))
+                     (str "Argument " (name k) " must be " t
+                          " but got " (pr-str (get args k)))))))
              properties)))))
 
 (defn snapshot

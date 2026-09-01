@@ -16,12 +16,19 @@
             [pa.llm.component]
             [pa.scheduler.core]
             [pa.tools.fs.policy]
+            [pa.tools.mcp.policy :as policy]
             [pa.ui.core]))
 
 (defn- start-test-system []
   (let [cfg (-> (config/system-config)
-                (dissoc :pa.observability/portal)  ; skip Portal in CI
-                (dissoc :pa.ui/terminal))]          ; skip TTY output in CI
+                (dissoc :pa.observability/portal)     ; skip Portal in CI
+                (dissoc :pa.ui/terminal)              ; skip TTY output in CI
+                ;; Blank the server list rather than dropping :mcp/registry,
+                ;; which the dispatcher refs: the real component still starts
+                ;; and halts, it just has nothing to spawn. Without this the
+                ;; suite would launch whatever MCP servers the developer has
+                ;; enabled in their own config.edn.
+                (assoc-in [:tool.mcp/policy :servers] nil))]
     (ig/init cfg)))
 
 (deftest system-starts
@@ -36,6 +43,20 @@
   (testing "all components halt cleanly"
     (let [sys (start-test-system)]
       (is (nil? (ig/halt! sys))))))
+
+(deftest mcp-policy-is-wired
+  (testing "the policy component initializes as part of the full system"
+    ;; Shape only, never contents: :servers reflects whatever this machine's
+    ;; config.edn declares, so asserting on it would make the suite depend on
+    ;; the developer's personal config. Default-deny and malformed-entry
+    ;; behavior are covered in pa.tools.mcp.policy-test against fixtures.
+    (let [sys (start-test-system)
+          pol (:tool.mcp/policy sys)]
+      (is (contains? sys :tool.mcp/policy))
+      (is (map? (:servers pol)))
+      (is (pos-int? (:connect-timeout-ms pol)))
+      (is (every? :command (vals (policy/enabled-servers pol))))
+      (ig/halt! sys))))
 
 (deftest event-bus-lifecycle
   (testing "dispatcher channel is open after init"
