@@ -1680,7 +1680,7 @@ config-loading machinery):
   above — present but commented out and `:enabled? false` by default, so no
   subprocess spawns or network downloads happen until a user opts in.
 - [ ] REPL/manual verification: flip `:enabled? true`, start the system,
-  confirm `registered-tools` includes the `:mcp.playwright/*` tools
+  confirm `registered-tools` includes the `:mcp-playwright/*` tools
   (`browser_navigate`, `browser_click`, `browser_snapshot`, …), and a
   tool-calling turn ("open example.com and tell me the page title") completes
   end-to-end through `:tool/invoke` → `:tool/result`.

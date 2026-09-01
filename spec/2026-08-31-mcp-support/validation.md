@@ -57,7 +57,7 @@ against a real server.
       registered, no subprocess, no added startup latency
 - [ ] With the shipped template (`:playwright` commented out, `:enabled? false`), the system
       still spawns nothing and downloads nothing
-- [ ] With `:playwright` enabled, `registered-tools` includes the `:mcp.playwright/*` tools
+- [ ] With `:playwright` enabled, `registered-tools` includes the `:mcp-playwright/*` tools
       (`browser_navigate`, `browser_click`, `browser_snapshot`, …), namespaced by server
 - [ ] An MCP tool call appears in the event log as a normal `:tool/invoke` → `:tool/result`
       pair — observable, structured-logged, and replayable like any native tool
@@ -90,7 +90,7 @@ against a real server.
 ### Manual verification (gates merge)
 
 - [ ] Flip `:playwright` to `:enabled? true`, start the system, and confirm the
-      `:mcp.playwright/*` tools appear in `registered-tools`
+      `:mcp-playwright/*` tools appear in `registered-tools`
 - [ ] Run "open example.com and tell me the page title" and confirm the turn completes
       end-to-end through `:tool/invoke` → `:tool/result` with a correct answer
 - [ ] Stop the system and confirm the playwright subprocess is gone (no orphan in `ps`)
