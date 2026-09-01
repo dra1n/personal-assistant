@@ -32,8 +32,8 @@
         _                        (add-tap tap-sink)
         ;; Route logs into the in-app panel; silence the stdout appender,
         ;; which would otherwise scribble over the charm-rendered frame.
-        ;; set-console! also flips the flag so a later pa.logging init can't
-        ;; re-enable :println. (The file appender stays on.)
+        ;; set-console! also records the choice, so any later re-application
+        ;; of the timbre config honours it. (The file appender stays on.)
         _                        (logging/set-console! false)
         _                        (log/merge-config! {:appenders {:panel log-appender}})
         {:keys [quit! result]}   (charm/run-async

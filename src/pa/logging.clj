@@ -7,9 +7,9 @@
 (defonce ^{:doc "When false, the stdout (:println) appender is silenced. The
   terminal UI and the app entrypoint set this false so logs don't corrupt the
   charm-rendered frame; REPL sessions leave it true for inline console output.
-  Held as a flag (not just a runtime toggle) because :pa.logging/timbre may
-  initialise after the UI — re-reading it on init keeps console state from
-  flapping back on regardless of Integrant's init order."}
+  Held as a flag (not just a runtime toggle) because the choice is often made
+  before the appenders exist — pa.core silences the console before ig/init —
+  so configure! reads it when installing :println rather than assuming on."}
   console?
   (atom true))
 
