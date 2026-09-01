@@ -237,3 +237,48 @@
     (with-redefs [client/read-resource (fn [_ _] (throw (ex-info "gone" {:type :mcp/closed})))]
       (is (thrown? clojure.lang.ExceptionInfo
                    (mcp/read-resource conn {:uri "demo://x"}))))))
+
+;; ---------------------------------------------------------------------------
+;; Mentions
+;; ---------------------------------------------------------------------------
+
+(def ^:private known
+  [{:server :everything :uri "demo://notes"  :name "notes"}
+   {:server :everything :uri "demo://notes2" :name "notes2"}
+   {:server :other      :uri "demo://x"      :name "x"}])
+
+(defn- mentioned [text] (mapv :uri (mcp/parse-mentions text known)))
+
+(deftest parses-a-single-mention
+  (is (= ["demo://notes"] (mentioned "read @everything:demo://notes please"))))
+
+(deftest parses-several-mentions-in-order-of-appearance
+  (is (= ["demo://x" "demo://notes"]
+         (mentioned "compare @other:demo://x with @everything:demo://notes"))))
+
+(deftest trailing-punctuation-does-not-corrupt-a-mention
+  (testing "a uri has no reliable end, so mentions resolve against known labels"
+    (is (= ["demo://notes"] (mentioned "see @everything:demo://notes.")))
+    (is (= ["demo://notes"] (mentioned "see @everything:demo://notes, then stop")))
+    (is (= ["demo://notes"] (mentioned "(@everything:demo://notes)")))))
+
+(deftest a-longer-uri-is-not-matched-by-its-prefix
+  (testing "@…notes must not fire on @…notes2"
+    (is (= ["demo://notes2"] (mentioned "read @everything:demo://notes2")))))
+
+(deftest a-mention-must-stand-on-its-own
+  (testing "an email address is not a mention"
+    (is (= [] (mentioned "write to ada@everything:demo://notes"))))
+  (testing "an unknown server or resource stays ordinary text"
+    (is (= [] (mentioned "read @nosuch:demo://notes")))
+    (is (= [] (mentioned "read @everything:demo://missing")))))
+
+(deftest no-mentions-is-an-empty-vector
+  (is (= [] (mcp/parse-mentions "just a message" known)))
+  (is (= [] (mcp/parse-mentions "" known)))
+  (is (= [] (mcp/parse-mentions nil known)))
+  (is (= [] (mcp/parse-mentions "@everything:demo://notes" []))))
+
+(deftest a-repeated-mention-attaches-once
+  (is (= ["demo://notes"]
+         (mentioned "@everything:demo://notes and again @everything:demo://notes"))))

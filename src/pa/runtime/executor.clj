@@ -5,6 +5,7 @@
             [pa.memory.extraction :as extraction]
             [pa.memory.records :as records]
             [pa.state.db :as db]
+            [pa.tools.mcp :as mcp]
             [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
 
@@ -137,6 +138,39 @@
           (dispatch! {:event/type :assistant/response
                       :content (str "⚠ LLM error: " (.getMessage e))}))))
     (log/warn ":llm/invoke called but no :llm-provider in ctx — is :llm/provider wired?")))
+
+;; --- :mcp/resolve-mentions ----------------------------------------------
+;;
+;; params: {:content <the message text>, :resources [<resource rows>]}
+;; ctx must contain :dispatch! and, to read anything, :mcp/registry.
+;;
+;; Reads each @-mentioned resource off-thread and dispatches
+;; :mcp/mentions-resolved with the results — the same future + dispatch! hop
+;; :llm/invoke uses. A resource that cannot be read is attached as an error
+;; rather than dropped: the model must not be left believing it read something
+;; it did not. The event is dispatched either way, because the person's message
+;; is waiting on it.
+
+(defn- read-mention
+  [registry {:keys [server uri] :as row}]
+  (if-let [conn (get-in registry [:clients server])]
+    (try
+      (mcp/read-resource conn row)
+      (catch Throwable e
+        (log/warn "mcp: could not read mentioned resource"
+                  {:server server :uri uri :error (ex-message e)})
+        (assoc row :error (ex-message e))))
+    (do (log/warn "mcp: mentioned resource's server is not connected" {:server server :uri uri})
+        (assoc row :error "server is not connected"))))
+
+(defmethod execute-effect :mcp/resolve-mentions
+  [_ {:keys [content resources]} {:keys [dispatch!] :as ctx}]
+  (let [registry (:mcp/registry ctx)]
+    (future
+      (let [attachments (mapv #(read-mention registry %) resources)]
+        (dispatch! {:event/type  :mcp/mentions-resolved
+                    :content     content
+                    :attachments attachments})))))
 
 ;; --- :tool/invoke -------------------------------------------------------
 ;;

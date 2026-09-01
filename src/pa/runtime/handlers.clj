@@ -82,19 +82,46 @@
 ;; the model is expected to stop calling tools once it has enough information.
 ;; ---------------------------------------------------------------------------
 
+;; A message that @-mentions resources takes one extra hop before the model is
+;; called: reading a resource is I/O, so it becomes a :mcp/resolve-mentions
+;; effect whose result arrives as :mcp/mentions-resolved, and that handler emits
+;; the :llm/invoke this one would have. A message with no mentions — every
+;; message, in a session with no MCP servers — takes exactly the path it always
+;; did.
 (registry/reg-handler :user/message
-                      [coeffects/memories-interceptor]
-                      (fn [{:keys [db event memories]}]
+                      [coeffects/memories-interceptor coeffects/mentions-interceptor]
+                      (fn [{:keys [db event memories mentions]}]
                         (let [content    (:content event)
                               db'        (tr/add-conversation-entry db {:role :user :content content})
                               entry      (history/make-entry content)
                               duplicate? (= content (:history/text (last (:ui/history db))))]
                           (cond-> {:db          (if duplicate? db' (tr/append-history db' entry))
                                    :event/store event
-                                   :llm/invoke  {:messages (assemble-for db' memories) :opts {:tools (tools/advertise)}}
                                    :trace       {:event/type :user/message}}
+                            (seq mentions)
+                            (assoc :mcp/resolve-mentions {:content   content
+                                                          :resources mentions})
+
+                            (empty? mentions)
+                            (assoc :llm/invoke {:messages (assemble-for db' memories)
+                                                :opts     {:tools (tools/advertise)}})
+
                             (not duplicate?)
                             (assoc :history/append entry)))))
+
+;; The resolved contents live in this event, so replaying the log rebuilds the
+;; attachments without an MCP server present — the same reason replay never
+;; calls the LLM. :content is carried over so memory retrieval sees the message
+;; text, exactly as it did on :user/message.
+(registry/reg-handler :mcp/mentions-resolved
+                      [coeffects/memories-interceptor]
+                      (fn [{:keys [db event memories]}]
+                        (let [db' (tr/attach-resources db (:attachments event))]
+                          {:db          db'
+                           :event/store event
+                           :llm/invoke  {:messages (assemble-for db' memories)
+                                         :opts     {:tools (tools/advertise)}}
+                           :trace       {:event/type :mcp/mentions-resolved}})))
 
 (registry/reg-handler :assistant/tool-call
                       (fn [{:keys [db event]}]

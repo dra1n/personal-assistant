@@ -5,14 +5,12 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [pa.commands.builtin]                 ; registers the built-in slash commands
-            [pa.tools.mcp.client :as client]
             [pa.ui.app :as app]
             [pa.ui.input.view :as input-view]
             [pa.ui.selector.sources :as sources]
             [pa.ui.selector.state :as selector]
             [pa.ui.view :as view]
-            [pa.ui.view.markdown :as markdown]
-            [taoensso.timbre :as log]))
+            [pa.ui.view.markdown :as markdown]))
 
 (defn- model-with-turns
   "An initialised model sized to a terminal with `n` turns of content, so the
@@ -709,8 +707,7 @@
 
 (defn- mention-model []
   (first ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity
-                     :resources test-resources
-                     :mcp-clients {:everything {:name :everything}}}))))
+                     :resources test-resources}))))
 
 (deftest mention-overlay-opens-on-at-and-filters
   (let [m (type-str (mention-model) "read @arch")]
@@ -732,38 +729,29 @@
     (is (= "@everything:demo://notes"
            (:label (selector/highlighted (sources/active m') (:selector m') (:input m')))))))
 
-(deftest selecting-a-mention-splices-the-resource-text-into-the-buffer
-  (testing "the mention token is replaced by the content it stands for"
+(deftest selecting-a-mention-inserts-a-reference-not-a-document
+  (testing "the line stays readable; the content is attached when the message is sent"
     (let [m (type-str (mention-model) "read @arch")
           [after cmd] (app/update-model m (msg/key-press :enter))]
-      (is (= "read " (:input after)) "the token is dropped while the read is in flight")
-      (is (some? cmd) "and a command was issued to read it off the update loop")
-      ;; run the command the way charm would, then feed its message back
-      (with-redefs [client/read-resource
-                    (fn [_ uri]
-                      (is (= "demo://resource/static/document/architecture.md" uri))
-                      {:contents [{:uri uri :mimeType "text/markdown"
-                                   :text "# Architecture"}]})]
-        (let [message   ((:fn cmd))
-              [final _] (app/update-model after message)]
-          (is (= "read # Architecture" (:input final))))))))
+      (is (= "read @everything:demo://resource/static/document/architecture.md "
+             (:input after)))
+      (is (nil? cmd) "the UI does no I/O of its own")
+      (is (not (sel-open? after)) "the overlay closes once the reference is complete"))))
 
-(deftest a-failed-mention-read-leaves-the-buffer-as-typed
-  (testing "the reason is logged; the person is not left with a half-edited line"
-    (let [m (type-str (mention-model) "@arch")
-          [after cmd] (app/update-model m (msg/key-press :enter))]
-      (with-redefs [client/read-resource (fn [_ _] (throw (ex-info "gone" {:type :mcp/closed})))]
-        (is (nil? (log/with-min-level :error ((:fn cmd))))
-            "no message is sent, so nothing is spliced")
-        (is (= "" (:input after)))))))
+(deftest a-mention-can-be-followed-by-more-typing
+  (testing "the trailing space leaves the sentence to be continued"
+    (let [m (type-str (mention-model) "read @arch")
+          [after _] (app/update-model m (msg/key-press :enter))
+          done      (type-str after "and summarize")]
+      (is (= (str "read @everything:demo://resource/static/document/architecture.md "
+                  "and summarize")
+             (:input done)))
+      (is (not (sel-open? done))))))
 
-(deftest a-mention-for-a-disconnected-server-sends-nothing
-  (let [m (first ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity
-                             :resources test-resources
-                             :mcp-clients {}}))) ; nothing connected
-        typed (type-str m "@arch")
-        [_ cmd] (app/update-model typed (msg/key-press :enter))]
-    (is (nil? (log/with-min-level :error ((:fn cmd)))))))
+(deftest a-mention-mid-sentence-replaces-only-its-own-token
+  (let [m (type-str (mention-model) "compare @notes")
+        [after _] (app/update-model m (msg/key-press :enter))]
+    (is (= "compare @everything:demo://notes " (:input after)))))
 
 (deftest slash-and-at-do-not-interfere
   (testing "a slash mid-line stays inert, and a session without resources is unchanged"

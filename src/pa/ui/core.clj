@@ -41,7 +41,6 @@
         {:keys [quit! result]}   (charm/run-async
                                   {:init   (app/init {:resources       (mapv mcp-tools/resource-row
                                                                           (mcp/all-resources mcp))
-                                                      :mcp-clients     (:clients mcp)
                                                       :db-ch           db-ch
                                                       :watch-cmd       watch-cmd
                                                       :dispatch!       (:dispatch! dispatcher)

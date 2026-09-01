@@ -1,5 +1,7 @@
 (ns pa.runtime.coeffects
-  (:require [pa.state.db :as db])
+  (:require [pa.state.db :as db]
+            [pa.tools.mcp :as mcp]
+            [pa.tools.mcp.registry :as mcp-registry])
   (:import [java.time Instant]))
 
 ;; ---------------------------------------------------------------------------
@@ -15,6 +17,8 @@
 ;;   :config   — system config map
 ;;   :runtime  — curated runtime capabilities: {:dispatch! fn}
 ;;   :event    — the triggering event
+;;   :memories — injected by memories-interceptor, for :user/message
+;;   :mentions — injected by mentions-interceptor, for :user/message
 ;;
 ;; The system-context map is built once at dispatcher start time and contains
 ;; the curated :config and :runtime values. This avoids reconstructing them
@@ -38,6 +42,23 @@
                                (retrieve! {:query/text text :query/limit 5})
                                [])]
                (update ctx :coeffects assoc :memories memories)))
+   :after nil})
+
+;; ---------------------------------------------------------------------------
+;; mentions-interceptor
+;;
+;; Per-handler interceptor for :user/message. Resolves which @-mentions in the
+;; message name resources of connected servers, injecting them as :mentions.
+;; Only the *identification* happens here — it is pure and cheap; reading the
+;; resources is I/O and belongs in the :mcp/resolve-mentions effect.
+;; ---------------------------------------------------------------------------
+
+(def mentions-interceptor
+  {:before (fn [ctx]
+             (let [registry  (get-in ctx [:system-context :runtime :mcp/registry])
+                   resources (mapv mcp/resource-row (mcp-registry/all-resources registry))
+                   mentions  (mcp/parse-mentions (get-in ctx [:event :content]) resources)]
+               (update ctx :coeffects assoc :mentions mentions)))
    :after nil})
 
 (defn inject-coeffects

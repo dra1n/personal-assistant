@@ -165,3 +165,55 @@
   not a model's."
   [conn row]
   (assoc row :content (readable-text (client/read-resource conn (:uri row)))))
+
+;; ---------------------------------------------------------------------------
+;; Mentions
+;;
+;; A person writes `@server:uri` in a message; the runtime resolves it into an
+;; attachment on the way to the model (see pa.runtime.handlers). Resolution
+;; matches against the *known* resources of connected servers rather than
+;; guessing where a URI ends — URIs contain slashes, dots and colons, so any
+;; boundary rule invented here would be wrong sooner or later.
+;; ---------------------------------------------------------------------------
+
+(def ^:private mention-terminators
+  "What may follow a mention. Anything else means the URI continues, which is
+  what stops `@s:demo://notes` from matching inside `@s:demo://notes2` while
+  still resolving `@s:demo://notes.` at the end of a sentence."
+  #{\space \tab \newline \return \. \, \; \: \! \? \) \] \} \" \' \>})
+
+(def ^:private mention-openers
+  "What may precede a mention besides whitespace. Brackets and quotes open one
+  naturally; the point of the rule is that a letter or digit does not, so an
+  address like ada@example.com is never mistaken for a mention."
+  #{\( \[ \{ \" \' \<})
+
+(defn- mention-at?
+  [^String text ^String label idx]
+  (and (or (zero? idx)
+           (Character/isWhitespace (.charAt text (dec idx)))
+           (contains? mention-openers (.charAt text (dec idx))))
+       (let [end (+ idx (count label))]
+         (or (= end (count text))
+             (contains? mention-terminators (.charAt text end))))))
+
+(defn- mention-index
+  "Where `label` appears as a whole mention in `text`, or nil."
+  [text label]
+  (loop [from 0]
+    (when-let [idx (str/index-of text label from)]
+      (if (mention-at? text label idx) idx (recur (inc idx))))))
+
+(defn parse-mentions
+  "The resources `text` mentions, in order of first appearance. `resources` are
+  rows from the connected servers' cached listings; a mention naming anything
+  else is left alone as ordinary text."
+  [text resources]
+  (if-not (string? text)
+    []
+    (->> resources
+         (keep (fn [row]
+                 (when-let [idx (mention-index text (str "@" (resource-label row)))]
+                   [idx row])))
+         (sort-by first)
+         (mapv second))))

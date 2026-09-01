@@ -47,14 +47,12 @@
             [pa.commands.registry :as commands]
             [pa.state.db :as db]
             [pa.state.queries :as queries]
-            [pa.tools.mcp :as mcp]
             [pa.ui.input.state :as input]
             [pa.ui.selector.sources :as sources]
             [pa.ui.selector.state :as selector]
             [pa.ui.subscribe :as subscribe]
             [pa.ui.view :as view]
-            [pa.ui.view.layout :as layout]
-            [taoensso.timbre :as log]))
+            [pa.ui.view.layout :as layout]))
 
 (def ^:private log-buffer-size 200)   ; ring-buffer cap for in-memory log entries
 
@@ -129,7 +127,7 @@
 (defn init
   "Return a charm init fn. Returns the initial model plus the startup commands."
   [{:keys [db-ch watch-cmd dispatch! log-ch watch-log-cmd delta-ch watch-delta-cmd llm-model
-           resources mcp-clients]}]
+           resources]}]
   (fn []
     [(-> {:db           (db/current-db)
           :llm-model    llm-model
@@ -144,10 +142,10 @@
           :input        ""
           :cursor       0
           :selector     selector/initial
-          ;; Mentionable MCP resources and the live clients to read them
-          ;; through, handed over at startup by :pa.ui/terminal.
+          ;; Mentionable MCP resources, handed over at startup by
+          ;; :pa.ui/terminal. Names and uris only — reading one is the
+          ;; runtime's job, at send time.
           :resources    resources
-          :mcp-clients  mcp-clients
           :nav/index    nil
           :nav/draft    ""
           :pasting?     false
@@ -291,36 +289,17 @@
         buffer (:input model)]
     (set-input model (str (subs buffer 0 start) replacement (subs buffer end)))))
 
-(defn- read-resource-cmd
-  "Read a mentioned resource off the update loop. A local server answers in
-  milliseconds, but it is still a subprocess round-trip, and freezing the
-  terminal on one would be worse than a moment's delay."
-  [model row]
-  (charm/cmd
-   (fn []
-     (let [{:keys [server uri] :as resource} (:value row)]
-       (if-let [conn (get-in model [:mcp-clients server])]
-         (try
-           {:type ::resource-read :resource (mcp/read-resource conn resource)}
-           (catch Throwable e
-             (log/warn "mention: could not read resource"
-                       {:server server :uri uri :error (ex-message e)})
-             nil))
-         (do (log/warn "mention: server is not connected" {:server server :uri uri})
-             nil))))))
-
 (defn- complete-selected
-  "Enter/Tab in the overlay. A command replaces the buffer with its name plus a
-  trailing space, ready for argument entry. A resource is different in kind: it
-  is content a person is attaching, so the token is dropped and its text is
-  spliced in when the read returns. Returns [model cmd]."
+  "Enter/Tab in the overlay: replace the trigger token with the highlighted
+  row's label plus a trailing space. For a command that is the name, ready for
+  argument entry; for a resource it is the `@server:uri` reference, which the
+  runtime resolves into an attachment when the message is sent. The UI does no
+  I/O of its own — a document belongs in the message, not in the line someone
+  is still writing. Returns [model cmd]."
   [model]
   (let [source (sources/active model)]
     (if-let [row (selector/highlighted source (:selector model) (:input model))]
-      (case (:kind row)
-        :command  [(refresh-conversation (set-input model (str (:label row) " "))) nil]
-        :resource [(replace-token model source "") (read-resource-cmd model row)]
-        [model nil])
+      [(refresh-conversation (replace-token model source (str (:label row) " "))) nil]
       [model nil])))
 
 (defn update-model [model message]
@@ -383,12 +362,6 @@
                        :streaming-open? (and (:streaming-open? model) (not committed?)))
           conv-changed? (assoc :streaming "")))
        (subscribe/watch-db-cmd (:db-ch model))])
-
-    ;; A mentioned resource finished reading: splice its text in where the
-    ;; mention was. A failed read logged its reason and sends nothing, so the
-    ;; buffer is simply left as the person typed it.
-    (= ::resource-read (:type message))
-    [(splice-input model (:content (:resource message))) nil]
 
     (= :log/appended (:type message))
     [(refresh-logs (append-log model (:entry message)))
