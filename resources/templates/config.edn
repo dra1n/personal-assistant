@@ -12,4 +12,16 @@
  ;; :portal {:enabled? true
  ;;          :launcher "vs-code"}
  ;; :settings {:markdown true}                              ; render assistant replies as styled markdown (default true)
+
+ ;; MCP servers. Each entry spawns a local subprocess on startup and exposes
+ ;; that server's tools, resources, and prompts to the assistant. Writing a
+ ;; block opts the server in; :enabled? false keeps it configured but inert —
+ ;; connecting spawns a real subprocess and, on first run, may download a
+ ;; package over the network.
+ ;; :mcp {:connect-timeout-ms 15000                          ; per-server handshake budget (default 15000)
+ ;;       :servers {:playwright {:transport :stdio           ; local stdio is the only transport today
+ ;;                              :command   "npx"
+ ;;                              :args      ["-y" "@playwright/mcp@latest"]
+ ;;                              :env       {}
+ ;;                              :enabled?  false}}}
  }

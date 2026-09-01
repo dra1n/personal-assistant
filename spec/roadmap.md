@@ -1584,14 +1584,14 @@ config-loading machinery):
                               :enabled?  false}}}}
 ```
 
-- [ ] Add a commented `:mcp {:servers {...}}` example block (the `:playwright`
+- [x] Add a commented `:mcp {:servers {...}}` example block (the `:playwright`
   entry above, `:enabled? false`) to `resources/templates/config.edn`,
   matching the existing commented `:llm`/`:portal`/`:settings` blocks — no new
   template file or bootstrap change needed.
-- [ ] Wire `:tool.mcp/policy` into `resources/system.edn`:
+- [x] Wire `:tool.mcp/policy` into `resources/system.edn`:
   `{:servers #setting [:mcp :servers]}`, mirroring how `:llm/provider` and
   `:pa.observability/portal` already pull their config out of `config.edn`.
-- [ ] `pa.tools.mcp.policy` — `ig/init-key` normalizes and validates the
+- [x] `pa.tools.mcp.policy` — `ig/init-key` normalizes and validates the
   `:servers` map handed in via config into
   `{:servers {name -> {:transport :command :args :env :enabled?}}}`. A missing
   `:mcp` key yields no servers (same default-deny spirit as `tools.md`); a
@@ -1687,7 +1687,7 @@ config-loading machinery):
 
 ### Tests
 
-- [ ] `pa.tools.mcp.policy` — fixture `:servers` config map → assert
+- [x] `pa.tools.mcp.policy` — fixture `:servers` config map → assert
   servers/`enabled?`/malformed-entry-dropped behavior.
 - [ ] `pa.tools.mcp.client` — JSON-RPC framing round-trip (request →
   correlated response) against a fake stdio pair (`PipedInputStream`/

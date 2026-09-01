@@ -18,6 +18,8 @@
                                        :base-url #or [#env ANTHROPIC_BASE_URL #setting [:llm :anthropic :base-url] "https://api.anthropic.com/v1"]
                                        :model    #or [#env ANTHROPIC_MODEL #setting [:llm :anthropic :model] "claude-sonnet-4-6"]}}
  :tool.fs/policy          {:fs #ig/ref :storage/fs}
+ :tool.mcp/policy         {:servers            #setting [:mcp :servers]
+                           :connect-timeout-ms #setting [:mcp :connect-timeout-ms]}
  :ui/deltas               {}
 
  :pa.runtime/dispatcher   {:config   {:env :production}

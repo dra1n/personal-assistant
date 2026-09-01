@@ -16,6 +16,7 @@
             [pa.llm.component]
             [pa.scheduler.core]
             [pa.tools.fs.policy]
+            [pa.tools.mcp.policy :as policy]
             [pa.ui.core]))
 
 (defn- start-test-system []
@@ -36,6 +37,13 @@
   (testing "all components halt cleanly"
     (let [sys (start-test-system)]
       (is (nil? (ig/halt! sys))))))
+
+(deftest mcp-policy-grants-no-servers-by-default
+  (testing "a default install configures no MCP servers, so nothing is ever spawned"
+    (let [sys (start-test-system)]
+      (is (contains? sys :tool.mcp/policy))
+      (is (empty? (policy/enabled-servers (:tool.mcp/policy sys))))
+      (ig/halt! sys))))
 
 (deftest event-bus-lifecycle
   (testing "dispatcher channel is open after init"
