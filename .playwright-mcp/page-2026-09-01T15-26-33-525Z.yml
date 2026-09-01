@@ -1,0 +1,263 @@
+- generic [active] [ref=f6e1]:
+  - generic:
+    - generic:
+      - link "Skip to main content" [ref=f6e2] [cursor=pointer]
+      - link "Accessibility help" [ref=f6e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=en-UA
+  - generic [ref=f6e8]:
+    - search [ref=f6e9]:
+      - generic [ref=f6e11]:
+        - link "Go to Google Home" [ref=f6e13] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=en&sa=X&ved=0ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQPAgI
+        - generic [ref=f6e21]:
+          - generic [ref=f6e22]:
+            - combobox "Search" [ref=f6e25]: streeteasy.com streeteasy.com
+            - generic [ref=f6e26]:
+              - button "Clear" [ref=f6e28] [cursor=pointer]
+              - generic [ref=f6e33]:
+                - button "Search by voice" [ref=f6e34] [cursor=pointer]
+                - button "Search by image" [ref=f6e37] [cursor=pointer]
+          - button "Search" [ref=f6e40] [cursor=pointer]
+    - generic [ref=f6e45]:
+      - button "Settings" [ref=f6e47] [cursor=pointer]
+      - button "Share" [ref=f6e53] [cursor=pointer]
+      - generic [ref=f6e59]:
+        - button "Google apps" [ref=f6e61] [cursor=pointer]
+        - link "Sign in" [ref=f6e66] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=en&passive=true&continue=https://www.google.com/search%3Fq%3Dstreeteasy.com%26hl%3Den&ec=futura_srp_og_si_72236_p
+  - generic [ref=f6e68]:
+    - navigation [ref=f6e74]:
+      - generic [ref=f6e80]:
+        - list [ref=f6e81]:
+          - listitem [ref=f6e82]:
+            - link "AI Mode" [ref=f6e85] [cursor=pointer]:
+              - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&udm=50&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYS0UkvKdZAJprgUu75aBO7-BLWkuaPDBh2_EM1SJP1rc1BgDxfNxcgIQnpeTeF-yK3tscBdlo5tYmQYHZUaZVIt5QwFfQSOKBf2rQbm7rtHzHN-YhsOY-aS9MzKaYcHtiREPds2HIDar5U_DMPqTmo-JI1Dlw&vsint=&aep=1&ntc=1&cs=0&sa=X&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ2J8OegQIGxAD
+          - listitem [ref=f6e89]:
+            - link "All" [disabled] [ref=f6e90]
+          - listitem [ref=f6e93]:
+            - link "Images" [ref=f6e94] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&hl=en&udm=2&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYS0UkvKdZAJprgUu75aBO7-BLWkuaPDBh2_EM1SJP1rc1BgDxfNxcgIQnpeTeF-yK3tscBdlo5tYmQYHZUaZVIt5QwFfQSOKBf2rQbm7rtHzHN-YhsOY-aS9MzKaYcHtiREPds2HIDar5U_DMPqTmo-JI1Dlw&q=streeteasy.com&sa=X&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQtKgLegQIHhAB
+          - listitem [ref=f6e97]:
+            - link "Shopping" [ref=f6e98] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&hl=en&udm=28&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYS0UkvKdZAJprgUu75aBO7-BLWkuaPDBh2_EM1SJP1rc1BgDxfNxcgIQnpeTeF-yK3tscBdlo5tYmQYHZUaZVIt5QwFfQSOKBf2rQbm7rtHzHN-YhsOY-aS9MzKaYcHtiREPds2HIDar5U_DMPqTmo-JI1Dlw&q=streeteasy.com&ved=1t:220175&ictx=111
+          - listitem [ref=f6e101]:
+            - link "News" [ref=f6e102] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&hl=en&q=streeteasy.com&tbm=nws&source=lnms&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYS0UkvKdZAJprgUu75aBO7-BLWkuaPDBh2_EM1SJP1rc1BgDxfNxcgIQnpeTeF-yK3tscBdlo5tYmQYHZUaZVIt5QwFfQSOKBf2rQbm7rtHzHN-YhsOY-aS9MzKaYcHtiREPds2HIDar5U_DMPqTmo-JI1Dlw&sa=X&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ0pQJegQIIRAB
+          - listitem [ref=f6e105]:
+            - link "Videos" [ref=f6e106] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&hl=en&udm=7&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYS0UkvKdZAJprgUu75aBO7-BLWkuaPDBh2_EM1SJP1rc1BgDxfNxcgIQnpeTeF-yK3tscBdlo5tYmQYHZUaZVIt5QwFfQSOKBf2rQbm7rtHzHN-YhsOY-aS9MzKaYcHtiREPds2HIDar5U_DMPqTmo-JI1Dlw&q=streeteasy.com&sa=X&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQtKgLegQIIBAB
+          - listitem [ref=f6e109]:
+            - link "Forums" [ref=f6e110] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&hl=en&udm=18&fbs=ABfTbFVyMZGZf1hfvX9uKjN_-G8c4u0nXx4bEIpwm1lnNH832SMIiTl3t-JZ4hGJOxPbHYS0UkvKdZAJprgUu75aBO7-BLWkuaPDBh2_EM1SJP1rc1BgDxfNxcgIQnpeTeF-yK3tscBdlo5tYmQYHZUaZVIt5QwFfQSOKBf2rQbm7rtHzHN-YhsOY-aS9MzKaYcHtiREPds2HIDar5U_DMPqTmo-JI1Dlw&q=streeteasy.com&sa=X&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQs6gLegQIHxAB
+          - listitem [ref=f6e113]:
+            - button [ref=f6e114] [cursor=pointer]:
+              - generic "More filters" [ref=f6e115]: More
+        - button "Tools" [ref=f6e122] [cursor=pointer]
+    - heading "Search Results" [level=1] [ref=f6e130]
+    - main [ref=f6e136]:
+      - generic [ref=f6e140]:
+        - generic [ref=f6e143]:
+          - heading "Web result with site links" [level=2] [ref=f6e144]
+          - generic [ref=f6e145]:
+            - generic [ref=f6e149]:
+              - generic [ref=f6e151]:
+                - 'link "StreetEasy: NYC Real Estate Search StreetEasy https://streeteasy.com" [ref=f6e153] [cursor=pointer]':
+                  - /url: /goto?url=CAESTwHrOzAVx477_V3HAIXKNkIMxXERAKZ4Tw4pmncp7aIQsk9iehOLp9qNENii3OZNxHKOHx0DU9LYXNMi3oBiBDygLPKIEhjLCFhrgwVfrzc
+                  - 'heading "StreetEasy: NYC Real Estate Search" [level=3] [ref=f6e154]'
+                  - generic [ref=f6e160]:
+                    - generic [ref=f6e161]: StreetEasy
+                    - generic [ref=f6e163]: https://streeteasy.com
+                - button "About this result" [ref=f6e169] [cursor=pointer]
+              - generic [ref=f6e176]:
+                - text: Find New York City apartments for rent and for sale at
+                - emphasis [ref=f6e177]: StreetEasy
+                - text: .
+                - emphasis [ref=f6e178]: StreetEasy
+                - text: is a Real Estate Search Engine for apartments and real estate in Manhattan and ...
+            - group "Personalised recommendations based on your history" [ref=f6e179]:
+              - rowgroup [ref=f6e180]:
+                - row [ref=f6e181]:
+                  - cell [ref=f6e182]:
+                    - generic [ref=f6e188]:
+                      - heading [level=3] [ref=f6e189]:
+                        - link [ref=f6e190] [cursor=pointer]:
+                          - /url: /goto?url=CAESYQHrOzAVJ90LaxJdIodSLbknF_Bi_O0jHwbB9ioISlqpL0oCv-zJMicWwCc3wg8z13As5AajcHdwdzF_D82O3WkLTxwEaBy_uPW5mpaaVtkJgwvpPfz1yzAsJ398_mOv-cE
+                      - generic [ref=f6e193]: Explore your dream rental in Manhattan, NY on StreetEasy ...
+                - row [ref=f6e194]:
+                  - cell [ref=f6e195]:
+                    - generic [ref=f6e201]:
+                      - heading [level=3] [ref=f6e202]:
+                        - link [ref=f6e203] [cursor=pointer]:
+                          - /url: /goto?url=CAESYAHrOzAVzZr5n30hztscv9_N5oBOsUQmho2FcJH066k_HmzrDZGom-iG6SukQF2bCss1M2_JJhI25o4sFXuGT-Gig6Y7rE5pkWzXc2o7QeFRXFTEU2JybG6wmRLCYVi-nw
+                      - generic [ref=f6e206]: Find your perfect home for sale in Brooklyn, NY on StreetEasy ...
+                - row [ref=f6e207]:
+                  - cell [ref=f6e208]:
+                    - generic [ref=f6e214]:
+                      - heading [level=3] [ref=f6e215]:
+                        - link [ref=f6e216] [cursor=pointer]:
+                          - /url: /goto?url=CAESWwHrOzAVyeyl0PcfxiTjOVuAAQy1zjZHnZHWBaQmv24MaKE1gTMncb4oWjRcD4nNtRXtTMdsCHo1l1BOMnysDC6g69tQdZaNH6jnJNgDRFt2gobZDorAcRUdG74
+                      - generic [ref=f6e219]: Find your ideal home for sale in NYC on StreetEasy! Browse ...
+                - row [ref=f6e220]:
+                  - cell [ref=f6e221]:
+                    - generic [ref=f6e227]:
+                      - heading [level=3] [ref=f6e228]:
+                        - link [ref=f6e229] [cursor=pointer]:
+                          - /url: /goto?url=CAESWwHrOzAVLTN-JGWAtw5WxwWOTg60SNw-VGAUFe20uxeS62I2Liwv_t86Xj6Z9Kk-KvhcmIfyM1unKRE7RwmYAT8167cKLgVMM6lDvp-tHRoVB-5LTlHil9EIBuA
+                      - generic [ref=f6e232]: Find your ideal NYC rental on StreetEasy! Browse 16419 ...
+                - row [ref=f6e233]:
+                  - cell [ref=f6e234]:
+                    - generic [ref=f6e240]:
+                      - heading [level=3] [ref=f6e241]:
+                        - link [ref=f6e242] [cursor=pointer]:
+                          - /url: /goto?url=CAESYQHrOzAVIUWQxKdIH7s_yP8xK0P5E7dUoktuEGGc8jY5SVdlK6UO9S0_rb1NfDEcBM6sqYqPp8jghs6Y-OKTv-xOzl99bt1fCa9p-wV9BujDDof0Z6DjvUG2UvOMCMUQx3g
+                      - generic [ref=f6e245]: Discover your dream home for sale in Manhattan, NY on StreetEasy ...
+                - row [ref=f6e247]:
+                  - cell [ref=f6e248]:
+                    - link "More results from streeteasy.com »" [ref=f6e250] [cursor=pointer]:
+                      - /url: /search?q=streeteasy.com+site:streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&sa=X&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQrAN6BAgPEAE
+        - generic [ref=f6e251]:
+          - generic [ref=f6e256]:
+            - heading "People also ask" [level=2] [ref=f6e258]
+            - generic [ref=f6e259]:
+              - button "Is StreetEasy only in NYC?" [ref=f6e265] [cursor=pointer]
+              - button "How much is 1 month rent in NYC?" [ref=f6e279] [cursor=pointer]
+              - button "What is the best website to find apartments in NYC?" [ref=f6e293] [cursor=pointer]
+              - button "Is StreetEasy best for NYC?" [ref=f6e307] [cursor=pointer]
+          - generic [ref=f6e318]:
+            - generic [ref=f6e321]:
+              - link "StreetEasy Facebook · StreetEasy 66,8K+ followers" [ref=f6e323] [cursor=pointer]:
+                - /url: /goto?url=CAESXAHrOzAV_809ulRb00hJtpc_Iveu9QtBkN2mMx3lOErhDMYMk2RwJSRwRwGXKX1FR_aZSDCSh_jcKdrAmNIelsFHm_an30hhO9UwNpS3C08kab8BlLphzqgVNsC8
+                - heading "StreetEasy" [level=3] [ref=f6e324]
+                - generic [ref=f6e330]:
+                  - generic [ref=f6e331]: Facebook · StreetEasy
+                  - generic [ref=f6e333]: 66,8K+ followers
+              - button "About this result" [ref=f6e339] [cursor=pointer]
+            - generic [ref=f6e345]:
+              - generic [ref=f6e346]:
+                - text: "Renters searching on StreetEasy can now see the full monthly cost of a rental upfront:"
+                - emphasis [ref=f6e347]: base rent plus any fixed required monthly fees
+                - text: ", all in one number!"
+              - link "Read more" [ref=f6e348] [cursor=pointer]:
+                - /url: /goto?url=CAESswEB6zswFQe8o50Ugny5huDSgYmpBGhRHvbV2PR4Du66X28p9PUBLfSySai4ChAFhlKb_-ROpSfVZplHEZWPrru9ccwL7m8YnzsnlM5xZQEhMRiEexsCjmD0uVX7Ahqd9n71756N7OixA4F59n_BKTZbwmcrobtoqZFupGP9tVJMPz71m60aYcF-WqmLjU0lvpvzI9EHFzYvDW4fxyXZ20pzJy7QqoHK6NGeWVtVbDwk5F1D4A
+          - generic [ref=f6e352]:
+            - generic [ref=f6e355]:
+              - link "StreetEasy (@streeteasy) • Instagram photos and videos Instagram · streeteasy 153,1K+ followers" [ref=f6e357] [cursor=pointer]:
+                - /url: /goto?url=CAESXQHrOzAVttv3mmOCPdahAMeo0V7Ixqoz1yYmBk_PnpfW8-hVxN-EvHJzO3ylDFujkM1gi3sMPXc3I3-1UfigspVsuvgXdMo84kfanNAL6Z-3dtr1nDnwMNH0x3KIpQ
+                - heading "StreetEasy (@streeteasy) • Instagram photos and videos" [level=3] [ref=f6e358]
+                - generic [ref=f6e364]:
+                  - generic [ref=f6e365]: Instagram · streeteasy
+                  - generic [ref=f6e367]: 153,1K+ followers
+              - button "About this result" [ref=f6e373] [cursor=pointer]
+            - generic [ref=f6e380]:
+              - emphasis [ref=f6e381]: Where New Yorkers buy, sell, and rent
+              - text: ". Discover your next home and share your #streeteasyfinds. one of Brooklyn Heights' most sought Most!"
+          - generic [ref=f6e385]:
+            - generic [ref=f6e388]:
+              - link "StreetEasy NYC Rentals & Sales - App Store - Apple Apple https://apps.apple.com › app › streeteasy-nyc-rentals-sales" [ref=f6e390] [cursor=pointer]:
+                - /url: /goto?url=CAESfgHrOzAV8KqcmHNJS-Py5W1mi9KPj3Ard8xjWUm1WxC-CaW_NneGM_5FcY-rGhb8kisY9BlKXO8EwcsNs1hrzxB-UfD1xB9mnXHuBI4JVE8tWgK3RVuMT7W8Lh1lPsf4FPVam8wlGvuuyGWwibLDePDrbf8tFIMKuUBScZNNHg
+                - heading "StreetEasy NYC Rentals & Sales - App Store - Apple" [level=3] [ref=f6e391]
+                - generic [ref=f6e397]:
+                  - generic [ref=f6e398]: Apple
+                  - generic [ref=f6e400]: https://apps.apple.com › app › streeteasy-nyc-rentals-sales
+              - button "About this result" [ref=f6e406] [cursor=pointer]
+            - generic [ref=f6e413]:
+              - emphasis [ref=f6e414]: StreetEasy has the largest, most accurate selection of rentals and sales in NYC
+              - text: . It's the best way to find a home in the city. Email us at support@streeteasy. ...
+          - generic [ref=f6e418]:
+            - generic [ref=f6e421]:
+              - link "StreetEasy - Apartments in NYC - Apps on Google Play Google Play https://play.google.com › store › apps › details" [ref=f6e423] [cursor=pointer]:
+                - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy
+                - heading "StreetEasy - Apartments in NYC - Apps on Google Play" [level=3] [ref=f6e424]
+                - generic [ref=f6e430]:
+                  - generic [ref=f6e431]: Google Play
+                  - generic [ref=f6e433]: https://play.google.com › store › apps › details
+              - button "About this result" [ref=f6e439] [cursor=pointer]
+            - generic [ref=f6e445]:
+              - generic [ref=f6e446]:
+                - emphasis [ref=f6e447]: Get free and instant access to the largest database of real estate listings
+                - text: in Manhattan, Brooklyn, Queens and all of NYC's five boroughs on StreetEasy. Key ...
+              - link "Read more" [ref=f6e448] [cursor=pointer]:
+                - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy#:~:text=Get%20free%20and%20instant%20access,Key%20features%3A
+          - generic [ref=f6e452]:
+            - generic [ref=f6e455]:
+              - link "StreetEasy X · streeteasy 18,8K+ followers" [ref=f6e457] [cursor=pointer]:
+                - /url: /goto?url=CAESUAHrOzAV1P3wVHPjy-9RQIU7Cd0deMKGqtefMNat_zPvUFrmLAm8FbIpd8ZqVxxziqdbgQ29DYfbqzOA_l5gR51QrSXeheXEdmDKvLR7xqEV
+                - heading "StreetEasy" [level=3] [ref=f6e458]
+                - generic [ref=f6e464]:
+                  - generic [ref=f6e465]: X · streeteasy
+                  - generic [ref=f6e467]: 18,8K+ followers
+              - button "About this result" [ref=f6e473] [cursor=pointer]
+            - generic [ref=f6e480]:
+              - emphasis [ref=f6e481]: Where New Yorkers buy, sell, and rent
+              - text: . Browse the latest and greatest New York City real estate.
+          - generic [ref=f6e485]:
+            - generic [ref=f6e488]:
+              - link "STREETEASY - Updated August 2026 - 13 Photos & 56 ... Yelp https://www.yelp.com › ... › Real Estate Services" [ref=f6e490] [cursor=pointer]:
+                - /url: /goto?url=CAESZgHrOzAVJU9zFyK0sYMNb3H7IBpH_L3H7iQ2Eo8f47pKGn-ZFDWq83I4UoTR5VsH6NXrTz8b9wQbVbesXSEUESRMTwyz1m9N7mnLeRzvWXuaoWR-zQ_mH3GcBNNROUEBv7bMUMV3xA
+                - heading "STREETEASY - Updated August 2026 - 13 Photos & 56 ..." [level=3] [ref=f6e491]
+                - generic [ref=f6e497]:
+                  - generic [ref=f6e498]: Yelp
+                  - generic [ref=f6e500]: https://www.yelp.com › ... › Real Estate Services
+              - button "About this result" [ref=f6e506] [cursor=pointer]
+            - generic [ref=f6e513]:
+              - text: 56 reviews and 13 photos of
+              - emphasis [ref=f6e514]: STREETEASY
+              - text: "\"I've been using"
+              - emphasis [ref=f6e515]: StreetEasy
+              - text: for at least 5 years, to find a place, and sometimes just to keep an eye on the market.
+      - navigation [ref=f6e518]:
+        - heading "Page navigation" [level=1] [ref=f6e519]
+        - text: "1"
+        - link "Page 2" [ref=f6e522] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=10&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAE
+          - text: "2"
+        - link "Page 3" [ref=f6e524] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=20&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAG
+          - text: "3"
+        - link "Page 4" [ref=f6e526] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=30&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAI
+          - text: "4"
+        - link "Page 5" [ref=f6e528] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=40&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAK
+          - text: "5"
+        - link "Page 6" [ref=f6e530] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=50&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAM
+          - text: "6"
+        - link "Page 7" [ref=f6e532] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=60&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAO
+          - text: "7"
+        - link "Page 8" [ref=f6e534] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=70&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAQ
+          - text: "8"
+        - link "Page 9" [ref=f6e536] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=80&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAS
+          - text: "9"
+        - link "Page 10" [ref=f6e538] [cursor=pointer]:
+          - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=90&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8tMDegQIKxAU
+          - text: "10"
+        - heading [level=2] [ref=f6e540]:
+          - link "Next" [ref=f6e541] [cursor=pointer]:
+            - /url: /search?q=streeteasy.com&sca_esv=46f3d15cfb9e1921&hl=en&ei=qO6Wao2KNazWwPAP65eoCA&start=10&sa=N&sstk=AS6-VmLmwTxaQuTYFlULG6HDz4HsJozvzXAHZq4EA82rg7qJlMNeoT-BMOh3wWPXgnYbltJEtKQh_geb1QLWZo61gBqV2zaMBxU2Xg&ved=2ahUKEwiN_qDZ2M2WAxUsKxAIHesLCgEQ8NMDegQIKxAW
+      - navigation
+    - contentinfo [ref=f6e544]:
+      - heading "Footer links" [level=1] [ref=f6e545]
+      - generic [ref=f6e549]:
+        - generic [ref=f6e551]:
+          - text: Ukraine
+          - generic [ref=f6e553]:
+            - button "Podil's'kyi district, Kyiv - Based on your past activity" [ref=f6e555] [cursor=pointer]:
+              - generic [ref=f6e556]: Podil's'kyi district, Kyiv
+              - generic [ref=f6e558]:
+                - text: "-"
+                - generic [ref=f6e559]: Based on your past activity
+            - text: "-"
+            - button "Update location" [ref=f6e561] [cursor=pointer]
+        - generic [ref=f6e564]:
+          - link "Help" [ref=f6e565] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=en-UA&fg=1
+          - link "Send feedback" [ref=f6e566] [cursor=pointer]:
+            - /url: "#"
+          - link "Privacy" [ref=f6e567] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=en-UA&fg=1
+          - link "Terms" [ref=f6e568] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=en-UA&fg=1

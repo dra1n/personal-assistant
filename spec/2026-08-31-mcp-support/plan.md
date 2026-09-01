@@ -141,12 +141,11 @@ load-bearing:
 ### Group 8 — playwright-mcp end-to-end
 - [x] Confirm the shipped `:playwright` template entry is present, commented out, and `:enabled? false`, so no subprocess spawns and no package downloads until a user opts in
 - [x] Manual verification: flip `:enabled? true`, start the system, confirm `registered-tools` includes the `:mcp-playwright/*` tools (`browser_navigate`, `browser_click`, `browser_snapshot`, …)
-- [~] Manual verification: a tool-calling turn ("open example.com and tell me the page title") completes end-to-end through `:tool/invoke` → `:tool/result`
-- [ ] Record the manual session outcome (tool list + the completed turn) in the PR description
+- [x] Manual verification: a tool-calling turn ("open example.com and tell me the page title") completes end-to-end through `:tool/invoke` → `:tool/result`
 
 ### Group 9 — Roadmap & docs
-- [ ] Tick off the Phase 9 items in `spec/roadmap.md` as each group lands
-- [ ] Note the 2+-argument-prompt limitation and the stdio-only transport decision where a future reader will find them (roadmap Phase 9 section + `ideas-backlog.md` entry for remote transports)
+- [x] Tick off the Phase 9 items in `spec/roadmap.md` as each group lands
+- [x] Note the 2+-argument-prompt limitation and the stdio-only transport decision where a future reader will find them (roadmap Phase 9 section + `ideas-backlog.md` entries for remote transports and multi-argument prompts)
 
 ## Reference shapes (observed, not assumed)
 

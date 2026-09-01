@@ -1,0 +1,334 @@
+- generic [active] [ref=f2e1]:
+  - generic:
+    - generic:
+      - link "Перейти до основного вмісту" [ref=f2e2] [cursor=pointer]
+      - link "Довідка щодо спеціальних можливостей" [ref=f2e3] [cursor=pointer]:
+        - /url: https://support.google.com/websearch/answer/181196?hl=uk
+  - generic [ref=f2e8]:
+    - search [ref=f2e9]:
+      - generic [ref=f2e11]:
+        - link "На домашню сторінку Google" [ref=f2e13] [cursor=pointer]:
+          - /url: https://www.google.com/webhp?hl=uk&sa=X&ved=0ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8QPAgI
+        - generic [ref=f2e21]:
+          - generic [ref=f2e22]:
+            - combobox "Пошук" [ref=f2e25]: site:google.com streeteasy.com site:google.com streeteasy.com
+            - generic [ref=f2e26]:
+              - button "Очистити" [ref=f2e28] [cursor=pointer]
+              - generic [ref=f2e33]:
+                - button "Транслітерація" [ref=f2e34] [cursor=pointer]
+                - button "Пошук голосом" [ref=f2e38] [cursor=pointer]
+                - button "Пошук за зображенням" [ref=f2e41] [cursor=pointer]
+          - button "Пошук" [ref=f2e44] [cursor=pointer]
+    - generic [ref=f2e49]:
+      - button "Налаштування" [ref=f2e51] [cursor=pointer]
+      - button "Поділитися" [ref=f2e57] [cursor=pointer]
+      - generic [ref=f2e63]:
+        - button "Додатки Google" [ref=f2e65] [cursor=pointer]
+        - link "Увійти" [ref=f2e70] [cursor=pointer]:
+          - /url: https://accounts.google.com/ServiceLogin?hl=uk&passive=true&continue=https://www.google.com/search%3Fq%3Dsite%253Agoogle.com%2Bstreeteasy.com%26sei%3DlO6WartG8bPA8A_Ylaa5AQ&ec=futura_srp_og_si_72236_p
+  - generic [ref=f2e72]:
+    - navigation [ref=f2e78]:
+      - generic [ref=f2e84]:
+        - list [ref=f2e85]:
+          - listitem [ref=f2e86]:
+            - link "Режим ШІ" [ref=f2e89] [cursor=pointer]:
+              - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&udm=50&fbs=ABfTbFWOI39hq_BfQ0ybULIiHsxkK0qio5PTe-hC3_0fC0Lw4U44G7V4pIS-kTwuy8XT4L5oO1BSaAuqSELmdOMnmhQMwQemE8pM12VhLfyxkCYEuped6gjg6y7JOem2ubOHFmKWq6tZlG5vG63nbZMzc-wFxPKwS5Mb7axk3PwiOZM7uEnCV0CTzjAgWpUiMzRDNGktkCc4a4j6zNBLNFYC9MvKk1vBcEkjnpK4lc0GQ94R9EYYrDzy1awH_X9neKKnUul-mBIw_PyoiXWoLi9fYMQ9X4FAXw&vsint=&aep=1&ntc=1&cs=0&sa=X&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q2J8OegQIDxAD
+          - listitem [ref=f2e93]:
+            - link "Усі" [disabled] [ref=f2e94]
+          - listitem [ref=f2e97]:
+            - link "Зображення" [ref=f2e98] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&udm=2&fbs=ABfTbFWOI39hq_BfQ0ybULIiHsxkK0qio5PTe-hC3_0fC0Lw4U44G7V4pIS-kTwuy8XT4L5oO1BSaAuqSELmdOMnmhQMwQemE8pM12VhLfyxkCYEuped6gjg6y7JOem2ubOHFmKWq6tZlG5vG63nbZMzc-wFxPKwS5Mb7axk3PwiOZM7uEnCV0CTzjAgWpUiMzRDNGktkCc4a4j6zNBLNFYC9MvKk1vBcEkjnpK4lc0GQ94R9EYYrDzy1awH_X9neKKnUul-mBIw_PyoiXWoLi9fYMQ9X4FAXw&q=site:google.com+streeteasy.com&sa=X&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8QtKgLegQIFRAB
+          - listitem [ref=f2e101]:
+            - link "Покупки" [ref=f2e102] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&udm=28&fbs=ABfTbFWOI39hq_BfQ0ybULIiHsxkK0qio5PTe-hC3_0fC0Lw4U44G7V4pIS-kTwuy8XT4L5oO1BSaAuqSELmdOMnmhQMwQemE8pM12VhLfyxkCYEuped6gjg6y7JOem2ubOHFmKWq6tZlG5vG63nbZMzc-wFxPKwS5Mb7axk3PwiOZM7uEnCV0CTzjAgWpUiMzRDNGktkCc4a4j6zNBLNFYC9MvKk1vBcEkjnpK4lc0GQ94R9EYYrDzy1awH_X9neKKnUul-mBIw_PyoiXWoLi9fYMQ9X4FAXw&q=site:google.com+streeteasy.com&ved=1t:220175&ictx=111
+          - listitem [ref=f2e105]:
+            - link "Новини" [ref=f2e106] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&q=site:google.com+streeteasy.com&tbm=nws&source=lnms&fbs=ABfTbFWOI39hq_BfQ0ybULIiHsxkK0qio5PTe-hC3_0fC0Lw4U44G7V4pIS-kTwuy8XT4L5oO1BSaAuqSELmdOMnmhQMwQemE8pM12VhLfyxkCYEuped6gjg6y7JOem2ubOHFmKWq6tZlG5vG63nbZMzc-wFxPKwS5Mb7axk3PwiOZM7uEnCV0CTzjAgWpUiMzRDNGktkCc4a4j6zNBLNFYC9MvKk1vBcEkjnpK4lc0GQ94R9EYYrDzy1awH_X9neKKnUul-mBIw_PyoiXWoLi9fYMQ9X4FAXw&sa=X&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q0pQJegQIExAB
+          - listitem [ref=f2e109]:
+            - link "Відео" [ref=f2e110] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&udm=7&fbs=ABfTbFWOI39hq_BfQ0ybULIiHsxkK0qio5PTe-hC3_0fC0Lw4U44G7V4pIS-kTwuy8XT4L5oO1BSaAuqSELmdOMnmhQMwQemE8pM12VhLfyxkCYEuped6gjg6y7JOem2ubOHFmKWq6tZlG5vG63nbZMzc-wFxPKwS5Mb7axk3PwiOZM7uEnCV0CTzjAgWpUiMzRDNGktkCc4a4j6zNBLNFYC9MvKk1vBcEkjnpK4lc0GQ94R9EYYrDzy1awH_X9neKKnUul-mBIw_PyoiXWoLi9fYMQ9X4FAXw&q=site:google.com+streeteasy.com&sa=X&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8QtKgLegQIEhAB
+          - listitem [ref=f2e113]:
+            - link "Короткі відео" [ref=f2e114] [cursor=pointer]:
+              - /url: /search?sca_esv=46f3d15cfb9e1921&udm=39&fbs=ABfTbFWOI39hq_BfQ0ybULIiHsxkK0qio5PTe-hC3_0fC0Lw4U44G7V4pIS-kTwuy8XT4L5oO1BSaAuqSELmdOMnmhQMwQemE8pM12VhLfyxkCYEuped6gjg6y7JOem2ubOHFmKWq6tZlG5vG63nbZMzc-wFxPKwS5Mb7axk3PwiOZM7uEnCV0CTzjAgWpUiMzRDNGktkCc4a4j6zNBLNFYC9MvKk1vBcEkjnpK4lc0GQ94R9EYYrDzy1awH_X9neKKnUul-mBIw_PyoiXWoLi9fYMQ9X4FAXw&q=site:google.com+streeteasy.com&sa=X&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Qs6gLegQIERAB
+          - listitem [ref=f2e117]:
+            - button [ref=f2e118] [cursor=pointer]:
+              - generic "Інші фільтри" [ref=f2e119]: Більше
+        - button "Інструменти" [ref=f2e126] [cursor=pointer]
+    - heading "Результати пошуку" [level=1] [ref=f2e133]
+    - generic [ref=f2e139]:
+      - generic [ref=f2e140]: Looking for results in English?
+      - link [ref=f2e141] [cursor=pointer]:
+        - /url: "#"
+      - link "Change to English" [ref=f2e145] [cursor=pointer]:
+        - /url: /setprefs?sig=0_r7HOtVM1WCNv2t78cG36HGsOrWc%3D&source=en_ignored_notification&prev=https://www.google.com/search?q%3Dsite:google.com%2Bstreeteasy.com%26sei%3DlO6WartG8bPA8A_Ylaa5AQ&hl=en&sa=X&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8QhoQCKAF6BAgLEAQ
+      - 'link "Залишити цю мову: українська" [ref=f2e146] [cursor=pointer]':
+        - /url: "#"
+      - link "Налаштування мови" [ref=f2e148] [cursor=pointer]:
+        - /url: /preferences?lang=1&hl=uk&sa=X&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8QiIQCKAN6BAgLEAY#languages
+    - main [ref=f2e150]:
+      - generic [ref=f2e154]:
+        - generic [ref=f2e157]:
+          - heading "Результати веб-пошуку" [level=2] [ref=f2e158]
+          - generic [ref=f2e159]:
+            - generic [ref=f2e162]:
+              - link "StreetEasy - Apartments in NYC – Додатки в Google Play Google Play https://play.google.com › store › apps › details" [ref=f2e164] [cursor=pointer]:
+                - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy&hl=uk
+                - heading "StreetEasy - Apartments in NYC – Додатки в Google Play" [level=3] [ref=f2e165]
+                - generic [ref=f2e171]:
+                  - generic [ref=f2e172]: Google Play
+                  - generic [ref=f2e174]: https://play.google.com › store › apps › details
+              - button "Про цей результат" [ref=f2e180] [cursor=pointer]
+            - generic [ref=f2e187]:
+              - emphasis [ref=f2e188]: Отримати безкоштовний і миттєвий доступ до найширшої бази даних об'єктів нерухомості
+              - text: в Манхеттені, Брукліні, Квінсі і все Нью-Йорку в п'яти районах міста на ...
+            - generic [ref=f2e191]:
+              - generic [ref=f2e192]:
+                - img "Оцінка 3,2 з 5 (5 173) відгуки користувачів" [ref=f2e193]: 3,2(5 173)
+                - text: ·
+              - text: Безкоштовно · ‎Android · ‎Облаштування житла
+        - generic [ref=f2e200]:
+          - generic [ref=f2e203]:
+            - link "Agent Tools by StreetEasy – Додатки в ... Google Play https://play.google.com › store › apps › details" [ref=f2e205] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy.industry&hl=uk
+              - heading "Agent Tools by StreetEasy – Додатки в ..." [level=3] [ref=f2e206]
+              - generic [ref=f2e212]:
+                - generic [ref=f2e213]: Google Play
+                - generic [ref=f2e215]: https://play.google.com › store › apps › details
+            - button "Про цей результат" [ref=f2e221] [cursor=pointer]
+          - generic [ref=f2e228]:
+            - text: Додаток Agent Tools дозволяє агентам NYC керувати своїми переліками
+            - emphasis [ref=f2e229]: StreetEasy
+            - text: на ходу. Він також надає агентам експертів доступ до їх з'єднань.
+          - generic [ref=f2e232]:
+            - generic [ref=f2e233]:
+              - img "Оцінка 3,4 з 5 (31) відгуки користувачів" [ref=f2e234]: 3,4(31)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Бізнес і продуктивність
+        - generic [ref=f2e241]:
+          - generic [ref=f2e244]:
+            - link "StreetEasy - Apartments in NYC - Apps on Google Play Google Play https://play.google.com › apps" [ref=f2e246] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy
+              - heading "StreetEasy - Apartments in NYC - Apps on Google Play" [level=3] [ref=f2e247]
+              - generic [ref=f2e253]:
+                - generic [ref=f2e254]: Google Play
+                - generic [ref=f2e256]: https://play.google.com › apps
+            - generic [ref=f2e258]:
+              - generic [ref=f2e259]: ·
+              - link "Перекласти цю сторінку" [ref=f2e260] [cursor=pointer]:
+                - /url: /goto?url=CAESzwEB6zswFTFDPJsnmvd7dwb7910khNXx-aHumzcObfDb9K9q9MYm3DyVVFMowHDBJoYXh22940dhm3aUuRvgw4afoN4irvz2aM-jUtFlqmY1HIv1nIn1nuO_WL0qAwYZRGlKinWPKAIy0p2svUuMCOmi1jY0HnfMu5kzN1dFyaAnbibq41F0XXCinnUBGZNX9oiUrzaeJJo_Wm72XKxV2YR81gh_mm2mPvu1cMIr2DxqPxbI6tr0Efd9JnoAL1n1JwzzQJO3P5sLTM7knFPNE9c
+            - button "Про цей результат" [ref=f2e265] [cursor=pointer]
+          - generic [ref=f2e272]:
+            - emphasis [ref=f2e273]: Get free and instant access to the largest database of real estate listings
+            - text: in Manhattan, Brooklyn, Queens and all of NYC's five boroughs on StreetEasy. Key ...
+          - generic [ref=f2e276]:
+            - generic [ref=f2e277]:
+              - img "Оцінка 3,2 з 5 (5 175) відгуки користувачів" [ref=f2e278]: 3,2(5 175)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Облаштування житла
+        - generic [ref=f2e285]:
+          - generic [ref=f2e288]:
+            - link "StreetEasy - Apartments in NYC Google Play https://play.google.com › apps" [ref=f2e290] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy&hl=ru
+              - heading "StreetEasy - Apartments in NYC" [level=3] [ref=f2e291]
+              - generic [ref=f2e297]:
+                - generic [ref=f2e298]: Google Play
+                - generic [ref=f2e300]: https://play.google.com › apps
+            - generic [ref=f2e302]:
+              - generic [ref=f2e303]: ·
+              - link "Перекласти цю сторінку" [ref=f2e304] [cursor=pointer]:
+                - /url: /goto?url=CAES2QEB6zswFZeurVAT29-qMKKnCUOl9rVUYNMhqG36A-74crnpKcO0g_DZMpdRyhwaAixwbxRJSadVRvV3fVOdzv-oez8_IKUzRhSnH3-cLt3Hq_xwMdyQo_W7GkMZ7mUh63OPPDAWBDrieW005IBpxOIFcZ_AxZQYlFSBfutyENTnQ_4xHpIVoWyxlI57rik1y5rypZDBQKUcsfzZeoaQ5sG5WCPd3ZDOaytiSqJ0dsitRgLwhF3wLHPu_pdusnsUbL8UQmpJmB9ROoZ-KZxv3dacl9T9yxcR2ehD
+            - button "Про цей результат" [ref=f2e309] [cursor=pointer]
+          - generic [ref=f2e316]:
+            - emphasis [ref=f2e317]: Получить бесплатный и мгновенный доступ к самой широкой базы данных объектов недвижимости
+            - text: в Манхэттене, Бруклине, Квинсе и все Нью-Йорке в пяти районах города ...
+          - generic [ref=f2e320]:
+            - generic [ref=f2e321]:
+              - img "Оцінка 3,2 з 5 (5 174) відгуки користувачів" [ref=f2e322]: 3,2(5 174)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Облаштування житла
+        - generic [ref=f2e329]:
+          - generic [ref=f2e332]:
+            - link "Agent Tools by StreetEasy – Apps on ... Google Play https://play.google.com › apps" [ref=f2e334] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy.industry&hl=en_NZ
+              - heading "Agent Tools by StreetEasy – Apps on ..." [level=3] [ref=f2e335]
+              - generic [ref=f2e341]:
+                - generic [ref=f2e342]: Google Play
+                - generic [ref=f2e344]: https://play.google.com › apps
+            - generic [ref=f2e346]:
+              - generic [ref=f2e347]: ·
+              - link "Перекласти цю сторінку" [ref=f2e348] [cursor=pointer]:
+                - /url: /goto?url=CAES5QEB6zswFek2D26fipNNkq5jVcQ_71YqRuIjQ9SYjDjSEjq7ZjZatXgX7xRr5JA35QR5Sx0L7o47lITCnHQJXccRXr4oj5r7IEjfrjdEHraQQwAO8G0NVNvakDd0B28Ry6O86scL3VUbCwqgId4iyxwEth-3sxDwQyj2-NNAMl87xeYk3hQEQPpwN1HuKwMM1Cbta9auBWAobNEnsGr1bD1bonWh0yKFGXJLlYlS8C-rhot_GIOTjf-py3WDMhov6c1gOaten-9wBvUo_2FCog3VM6sNkzmZK51a9nyQO8Sz7BhBZ0it
+            - button "Про цей результат" [ref=f2e353] [cursor=pointer]
+          - generic [ref=f2e360]:
+            - text: The Agent Tools app allows
+            - emphasis [ref=f2e361]: NYC agents to manage their StreetEasy listings on the go
+            - text: . It also gives Experts agents access to their connections.
+          - generic [ref=f2e364]:
+            - generic [ref=f2e365]:
+              - img "Оцінка 3,4 з 5 (31) відгуки користувачів" [ref=f2e366]: 3,4(31)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Бізнес і продуктивність
+        - generic [ref=f2e373]:
+          - generic [ref=f2e376]:
+            - link "StreetEasy - Apartments in NYC Google Play https://play.google.com › apps" [ref=f2e378] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy&hl=uz
+              - heading "StreetEasy - Apartments in NYC" [level=3] [ref=f2e379]
+              - generic [ref=f2e385]:
+                - generic [ref=f2e386]: Google Play
+                - generic [ref=f2e388]: https://play.google.com › apps
+            - generic [ref=f2e390]:
+              - generic [ref=f2e391]: ·
+              - link "Перекласти цю сторінку" [ref=f2e392] [cursor=pointer]:
+                - /url: /goto?url=CAES2QEB6zswFa2_n7gfxCLiE41iCXG23xiGhhX67fgaIIxswoSl0aRmtjpaX1bvLUWZZ9ntRMvnrlPMkwDic-Ujk-fjyXa9uBMIvIN_hRwp9UICA6pXgK_9HO7eWmeW4A67y9ALKOa6s1rNWUVJLaZBL3WOTUrFJtZ99C6lJzBrnOCCYoCGoKlpbqryPA2KxOWuvGoCDvZNmx57OIwo570vIDxd9J-DTHpr6hPbcFGrtKeGD2Fp2oGcEMv--SeZpzItqTNLCH-qtDs9UKqNLI-kIxJ48SHZAOxUzNGd
+            - button "Про цей результат" [ref=f2e397] [cursor=pointer]
+          - generic [ref=f2e404]:
+            - text: Looking to buy, rent or sell an apartment in New York City?
+            - emphasis [ref=f2e405]: Get free and instant access to the largest database of real estate listings
+            - text: in Manhattan, Brooklyn, ...
+          - generic [ref=f2e408]:
+            - generic [ref=f2e409]:
+              - img "Оцінка 3,2 з 5 (5 171) відгуки користувачів" [ref=f2e410]: 3,2(5 171)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Облаштування житла
+        - generic [ref=f2e417]:
+          - generic [ref=f2e420]:
+            - link "StreetEasy - Apartments in NYC – Apps no Google Play Google Play https://play.google.com › apps" [ref=f2e422] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy&hl=pt_BR
+              - heading "StreetEasy - Apartments in NYC – Apps no Google Play" [level=3] [ref=f2e423]
+              - generic [ref=f2e429]:
+                - generic [ref=f2e430]: Google Play
+                - generic [ref=f2e432]: https://play.google.com › apps
+            - generic [ref=f2e434]:
+              - generic [ref=f2e435]: ·
+              - link "Перекласти цю сторінку" [ref=f2e436] [cursor=pointer]:
+                - /url: /goto?url=CAES3AEB6zswFe7tIVYF59iSvc-94oBZqtTde568BVjKWOACXyoCS7-Dwa2L-BJijVnCikORGoVct2717P-g5p54-AWTnNiGWezVy1-jHX0IUcQaqvLxOo422fdpJAboR9xEhgsJhFISZCi-YaKzhp0gu91JoVKhZNNAoWctoV_ExXUFVubkYqCX0r2wlJUCnCt8EcxC_JsI5xApbZ9ExIgFIF7WkgWv45iNWgIlAnYihRQLCo3eKFX_6NttBV622aSs2GkYF-8VEbKnEUJUmcsYqoc5Cb37KuVIteLXyvjz
+            - button "Про цей результат" [ref=f2e441] [cursor=pointer]
+          - generic [ref=f2e448]:
+            - emphasis [ref=f2e449]: Olhando para comprar, alugar ou vender um apartamento em New York City
+            - text: "? Tenha acesso livre e imediato à maior base de dados de anúncios de imóveis em ..."
+          - generic [ref=f2e452]:
+            - generic [ref=f2e453]:
+              - img "Оцінка 3,2 з 5 (5 174) відгуки користувачів" [ref=f2e454]: 3,2(5 174)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Облаштування житла
+        - generic [ref=f2e461]:
+          - generic [ref=f2e464]:
+            - link "Приложения в Google Play – Agent Tools by StreetEasy Google Play https://play.google.com › apps" [ref=f2e466] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy.industry&hl=ru
+              - heading "Приложения в Google Play – Agent Tools by StreetEasy" [level=3] [ref=f2e467]
+              - generic [ref=f2e473]:
+                - generic [ref=f2e474]: Google Play
+                - generic [ref=f2e476]: https://play.google.com › apps
+            - generic [ref=f2e478]:
+              - generic [ref=f2e479]: ·
+              - link "Перекласти цю сторінку" [ref=f2e480] [cursor=pointer]:
+                - /url: /goto?url=CAES4gEB6zswFT3nMo9Yny3LP76cc628PTNbNfRj_kGUpRi3EMvP3EbWcDsdPblHnaxuTfvgGWjkcoLY3T5zdnXk02YzFKEEUw79_fCaJOTc4v0cukd4_aQv7MZrLNErwX27ezbLrVlz86vClT_upM1l6Md6C-AKH4zwCPkCWHtQgwjhJyDr4N2FlcmyauVHvk1NzSOU1VWAE89bpdlp3OsgTb2wfuFf_gk9lWVDnjDshzfoZ5pVm036TZdoociVNTIS0CFXcFs0rmSanE59GtyIx6Ib7GvscGdht9lvhw9U97_YKhSq
+            - button "Про цей результат" [ref=f2e485] [cursor=pointer]
+          - generic [ref=f2e491]:
+            - generic [ref=f2e492]: 14 серп. 2026 р. —
+            - generic [ref=f2e493]:
+              - text: Приложение Agent Tools
+              - emphasis [ref=f2e494]: позволяет агентам NYC управлять своими списками StreetEasy на ходу
+              - text: . Это также дает агентам экспертов доступ к их ...
+          - generic [ref=f2e497]:
+            - generic [ref=f2e498]:
+              - img "Оцінка 3,4 з 5 (31) відгуки користувачів" [ref=f2e499]: 3,4(31)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Бізнес і продуктивність
+        - generic [ref=f2e506]:
+          - generic [ref=f2e509]:
+            - link "StreetEasy - Apartments in NYC – Apps bei Google Play Google Play https://play.google.com › apps" [ref=f2e511] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy&hl=de_CH
+              - heading "StreetEasy - Apartments in NYC – Apps bei Google Play" [level=3] [ref=f2e512]
+              - generic [ref=f2e518]:
+                - generic [ref=f2e519]: Google Play
+                - generic [ref=f2e521]: https://play.google.com › apps
+            - generic [ref=f2e523]:
+              - generic [ref=f2e524]: ·
+              - link "Перекласти цю сторінку" [ref=f2e525] [cursor=pointer]:
+                - /url: /goto?url=CAES3AEB6zswFVgvDjcYAbYLExsj-nGb1V4kCz788ErNH9xrTCRY49ZRbwiESRVzYrOEuYPosupyPZCHTFtfSfTwJUcrqF0sFuGymn2zgVmL4ICgrfx5AjyZ5AY90LORgky9zp_gmp-6Ab6m5_a8YixiZve3hys79Y3TXXruKm_BUqoHj9lwPBaLU4R1rni2v4b3Uu2RngxS1eLf6HtvPuR2z-W9SA7vhp-zkUMUrrAyROS3__9YQ-wxBjHzs21pc5LmjzEkhjOsP0rroDGnWvMY6Y0NYJRiiLQBHIhODMCQ
+            - button "Про цей результат" [ref=f2e530] [cursor=pointer]
+          - generic [ref=f2e537]:
+            - text: Erhalten Sie kostenlose und sofortigen Zugriff auf die
+            - emphasis [ref=f2e538]: größte Datenbank von Immobilien in Manhattan, Brooklyn, Queens und alle NYC fünf Boroughs
+            - text: auf StreetEasy.
+          - generic [ref=f2e541]:
+            - generic [ref=f2e542]:
+              - img "Оцінка 3,2 з 5 (5 174) відгуки користувачів" [ref=f2e543]: 3,2(5 174)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Облаштування житла
+        - generic [ref=f2e550]:
+          - generic [ref=f2e553]:
+            - link "StreetEasy - Apartments in NYC - Apps en Google Play Google Play https://play.google.com › apps" [ref=f2e555] [cursor=pointer]:
+              - /url: https://play.google.com/store/apps/details?id=com.zillow.android.streeteasy&hl=es_AR
+              - heading "StreetEasy - Apartments in NYC - Apps en Google Play" [level=3] [ref=f2e556]
+              - generic [ref=f2e562]:
+                - generic [ref=f2e563]: Google Play
+                - generic [ref=f2e565]: https://play.google.com › apps
+            - generic [ref=f2e567]:
+              - generic [ref=f2e568]: ·
+              - link "Перекласти цю сторінку" [ref=f2e569] [cursor=pointer]:
+                - /url: /goto?url=CAES3AEB6zswFV4giRbmsi2ZtGQL8FA_bAo1asxB1ENvK3cCl_QPvuSVokZpvTUxPgbunGr0JtYdRIUlkdRizD26D8inkRYcll8il3EqrOlc-jHoyr7E-xnZncXlLnt5jUoQ9-t_9W-hMPMoPRFlc1eAWM6RoHpt_tltw8oLB9_MNwg6kf3VOBDxBZOvIjDCTDcKArJ6BNo3qqSaFPtLIQpFjCeWb3Sm1rGz4xF2VLxpE4-xPLi3yppdG6FEikazOUxCmxqzwQSineOSVzTUgvRTPhEjLkfwQ6-dJTzZ51FB
+            - button "Про цей результат" [ref=f2e574] [cursor=pointer]
+          - generic [ref=f2e579]: El mirar para comprar, alquilar o vender un apartamento en la ciudad de Nueva York? Obtener acceso gratuito e instantáneo a la mayor base de datos de los ...
+          - generic [ref=f2e583]:
+            - generic [ref=f2e584]:
+              - img "Оцінка 3,2 з 5 (5 174) відгуки користувачів" [ref=f2e585]: 3,2(5 174)
+              - text: ·
+            - text: Безкоштовно · ‎Android · ‎Облаштування житла
+      - navigation [ref=f2e591]:
+        - heading "Навігація сторінкою" [level=1] [ref=f2e592]
+        - text: "1"
+        - link "Page 2" [ref=f2e595] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=10&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAE
+          - text: "2"
+        - link "Page 3" [ref=f2e597] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=20&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAG
+          - text: "3"
+        - link "Page 4" [ref=f2e599] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=30&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAI
+          - text: "4"
+        - link "Page 5" [ref=f2e601] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=40&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAK
+          - text: "5"
+        - link "Page 6" [ref=f2e603] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=50&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAM
+          - text: "6"
+        - link "Page 7" [ref=f2e605] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=60&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAO
+          - text: "7"
+        - link "Page 8" [ref=f2e607] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=70&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAQ
+          - text: "8"
+        - link "Page 9" [ref=f2e609] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=80&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAS
+          - text: "9"
+        - link "Page 10" [ref=f2e611] [cursor=pointer]:
+          - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=90&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8tMDegQILhAU
+          - text: "10"
+        - heading [level=2] [ref=f2e613]:
+          - link "Уперед" [ref=f2e614] [cursor=pointer]:
+            - /url: /search?q=site:google.com+streeteasy.com&sca_esv=46f3d15cfb9e1921&ei=lO6WatnfB66e1fIP1e-K-AE&start=10&sa=N&sstk=AS6-VmJMuPxnGdVGgIEAFh5fwKZMbDULPfBYCy7V2KNAfiUvkJkEtOpBiS-EzXdsfe0yt8PchI-al2UzFzwC2b3Cq1qEOrvP-_W38g&ved=2ahUKEwjZ-a7P2M2WAxUuT1UIHdW3Ah8Q8NMDegQILhAW
+      - navigation
+    - contentinfo [ref=f2e617]:
+      - heading "Посилання в нижньому колонтитулі" [level=1] [ref=f2e618]
+      - generic [ref=f2e622]:
+        - generic [ref=f2e624]:
+          - text: Україна
+          - generic [ref=f2e626]:
+            - button "Подільський район, Київ - За вашою ІР-адресою" [ref=f2e628] [cursor=pointer]:
+              - generic [ref=f2e629]: Подільський район, Київ
+              - generic [ref=f2e631]:
+                - text: "-"
+                - generic [ref=f2e632]: За вашою ІР-адресою
+            - text: "-"
+            - button "Оновити місцезнаходження" [ref=f2e634] [cursor=pointer]
+        - generic [ref=f2e637]:
+          - link "Довідка" [ref=f2e638] [cursor=pointer]:
+            - /url: https://support.google.com/websearch/?p=ws_results_help&hl=uk&fg=1
+          - link "Надіслати відгук" [ref=f2e639] [cursor=pointer]:
+            - /url: "#"
+          - link "Конфіденційність" [ref=f2e640] [cursor=pointer]:
+            - /url: https://policies.google.com/privacy?hl=uk&fg=1
+          - link "Умови" [ref=f2e641] [cursor=pointer]:
+            - /url: https://policies.google.com/terms?hl=uk&fg=1

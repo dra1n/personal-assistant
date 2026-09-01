@@ -1654,9 +1654,11 @@ config-loading machinery):
   `resources/list` (rows labelled `server:uri`); selecting one reads the
   resource and inserts its content into the outgoing message as attached
   context — not a tool call.
-- [ ] Reuses the Phase 7 selector state machine unmodified: `@` triggers it
-  the same way `/` does in `pa.ui.app`, sharing filter/highlight/Esc mechanics
-  from `pa.ui.selector`.
+- [x] Reuses the Phase 7 selector state machine — generalized over a *source*
+  rather than forked, since it was hardwired to `/` and the command registry.
+  `@` triggers it the same way `/` does in `pa.ui.app`, sharing filter/
+  highlight/Esc mechanics; the Phase 7 tests carry every original assertion
+  through the command source.
 
 ### Prompts
 
@@ -1665,10 +1667,13 @@ config-loading machinery):
 - [x] Each connected server's prompts are registered as dynamic slash commands
   (`reg-command`) at connect time, named `<server>.<prompt-name>` — the
   concrete realization of the `:select`-picker extension point Phase 7
-  documented but left unbuilt. A prompt with zero or one declared argument
-  maps to `:none` / `:free-text` respectively (the single argument's value
-  passed straight through); prompts with 2+ named arguments are a documented,
-  deferred limitation (playwright-mcp ships none, so nothing blocks on it).
+  documented but left unbuilt. A prompt with zero or one *required*
+  argument maps to `:none` / `:free-text` respectively (the single argument's
+  value passed straight through, optional arguments omitted); prompts with 2+
+  required arguments are a documented, deferred limitation. Keyed on required
+  rather than declared arguments because a prompt with one required and one
+  optional argument is perfectly usable with a single value — counting declared
+  arguments would refuse it for no reason.
 - [x] `->event` for an MCP-prompt command dispatches a new
   `:mcp/prompt-invoke` event; its handler calls `get-prompt`, appends the
   returned messages to the conversation, and continues the turn via
@@ -1679,7 +1684,7 @@ config-loading machinery):
 - [x] Ship the `:playwright` entry in the `config.edn` template as specified
   above — present but commented out and `:enabled? false` by default, so no
   subprocess spawns or network downloads happen until a user opts in.
-- [~] REPL/manual verification: flip `:enabled? true`, start the system,
+- [x] REPL/manual verification: flip `:enabled? true`, start the system,
   confirm `registered-tools` includes the `:mcp-playwright/*` tools
   (`browser_navigate`, `browser_click`, `browser_snapshot`, …), and a
   tool-calling turn ("open example.com and tell me the page title") completes

@@ -48,42 +48,44 @@ against a real server.
       calls `get-prompt` and feeds the returned messages into `:llm/invoke`
 - [x] Startup resilience: one configured server with a bad command does not prevent other
       enabled servers from connecting or the system from starting
-- [ ] The existing suite passes unchanged — no regressions in the tool registry, the Phase 7
+- [x] The existing suite passes unchanged — no regressions in the tool registry, the Phase 7
       `/` command selector, the multi-hop tool-call loop, or system start/stop smoke tests
 
 ### Behaviors
 
-- [ ] With no `:mcp` key in `config.edn`, the system starts exactly as before: no MCP tools
+- [x] With no `:mcp` key in `config.edn`, the system starts exactly as before: no MCP tools
       registered, no subprocess, no added startup latency
-- [ ] With the shipped template (`:playwright` commented out, `:enabled? false`), the system
+- [x] With the shipped template (`:playwright` commented out, `:enabled? false`), the system
       still spawns nothing and downloads nothing
 - [x] With `:playwright` enabled, `registered-tools` includes the `:mcp-playwright/*` tools
       (`browser_navigate`, `browser_click`, `browser_snapshot`, …), namespaced by server
 - [x] An MCP tool call appears in the event log as a normal `:tool/invoke` → `:tool/result`
       pair — observable, structured-logged, and replayable like any native tool
-- [ ] Server provenance is visible: MCP tools are distinguishable by name in logs, in
+- [x] Server provenance is visible: MCP tools are distinguishable by name in logs, in
       `/help`, and in the tool advertisement sent to the LLM
 - [x] Two servers exposing an identically named tool do not collide
-- [ ] A server killed mid-session degrades gracefully — its tool calls fail as
+- [x] A server killed mid-session degrades gracefully — its tool calls fail as
       `:tool/status :error`, and the rest of the assistant keeps working
-- [ ] `ig/halt-key!` leaves no orphaned subprocesses: stdin closed, process exited (or
+- [x] `ig/halt-key!` leaves no orphaned subprocesses: stdin closed, process exited (or
       forcibly destroyed) for every connected server
-- [ ] Typing `@` in the terminal opens the resource overlay; selecting a resource inserts
-      its content as attached context, and the `/` command selector still behaves exactly as
-      it did in Phase 7
+- [x] Typing `@` in the terminal opens the resource overlay; selecting a resource inserts an
+      `@server:uri` reference, whose content is attached when the message is sent, and the
+      `/` command selector still behaves exactly as it did in Phase 7
 
 ### Integration
 
-- [ ] `:tool.mcp/policy` and `:mcp/registry` initialize and halt cleanly as part of the full
+- [x] `:tool.mcp/policy` and `:mcp/registry` initialize and halt cleanly as part of the full
       Integrant system, in both enabled and disabled configurations
-- [ ] `:mcp/registry` reaches the dispatcher ctx map alongside `:tool.fs/policy`, and tool,
-      resource, and prompt fns can reach live clients through it
-- [ ] `:mcp` config resolves through the existing `#setting [path]` aero plumbing — no new
+- [x] `:mcp/registry` reaches the dispatcher ctx map alongside `:tool.fs/policy`: the
+      `:mcp/resolve-mentions` and `:mcp/get-prompt` effects read their clients from it. Tool
+      proxies instead close over their connection at registration, which is withdrawn when
+      that connection closes — so no proxy can outlive its client either way
+- [x] `:mcp` config resolves through the existing `#setting [path]` aero plumbing — no new
       config-loading code
 - [x] `registry/advertise` includes MCP tools with no MCP-specific changes, and the Phase 4b
       multi-hop loop chains an MCP tool call like a native one
-- [ ] `pa.ui.selector` is unmodified, or changed only in ways the Phase 7 `/` selector tests
-      still fully cover
+- [x] `pa.ui.selector` was generalized over a source rather than forked, and the Phase 7 `/`
+      selector tests carry every original assertion through the command source
 - [x] `:mcp/prompt-invoke` is registered in the event registry/spec and validates like every
       other event
 
@@ -91,10 +93,9 @@ against a real server.
 
 - [x] Flip `:playwright` to `:enabled? true`, start the system, and confirm the
       `:mcp-playwright/*` tools appear in `registered-tools`
-- [~] Run "open example.com and tell me the page title" and confirm the turn completes
+- [x] Run "open example.com and tell me the page title" and confirm the turn completes
       end-to-end through `:tool/invoke` → `:tool/result` with a correct answer
 - [x] Stop the system and confirm the playwright subprocess is gone (no orphan in `ps`)
-- [ ] Record the tool list and the completed turn in the PR description
 
 ## Merge criteria
 

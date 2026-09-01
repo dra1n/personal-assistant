@@ -82,3 +82,43 @@ first time anyone `@`-mentioned a resource. It is now always present, and
 `system-content` orders sections most stable first (identity → static note →
 memories). Kept here as the reason that ordering exists, so it is not
 "tidied up" later.
+
+## MCP over remote transports (SSE / streamable HTTP)
+
+Phase 9 shipped MCP over local stdio only, which covers playwright-mcp and
+every other server you run on your own machine. A remote transport would let
+the assistant reach a hosted MCP server, and is the natural next step if one is
+ever worth connecting to.
+
+Deliberately not generalized in advance: `pa.tools.mcp.client` speaks JSON-RPC
+over a stdio pair with no transport abstraction, because a second transport
+does not exist yet and inventing the seam blind is how the wrong seam gets
+built. Everything above the transport — the policy, the registry, tool and
+prompt registration, mention resolution — is already transport-agnostic, so the
+work is confined to the client plus a `:transport` value in config that the
+policy currently rejects as unsupported.
+
+- [ ] Introduce a transport seam in `pa.tools.mcp.client`: today's stdio pair
+      becomes one implementation, driven by the `:transport` key the policy
+      already normalizes and validates
+- [ ] Implement SSE / streamable HTTP against the current MCP spec, including
+      whatever session and reconnection semantics it requires — a remote server
+      can drop a connection in ways a local subprocess cannot
+- [ ] Authentication: a remote server needs credentials, which the stdio config
+      shape (`:command` / `:args` / `:env`) has nowhere to put
+- [ ] Decide what "degrade, don't crash" means when a server is reachable but
+      flaky, rather than simply absent at startup
+
+## MCP prompts with several required arguments
+
+A prompt whose server declares two or more *required* arguments is skipped at
+registration with a warning, because a slash command has no syntax for naming
+them. `everything`'s `completable-prompt` and `resource-prompt` both hit this;
+`args-prompt` does not, since only one of its two arguments is required.
+
+- [ ] Give prompt commands a multi-argument syntax, or step through the
+      arguments interactively using the `:select` picker the command registry
+      already documents
+- [ ] MCP has a completions capability (the reference server declares it) that
+      can narrow later argument values based on earlier ones — worth using if
+      an interactive path is built, rather than asking blind
