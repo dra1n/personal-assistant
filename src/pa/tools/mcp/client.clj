@@ -144,14 +144,16 @@
   "Wrap an open stdio pair as a connection and start its reader thread. `in` is
   the stream messages arrive on (the server's stdout); `out` is the stream we
   write to (the server's stdin). `opts` may carry the `:process` this pair
-  belongs to, so `close!` can reap it."
+  belongs to, so `close!` can reap it, and a `:timeout-ms` default for
+  ordinary calls."
   ([name ^InputStream in ^OutputStream out] (open name in out {}))
-  ([name ^InputStream in ^OutputStream out {:keys [process]}]
+  ([name ^InputStream in ^OutputStream out {:keys [process timeout-ms]}]
    (let [rdr  (io/reader in)
          conn {:name         name
                :in           rdr
                :out          (io/writer out)
                :process      process
+               :timeout-ms   timeout-ms
                :pending      (atom {})
                :next-id      (atom 0)
                :closed?      (atom false)
@@ -262,6 +264,15 @@
     (notify! conn "notifications/initialized" {})
     result))
 
+(def default-request-timeout-ms
+  "How long an ordinary call gets. Far longer than the handshake budget: a
+  `tools/call` may drive a browser, fetch a page, or wait on a human-scale
+  operation, and cutting that off at handshake speed would fail real work."
+  60000)
+
+(defn- timeout-for [conn]
+  (or (:timeout-ms conn) default-request-timeout-ms))
+
 (defn supports?
   "True if the connected server declared the `capability` (:tools, :resources,
   :prompts). Callers skip listing what a server never offered."
@@ -315,3 +326,91 @@
                     nil))]
     (initialize! conn connect-timeout-ms)
     nil))
+
+;; ---------------------------------------------------------------------------
+;; Protocol methods
+;;
+;; Thin wrappers over request!, one per MCP method we use. They shape the
+;; params and unwrap the result's payload key; nothing more. Interpretation —
+;; turning a tool result into a :tool/result, a resource into attached context,
+;; a prompt into conversation messages — belongs to the layers above.
+;;
+;; Results arrive already keywordized (see handle-line!), so callers work in
+;; ordinary EDN and never see raw JSON. That includes a tool's JSON Schema,
+;; which is why it can be handed to pa.tools.registry as a :schema unchanged.
+;;
+;; Each wrapper has a 2-arity using the connection's default timeout and an
+;; explicit-timeout arity for callers that know better.
+;; ---------------------------------------------------------------------------
+
+(def ^:private max-pages
+  "A safety stop for cursor paging: a server that keeps handing back cursors
+  should not spin us forever."
+  100)
+
+(defn- list-all
+  "Drain a paginated list method, following `:nextCursor` until the server stops
+  offering one, and return the accumulated items under `k`. Paging is the
+  difference between seeing all of a server's tools and silently seeing only
+  the first page of them."
+  [conn method k timeout-ms]
+  (loop [cursor nil, acc [], page 1]
+    (let [result (request! conn method (if cursor {:cursor cursor} {}) timeout-ms)
+          acc    (into acc (get result k []))
+          next   (:nextCursor result)]
+      (if (and next (not= next cursor) (< page max-pages))
+        (recur next acc (inc page))
+        (do (when (and next (= page max-pages))
+              (log/warn "mcp: stopped paging at the page limit — some entries may be missing"
+                        {:server (:name conn) :method method :pages page}))
+            acc)))))
+
+;; --- Tools -----------------------------------------------------------------
+
+(defn list-tools
+  "Every tool the server advertises: a vector of `{:name :description
+  :inputSchema}`. Gate on (supports? conn :tools) — a server that declared no
+  tools capability may not implement the method at all."
+  ([conn] (list-tools conn (timeout-for conn)))
+  ([conn timeout-ms] (list-all conn "tools/list" :tools timeout-ms)))
+
+(defn call-tool
+  "Invoke `tool-name` with `arguments`, returning the raw result — typically
+  `{:content [...] :isError <bool>}`.
+
+  Note the two distinct failure channels: a protocol-level failure throws
+  (`:mcp/rpc-error`), while a tool-level failure comes back *successfully* with
+  `:isError true`. Callers must check both before treating a result as good."
+  ([conn tool-name arguments] (call-tool conn tool-name arguments (timeout-for conn)))
+  ([conn tool-name arguments timeout-ms]
+   (request! conn "tools/call" {:name tool-name :arguments (or arguments {})} timeout-ms)))
+
+;; --- Resources -------------------------------------------------------------
+
+(defn list-resources
+  "Every resource the server offers: a vector of `{:uri :name :description
+  :mimeType}`. Gate on (supports? conn :resources)."
+  ([conn] (list-resources conn (timeout-for conn)))
+  ([conn timeout-ms] (list-all conn "resources/list" :resources timeout-ms)))
+
+(defn read-resource
+  "Read one resource by uri, returning `{:contents [{:uri :mimeType :text|:blob}]}`.
+  A single resource may yield several contents entries."
+  ([conn uri] (read-resource conn uri (timeout-for conn)))
+  ([conn uri timeout-ms] (request! conn "resources/read" {:uri uri} timeout-ms)))
+
+;; --- Prompts ---------------------------------------------------------------
+
+(defn list-prompts
+  "Every prompt the server offers: a vector of `{:name :description
+  :arguments [{:name :description :required}]}`. Gate on (supports? conn :prompts)."
+  ([conn] (list-prompts conn (timeout-for conn)))
+  ([conn timeout-ms] (list-all conn "prompts/list" :prompts timeout-ms)))
+
+(defn get-prompt
+  "Render `prompt-name` with `arguments`, returning `{:description :messages}`
+  where messages are server-rendered `{:role :content}` maps ready to append to
+  a conversation."
+  ([conn prompt-name arguments] (get-prompt conn prompt-name arguments (timeout-for conn)))
+  ([conn prompt-name arguments timeout-ms]
+   (request! conn "prompts/get" {:name prompt-name :arguments (or arguments {})} timeout-ms)))

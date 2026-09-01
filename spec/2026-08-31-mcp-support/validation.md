@@ -27,7 +27,7 @@ against a real server.
       capabilities parsed correctly
 - [x] Handshake timeout: a server that never responds is marked disconnected without
       throwing and without blocking other servers or the test
-- [ ] Protocol wrappers: `tools/list`, `tools/call`, `resources/list`, `resources/read`,
+- [x] Protocol wrappers: `tools/list`, `tools/call`, `resources/list`, `resources/read`,
       `prompts/list`, `prompts/get` — request shape asserted, fixture response decoded to
       keywordized EDN
 - [ ] Tool registration: fixture `tools/list` → each tool `reg-tool`'d under

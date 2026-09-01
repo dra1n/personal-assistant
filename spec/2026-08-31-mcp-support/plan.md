@@ -21,9 +21,9 @@ Each group folds in its own tests — a group is done only when it is tested.
 - [x] Tests: fixture `initialize` response → capabilities parsed correctly; a handshake that never responds marks the server disconnected without throwing or blocking
 
 ### Group 3 — Protocol wrappers
-- [ ] Thin JSON-RPC request/response wrappers over the transport: `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`
-- [ ] JSON→EDN keywordization at the transport boundary, so callers above never see raw JSON
-- [ ] Tests: each wrapper against a fake client — request shape asserted, fixture response decoded
+- [x] Thin JSON-RPC request/response wrappers over the transport: `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`
+- [x] JSON→EDN keywordization at the transport boundary, so callers above never see raw JSON
+- [x] Tests: each wrapper against a fake client — request shape asserted, fixture response decoded
 
 ### Group 4 — `:mcp/registry` Integrant component
 - [ ] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`, connects to every enabled server concurrently, registers each connection's tools and prompts, and caches its resource/prompt listings

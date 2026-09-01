@@ -235,3 +235,130 @@
                                       :args               []
                                       :env                {}
                                       :connect-timeout-ms 1000})))))
+
+;; ---------------------------------------------------------------------------
+;; Protocol wrappers — request shape out, decoded payload back
+;; ---------------------------------------------------------------------------
+
+(defn- answering
+  "Run `call` against the fake server, replying to its one request with
+  `result`. Returns [request-sent, value-returned]."
+  [srv call result]
+  (let [ret (future (call))
+        req (take-message! srv)]
+    (send! srv {:jsonrpc "2.0" :id (:id req) :result result})
+    [req (await! ret)]))
+
+(def ^:private a-tool
+  {:name        "browser_navigate"
+   :description "Navigate to a URL"
+   :inputSchema {:type "object"
+                 :properties {:url {:type "string"}}
+                 :required ["url"]}})
+
+(deftest list-tools-unwraps-the-tools-key
+  (with-server [srv (fake-server)]
+    (let [[req tools] (answering srv #(client/list-tools (:conn srv) 2000) {:tools [a-tool]})]
+      (is (= "tools/list" (:method req)))
+      (is (= {} (:params req)))
+      (testing "the JSON Schema survives keywordized, ready to use as a tool :schema"
+        (is (= [a-tool] tools))))))
+
+(deftest call-tool-sends-name-and-arguments
+  (with-server [srv (fake-server)]
+    (let [[req result] (answering srv
+                                  #(client/call-tool (:conn srv) "browser_navigate"
+                                                     {:url "https://example.com"} 2000)
+                                  {:content [{:type "text" :text "ok"}] :isError false})]
+      (is (= "tools/call" (:method req)))
+      (is (= {:name "browser_navigate" :arguments {:url "https://example.com"}} (:params req)))
+      (is (= {:content [{:type "text" :text "ok"}] :isError false} result)))))
+
+(deftest call-tool-defaults-nil-arguments-to-an-empty-object
+  (with-server [srv (fake-server)]
+    (let [[req _] (answering srv #(client/call-tool (:conn srv) "browser_snapshot" nil 2000)
+                             {:content []})]
+      (is (= {} (get-in req [:params :arguments]))))))
+
+(deftest call-tool-returns-tool-level-errors-rather-than-throwing
+  (testing ":isError is a successful response — the caller decides what it means"
+    (with-server [srv (fake-server)]
+      (let [[_ result] (answering srv #(client/call-tool (:conn srv) "browser_click" {} 2000)
+                                  {:content [{:type "text" :text "no such element"}]
+                                   :isError true})]
+        (is (true? (:isError result)))))))
+
+(deftest list-resources-unwraps-the-resources-key
+  (with-server [srv (fake-server)]
+    (let [res {:uri "file:///notes.md" :name "notes" :mimeType "text/markdown"}
+          [req resources] (answering srv #(client/list-resources (:conn srv) 2000)
+                                     {:resources [res]})]
+      (is (= "resources/list" (:method req)))
+      (is (= [res] resources)))))
+
+(deftest read-resource-sends-the-uri
+  (with-server [srv (fake-server)]
+    (let [[req result] (answering srv #(client/read-resource (:conn srv) "file:///notes.md" 2000)
+                                  {:contents [{:uri "file:///notes.md"
+                                               :mimeType "text/markdown"
+                                               :text "# Notes"}]})]
+      (is (= "resources/read" (:method req)))
+      (is (= {:uri "file:///notes.md"} (:params req)))
+      (is (= "# Notes" (-> result :contents first :text))))))
+
+(deftest list-prompts-unwraps-the-prompts-key
+  (with-server [srv (fake-server)]
+    (let [prompt {:name "summarize" :description "Summarize a page"
+                  :arguments [{:name "url" :required true}]}
+          [req prompts] (answering srv #(client/list-prompts (:conn srv) 2000)
+                                   {:prompts [prompt]})]
+      (is (= "prompts/list" (:method req)))
+      (is (= [prompt] prompts)))))
+
+(deftest get-prompt-sends-name-and-arguments
+  (with-server [srv (fake-server)]
+    (let [[req result] (answering srv
+                                  #(client/get-prompt (:conn srv) "summarize"
+                                                      {:url "https://example.com"} 2000)
+                                  {:description "Summarize a page"
+                                   :messages [{:role "user"
+                                               :content {:type "text" :text "Summarize…"}}]})]
+      (is (= "prompts/get" (:method req)))
+      (is (= {:name "summarize" :arguments {:url "https://example.com"}} (:params req)))
+      (is (= "user" (-> result :messages first :role))))))
+
+(deftest list-methods-follow-pagination-cursors
+  (testing "all pages are drained — a paged server must not silently lose tools"
+    (with-server [srv (fake-server)]
+      (let [tools (future (client/list-tools (:conn srv) 2000))
+            first-req (take-message! srv)]
+        (is (nil? (get-in first-req [:params :cursor])))
+        (send! srv {:jsonrpc "2.0" :id (:id first-req)
+                    :result  {:tools [{:name "a"}] :nextCursor "page-2"}})
+        (let [second-req (take-message! srv)]
+          (is (= "page-2" (get-in second-req [:params :cursor])))
+          (send! srv {:jsonrpc "2.0" :id (:id second-req)
+                      :result  {:tools [{:name "b"}]}})
+          (is (= [{:name "a"} {:name "b"}] (await! tools))))))))
+
+(deftest list-methods-stop-on-a-repeated-cursor
+  (testing "a server that hands back the same cursor forever does not spin us"
+    ;; If the guard failed, the loop would ask for a third page and this future
+    ;; would never deliver — so await! timing out is the real assertion here.
+    (with-server [srv (fake-server)]
+      (let [tools (future (client/list-tools (:conn srv) 2000))
+            r1    (take-message! srv)]
+        (send! srv {:jsonrpc "2.0" :id (:id r1)
+                    :result  {:tools [{:name "a"}] :nextCursor "stuck"}})
+        (let [r2 (take-message! srv)]
+          (is (= "stuck" (get-in r2 [:params :cursor])))
+          (send! srv {:jsonrpc "2.0" :id (:id r2)
+                      :result  {:tools [{:name "b"}] :nextCursor "stuck"}})
+          (is (= [{:name "a"} {:name "b"}] (await! tools))))))))
+
+(deftest wrappers-use-the-connections-default-timeout
+  (testing "the 2-arity needs no timeout argument at the call site"
+    (with-server [srv (fake-server)]
+      (let [[req tools] (answering srv #(client/list-tools (:conn srv)) {:tools []})]
+        (is (= "tools/list" (:method req)))
+        (is (= [] tools))))))

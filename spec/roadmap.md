@@ -1608,7 +1608,7 @@ config-loading machinery):
 - [x] Implement the MCP `initialize` handshake (`protocolVersion`,
   `clientInfo`, `capabilities`) → capture the server's declared capabilities
   (`tools`, `resources`, `prompts`), then send `notifications/initialized`.
-- [ ] Implement `tools/list`, `tools/call`, `resources/list`,
+- [x] Implement `tools/list`, `tools/call`, `resources/list`,
   `resources/read`, `prompts/list`, `prompts/get` as thin JSON-RPC
   request/response wrappers over the transport.
 - [~] Per-server connect timeout (config, default e.g. 15000ms). All enabled
