@@ -1645,9 +1645,9 @@ config-loading machinery):
 
 ### Resources
 
-- [ ] `pa.tools.mcp/list-resources` / `read-resource` — thin wrappers
+- [x] `pa.tools.mcp/list-resources` / `read-resource` — thin wrappers
   returning `{:uri :name :mime-type :content}` per connected server.
-- [ ] `@`-mention affordance in the terminal input — the extension point
+- [x] `@`-mention affordance in the terminal input — the extension point
   Phase 7 flagged (the overlay list component "could later back an `@`-style
   resource mention") but didn't build. Typing `@` opens the same overlay used
   by the command selector, populated from every connected server's
@@ -1701,7 +1701,7 @@ config-loading machinery):
 - [x] Tool proxy test: `:tool/invoke` on an `:mcp.*` tool → fake client
   returns a `tools/call` result → assert `:tool/status :ok`; an MCP error
   response → assert `:tool/status :error`.
-- [ ] Resource listing/read tests against a fake client; `@`-mention selector
+- [x] Resource listing/read tests against a fake client; `@`-mention selector
   test (mirrors the Phase 7 `/` selector tests): typing `@` opens the overlay
   populated from fixture resources, selecting one inserts its content into
   the input buffer.

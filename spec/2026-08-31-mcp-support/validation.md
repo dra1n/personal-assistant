@@ -36,9 +36,9 @@ against a real server.
       `tools/call` result → `:tool/status :ok`
 - [x] Tool proxy failure: an MCP error response → `ex-info` `{:type :mcp/tool-error}` →
       `:tool/status :error`, indistinguishable in shape from a native tool failure
-- [ ] Resources: listing and read against a fake client return `{:uri :name :mime-type
+- [x] Resources: listing and read against a fake client return `{:uri :name :mime-type
       :content}`
-- [ ] `@` selector (mirroring the Phase 7 `/` selector tests): typing `@` opens the overlay
+- [x] `@` selector (mirroring the Phase 7 `/` selector tests): typing `@` opens the overlay
       populated from fixture resources; selecting one inserts its content into the input
       buffer
 - [ ] Prompt registration: fixture `prompts/list` → commands registered as

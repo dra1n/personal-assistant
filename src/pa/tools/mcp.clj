@@ -114,3 +114,54 @@
   [tool-names]
   (run! tools/unreg-tool tool-names)
   nil)
+
+;; ---------------------------------------------------------------------------
+;; Resources
+;;
+;; Resources are not tools: selecting one attaches its text to the message a
+;; person is writing, rather than being something the model invokes. So they
+;; never enter the tool registry — they are listed for the mention overlay and
+;; read on demand.
+;;
+;; The two halves of a resource arrive from different calls. `resources/list`
+;; carries the display metadata (:name, :description, :mimeType); a
+;; `resources/read` result carries only {:uri :mimeType :text} per content
+;; entry, and no name at all. So a row keeps what the listing said and read-one
+;; only adds the text.
+;; ---------------------------------------------------------------------------
+
+(defn resource-row
+  "Shape one cached `resources/list` entry (tagged with its `:server` by the
+  registry) into the row the overlay shows and reads from."
+  [{:keys [server uri name description mimeType]}]
+  {:server      server
+   :uri         uri
+   ;; A server may omit :name; the uri is what a person recognizes it by then.
+   :name        (or name uri)
+   :description description
+   :mime-type   mimeType})
+
+(defn resource-label
+  "How a resource is shown in the overlay and referred to in a message:
+  `server:uri`, which is unique across servers."
+  [{:keys [server uri]}]
+  (str (clojure.core/name server) ":" uri))
+
+(defn- readable-text
+  "The text of a `resources/read` result. A single resource may return several
+  contents entries, so they are joined; binary (:blob) entries are skipped —
+  a mention inserts text into a message, and base64 bytes are not that."
+  [{:keys [contents]}]
+  (let [text (->> contents (keep :text) (str/join "\n\n"))
+        blobs (count (filter :blob contents))]
+    (when (pos? blobs)
+      (log/debug "mcp: skipping binary resource content" {:parts blobs}))
+    text))
+
+(defn read-resource
+  "Read `row`'s resource through `conn` and return the row with its `:content`
+  attached. Throws the client's typed ex-info if the server refuses or is gone —
+  the caller decides how loudly to fail, since a mention is a person's action,
+  not a model's."
+  [conn row]
+  (assoc row :content (readable-text (client/read-resource conn (:uri row)))))

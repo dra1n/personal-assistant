@@ -53,6 +53,7 @@
                            :dispatcher #ig/ref :pa.runtime/dispatcher}
 
  :pa.ui/terminal          {:logging    #ig/ref :pa.logging/timbre
+                           :mcp        #ig/ref :mcp/registry
                            :dispatcher #ig/ref :pa.runtime/dispatcher
                            :deltas     #ig/ref :ui/deltas
                            :llm        #ig/ref :llm/provider}}

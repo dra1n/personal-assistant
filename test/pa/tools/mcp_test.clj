@@ -173,3 +173,67 @@
                                  (ctx))
         (is (= :dry-run (:tool/status (first @dispatched))))
         (is (false? @called))))))
+
+;; ---------------------------------------------------------------------------
+;; Resources
+;;
+;; Fixtures are the shapes a live @modelcontextprotocol/server-everything 2.0.0
+;; session actually returned (see the plan's reference shapes), not what reads
+;; nicely in EDN.
+;; ---------------------------------------------------------------------------
+
+(def ^:private listing-entry
+  {:server      :everything
+   :uri         "demo://resource/static/document/architecture.md"
+   :name        "architecture.md"
+   :mimeType    "text/markdown"
+   :description "Static document file exposed from /docs: architecture.md"})
+
+(deftest resource-row-keeps-what-the-listing-said
+  (let [row (mcp/resource-row listing-entry)]
+    (is (= {:server      :everything
+            :uri         "demo://resource/static/document/architecture.md"
+            :name        "architecture.md"
+            :description "Static document file exposed from /docs: architecture.md"
+            :mime-type   "text/markdown"}
+           row))))
+
+(deftest a-nameless-resource-falls-back-to-its-uri
+  (is (= "demo://x" (:name (mcp/resource-row {:server :s :uri "demo://x"})))))
+
+(deftest resource-labels-are-unique-across-servers
+  (is (= "everything:demo://x" (mcp/resource-label {:server :everything :uri "demo://x"})))
+  (is (not= (mcp/resource-label {:server :a :uri "demo://x"})
+            (mcp/resource-label {:server :b :uri "demo://x"}))))
+
+(deftest reading-attaches-the-text-and-keeps-the-listing-metadata
+  (testing "resources/read returns no name, so the row's own metadata must survive"
+    (with-redefs [client/read-resource
+                  (fn [_ uri]
+                    (is (= "demo://resource/static/document/architecture.md" uri))
+                    {:contents [{:uri uri :mimeType "text/markdown" :text "# Architecture"}]})]
+      (let [row (mcp/read-resource conn (mcp/resource-row listing-entry))]
+        (is (= "# Architecture" (:content row)))
+        (is (= "architecture.md" (:name row)))
+        (is (= "text/markdown" (:mime-type row)))))))
+
+(deftest several-contents-entries-are-joined
+  (with-redefs [client/read-resource (fn [_ _] {:contents [{:text "one"} {:text "two"}]})]
+    (is (= "one\n\ntwo" (:content (mcp/read-resource conn {:uri "demo://x"}))))))
+
+(deftest binary-contents-are-skipped-not-inlined
+  (testing "base64 bytes have no business being spliced into a message"
+    (with-redefs [client/read-resource
+                  (fn [_ _] {:contents [{:text "readable"}
+                                        {:blob "aGVsbG8=" :mimeType "image/png"}]})]
+      (is (= "readable" (:content (mcp/read-resource conn {:uri "demo://x"})))))))
+
+(deftest an-all-binary-resource-reads-as-empty
+  (with-redefs [client/read-resource (fn [_ _] {:contents [{:blob "aGVsbG8="}]})]
+    (is (= "" (:content (mcp/read-resource conn {:uri "demo://x"}))))))
+
+(deftest a-read-failure-propagates-for-the-caller-to-handle
+  (testing "a mention is a person's action, so the UI decides how to report it"
+    (with-redefs [client/read-resource (fn [_ _] (throw (ex-info "gone" {:type :mcp/closed})))]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (mcp/read-resource conn {:uri "demo://x"}))))))

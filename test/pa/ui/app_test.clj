@@ -5,11 +5,14 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [pa.commands.builtin]                 ; registers the built-in slash commands
+            [pa.tools.mcp.client :as client]
             [pa.ui.app :as app]
             [pa.ui.input.view :as input-view]
+            [pa.ui.selector.sources :as sources]
             [pa.ui.selector.state :as selector]
             [pa.ui.view :as view]
-            [pa.ui.view.markdown :as markdown]))
+            [pa.ui.view.markdown :as markdown]
+            [taoensso.timbre :as log]))
 
 (defn- model-with-turns
   "An initialised model sized to a terminal with `n` turns of content, so the
@@ -175,9 +178,12 @@
   [model s]
   (reduce (fn [m ch] (first (app/update-model m (msg/key-press (str ch))))) model s))
 
-(defn- sel-open? [m] (selector/open? (:selector m) (:input m)))
-(defn- match-names [m] (mapv :command (selector/matches (:input m))))
-(defn- highlighted-name [m] (:command (selector/highlighted (:selector m) (:input m))))
+;; The overlay is driven by whichever source the buffer invokes — commands
+;; here, mentions in the @-tests below.
+(defn- sel-open? [m] (selector/open? (sources/active m) (:selector m) (:input m)))
+(defn- match-names [m] (mapv (comp :command :value) (selector/matches (sources/active m) (:input m))))
+(defn- highlighted-name [m]
+  (:command (:value (selector/highlighted (sources/active m) (:selector m) (:input m)))))
 
 (deftest selector-opens-on-slash-and-filters-by-prefix
   (let [m1 (type-str (fresh) "/")]
@@ -690,3 +696,79 @@
                 (let [m0 (refresh (md-model true ""))
                       m1 (refresh (assoc-in m0 [:db :settings :markdown] false))]
                   (refresh (assoc-in m1 [:db :settings :markdown] true)))))))))
+
+
+;; ---------------------------------------------------------------------------
+;; @-mention overlay — the same machine as the / selector, over resources
+;; ---------------------------------------------------------------------------
+
+(def ^:private test-resources
+  [{:server :everything :uri "demo://resource/static/document/architecture.md"
+    :name "architecture.md" :mime-type "text/markdown" :description "architecture"}
+   {:server :everything :uri "demo://notes" :name "notes" :mime-type "text/plain"}])
+
+(defn- mention-model []
+  (first ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity
+                     :resources test-resources
+                     :mcp-clients {:everything {:name :everything}}}))))
+
+(deftest mention-overlay-opens-on-at-and-filters
+  (let [m (type-str (mention-model) "read @arch")]
+    (is (sel-open? m) "typing @ opens the overlay mid-sentence")
+    (is (= ["@everything:demo://resource/static/document/architecture.md"]
+           (mapv :label (selector/matches (sources/active m) (:input m)))))))
+
+(deftest mention-overlay-closes-on-escape
+  (let [m         (type-str (mention-model) "read @arch")
+        [dismissed _] (app/update-model m (msg/key-press :escape))]
+    (is (sel-open? m))
+    (is (not (sel-open? dismissed)) "Esc dismisses the mention overlay too")
+    (is (= "read @arch" (:input dismissed)) "and leaves the buffer alone")))
+
+(deftest mention-overlay-moves-the-highlight
+  (let [m  (type-str (mention-model) "@demo")
+        [m' _] (app/update-model m (msg/key-press :down))]
+    (is (= 2 (count (selector/matches (sources/active m) (:input m)))))
+    (is (= "@everything:demo://notes"
+           (:label (selector/highlighted (sources/active m') (:selector m') (:input m')))))))
+
+(deftest selecting-a-mention-splices-the-resource-text-into-the-buffer
+  (testing "the mention token is replaced by the content it stands for"
+    (let [m (type-str (mention-model) "read @arch")
+          [after cmd] (app/update-model m (msg/key-press :enter))]
+      (is (= "read " (:input after)) "the token is dropped while the read is in flight")
+      (is (some? cmd) "and a command was issued to read it off the update loop")
+      ;; run the command the way charm would, then feed its message back
+      (with-redefs [client/read-resource
+                    (fn [_ uri]
+                      (is (= "demo://resource/static/document/architecture.md" uri))
+                      {:contents [{:uri uri :mimeType "text/markdown"
+                                   :text "# Architecture"}]})]
+        (let [message   ((:fn cmd))
+              [final _] (app/update-model after message)]
+          (is (= "read # Architecture" (:input final))))))))
+
+(deftest a-failed-mention-read-leaves-the-buffer-as-typed
+  (testing "the reason is logged; the person is not left with a half-edited line"
+    (let [m (type-str (mention-model) "@arch")
+          [after cmd] (app/update-model m (msg/key-press :enter))]
+      (with-redefs [client/read-resource (fn [_ _] (throw (ex-info "gone" {:type :mcp/closed})))]
+        (is (nil? (log/with-min-level :error ((:fn cmd))))
+            "no message is sent, so nothing is spliced")
+        (is (= "" (:input after)))))))
+
+(deftest a-mention-for-a-disconnected-server-sends-nothing
+  (let [m (first ((app/init {:db-ch nil :watch-cmd nil :dispatch! identity
+                             :resources test-resources
+                             :mcp-clients {}}))) ; nothing connected
+        typed (type-str m "@arch")
+        [_ cmd] (app/update-model typed (msg/key-press :enter))]
+    (is (nil? (log/with-min-level :error ((:fn cmd)))))))
+
+(deftest slash-and-at-do-not-interfere
+  (testing "a slash mid-line stays inert, and a session without resources is unchanged"
+    (let [m (type-str (mention-model) "see docs/readme")]
+      (is (not (sel-open? m))))
+    (let [m (type-str (mention-model) "/hel")]
+      (is (sel-open? m))
+      (is (= "/" (:trigger (sources/active m)))))))

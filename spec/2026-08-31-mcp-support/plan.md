@@ -41,13 +41,13 @@ Each group folds in its own tests — a group is done only when it is tested.
 - [x] Tests: `:tool/invoke` on an `:mcp.*` tool → fake client returns a `tools/call` result → `:tool/status :ok`; an MCP error response → `:tool/status :error`
 
 ### Group 6 — Resources & the `@`-mention
-- [ ] `pa.tools.mcp/list-resources` and `read-resource` — shape a resource into `{:server :uri :name :mime-type :content}`. Note `:name` and `:description` come from the *listing*; `resources/read` returns only `{:uri :mimeType :text}` per content entry, so the display name must be carried over from the cached listing rather than read back
-- [ ] A single resource may return several `:contents` entries — join their text, and skip binary (`:blob`) entries rather than inlining them into a message
-- [ ] `@`-mention affordance in the terminal input: typing `@` opens the same overlay used by the command selector, populated from every connected server's cached `resources/list`, rows labelled `server:uri`
-- [ ] Reuse the Phase 7 selector state machine unmodified — `@` triggers it the way `/` does in `pa.ui.app`, sharing filter/highlight/Esc mechanics from `pa.ui.selector`
-- [ ] Selecting a resource reads it and inserts its content into the outgoing message as attached context — not a tool call
-- [ ] Tests: resource listing and read against a fake client
-- [ ] Tests: `@` selector, mirroring the Phase 7 `/` selector tests — typing `@` opens the overlay populated from fixture resources; selecting one inserts its content into the input buffer
+- [x] `pa.tools.mcp/list-resources` and `read-resource` — shape a resource into `{:server :uri :name :mime-type :content}`. Note `:name` and `:description` come from the *listing*; `resources/read` returns only `{:uri :mimeType :text}` per content entry, so the display name must be carried over from the cached listing rather than read back
+- [x] A single resource may return several `:contents` entries — join their text, and skip binary (`:blob`) entries rather than inlining them into a message
+- [x] `@`-mention affordance in the terminal input: typing `@` opens the same overlay used by the command selector, populated from every connected server's cached `resources/list`, rows labelled `server:uri`
+- [x] ~~Reuse the Phase 7 selector state machine unmodified~~ — **generalized instead**, not forked. `pa.ui.selector.state` was hardwired to slash commands in two places (`name-phase?` tested for `/`; `matches` read the command registry), so "unmodified" was not reachable. It now takes a *source* — `{:trigger :anchored? :match :rows}` — and `pa.ui.selector.sources` builds one for commands and one for resources. Both overlays are the same machine, and the Phase 7 tests carry every original assertion through the command source
+- [x] Selecting a resource reads it and inserts its content into the outgoing message as attached context — not a tool call
+- [x] Tests: resource listing and read against a fake client
+- [x] Tests: `@` selector, mirroring the Phase 7 `/` selector tests — typing `@` opens the overlay populated from fixture resources; selecting one inserts its content into the input buffer
 
 ### Group 7 — Prompts as slash commands
 - [ ] `pa.tools.mcp/list-prompts` and `get-prompt` — thin wrappers; `get-prompt` returns the server-rendered message list for the given arguments
@@ -104,9 +104,14 @@ usable; keying it on declared count would make only one.
   branch grows uncomfortable, that's the natural split point — resources and prompts are
   additive surfaces that can merge separately without leaving anything half-wired.
 - **Group 6 is the only UI-layer work.** It touches `pa.ui.app` and `pa.ui.selector`;
-  everything else lives under `pa/tools/mcp`. Keeping the selector state machine unmodified
-  is the constraint that protects the Phase 7 `/` behavior — if `@` seems to require
-  changing `pa.ui.selector`, that's a signal to reconsider the approach, not to fork it.
+  everything else lives under `pa/tools/mcp`. The constraint that mattered turned out to be
+  *don't fork the state machine*, not *don't change it* — see the struck-through task above.
+  Two differences from the `/` overlay were forced by the domain and are worth keeping in
+  mind: a mention is **unanchored** (it sits inside a sentence, so it opens only after
+  whitespace — otherwise every email address would trigger it) and **substring-matched**
+  (labels begin with a server name nobody types first). Reading a mentioned resource happens
+  off the update loop via a charm command: a local server answers in milliseconds, but
+  freezing the terminal on a subprocess round-trip would be worse than a moment's delay.
 - **Group 5's last item is a verification, not an implementation.** If `advertise` or the
   multi-hop loop turns out to need changes, that's a general-mechanism bug surfaced by MCP,
   and it should be fixed generally.
