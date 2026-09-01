@@ -30,6 +30,7 @@
   failure."
   (:require [clojure.string :as str]
             [pa.tools.mcp.client :as client]
+            [pa.commands.registry :as commands]
             [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
 
@@ -217,3 +218,98 @@
                    [idx row])))
          (sort-by first)
          (mapv second))))
+
+;; ---------------------------------------------------------------------------
+;; Prompts
+;;
+;; A server's prompts become slash commands — the concrete user of the :select
+;; extension point Phase 7 documented but left unbuilt. `<server>.<prompt>` is
+;; the command name; unlike a tool name it never reaches a provider API, so a
+;; dot is safe here.
+;;
+;; Argument mapping keys on *required* arguments, not declared ones. The
+;; reference server's args-prompt takes one required argument and one optional,
+;; and is perfectly usable with a single value; counting declared arguments
+;; would refuse it for no reason. Two or more required arguments have no
+;; sensible one-line syntax yet and are a documented, deferred limitation.
+;; ---------------------------------------------------------------------------
+
+(defn prompt-command-name
+  [server prompt]
+  (str (clojure.core/name server) "." prompt))
+
+(defn required-arguments
+  "A prompt's arguments that must be supplied. :required is often simply absent
+  rather than false."
+  [prompt]
+  (filterv :required (:arguments prompt)))
+
+(defn prompt->command
+  "The command spec for one `prompts/list` entry, or nil when its argument shape
+  is not supported. `->event` dispatches :mcp/prompt-invoke; the runtime renders
+  the prompt and feeds the result into the conversation."
+  [server {prompt :name :keys [description title] :as entry}]
+  (let [required (required-arguments entry)
+        command  (prompt-command-name server prompt)
+        desc     (or description title (str prompt " (" (clojure.core/name server) " MCP prompt)"))
+        invoke   (fn [arguments]
+                   {:event/type :mcp/prompt-invoke
+                    :server     server
+                    :prompt     prompt
+                    :arguments  arguments})]
+    (cond
+      (not (and (string? prompt) (seq prompt)))
+      (do (log/warn "mcp: skipping prompt with no name" {:server server}) nil)
+
+      (empty? required)
+      {:command command :description desc
+       :arg-spec {:kind :none}
+       :->event  (fn [_] (invoke {}))}
+
+      (= 1 (count required))
+      (let [arg (first required)]
+        {:command command :description desc
+         :arg-spec {:kind :free-text :required true
+                    :placeholder (str "<" (:name arg) ">")}
+         :->event  (fn [args] (invoke {(:name arg) (:text args)}))})
+
+      :else
+      (do (log/warn "mcp: skipping prompt — prompts with several required arguments are not supported yet"
+                    {:server server :prompt prompt
+                     :required (mapv :name required)})
+          nil))))
+
+(defn register-prompts!
+  "Register every prompt `server` offers as a slash command. Returns the
+  registered command names, which the caller keeps so it can withdraw them."
+  [server prompt-list]
+  (into [] (keep (fn [entry]
+                   (when-let [spec (prompt->command server entry)]
+                     (commands/reg-command spec))))
+        prompt-list))
+
+(defn unregister-prompts!
+  "Drop `command-names` from the command registry — called when a server
+  disconnects."
+  [command-names]
+  (run! commands/unreg-command command-names)
+  nil)
+
+(defn prompt-messages
+  "Flatten a `prompts/get` result into conversation turns. A message's :content
+  is a content block ({:type \"text\" :text \"…\"}), not a string; a block that
+  carries no text — an image, an embedded resource — is dropped, since there is
+  nowhere sensible to put it in a text conversation."
+  [{:keys [messages]}]
+  (into []
+        (keep (fn [{:keys [role content]}]
+                (let [text (cond
+                             (string? content)     content
+                             (map? content)        (:text content)
+                             (sequential? content) (not-empty (str/join "\n" (keep :text content))))]
+                  (if (str/blank? text)
+                    (do (log/warn "mcp: dropping prompt message with no text content"
+                                  {:role role})
+                        nil)
+                    {:role (keyword (or role "user")) :content text}))))
+        messages))

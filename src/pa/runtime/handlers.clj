@@ -123,6 +123,27 @@
                                          :opts     {:tools (tools/advertise)}}
                            :trace       {:event/type :mcp/mentions-resolved}})))
 
+
+;; An MCP prompt is rendered by its server, so invoking one takes the same two
+;; hops a mention does: :mcp/get-prompt fetches the messages, and the resolved
+;; event carries them into the conversation. Persisting the resolved event is
+;; what lets replay rebuild the turn without the server.
+(registry/reg-handler :mcp/prompt-invoke
+                      (fn [{:keys [event]}]
+                        {:mcp/get-prompt {:server    (:server event)
+                                          :prompt    (:prompt event)
+                                          :arguments (:arguments event)}
+                         :trace          {:event/type :mcp/prompt-invoke}}))
+
+(registry/reg-handler :mcp/prompt-resolved
+                      (fn [{:keys [db event]}]
+                        (let [db' (reduce tr/add-conversation-entry db (:messages event))]
+                          {:db          db'
+                           :event/store event
+                           :llm/invoke  {:messages (assemble-for db' [])
+                                         :opts     {:tools (tools/advertise)}}
+                           :trace       {:event/type :mcp/prompt-resolved}})))
+
 (registry/reg-handler :assistant/tool-call
                       (fn [{:keys [db event]}]
                         (let [{:keys [content tool-calls]} event

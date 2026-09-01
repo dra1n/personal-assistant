@@ -152,3 +152,73 @@
           turn   (last (:conversation db))]
       (is (= "read @everything:demo://notes" (:content turn)))
       (is (= "notes body" (:content (first (:attachments turn))))))))
+
+;; ---------------------------------------------------------------------------
+;; MCP prompts — the same two hops: render on the server, then carry on
+;; ---------------------------------------------------------------------------
+
+(deftest prompt-invoke-defers-to-the-server
+  (let [fx ((handler :mcp/prompt-invoke)
+            {:db db-with-identity
+             :event {:event/type :mcp/prompt-invoke :server :everything
+                     :prompt "args-prompt" :arguments {"city" "Berlin"}}})]
+    (is (= {:server :everything :prompt "args-prompt" :arguments {"city" "Berlin"}}
+           (:mcp/get-prompt fx)))
+    (is (not (contains? fx :llm/invoke)) "nothing is sent until the server has rendered it")))
+
+(defn- get-prompt!
+  "Run the effect and wait for the event it dispatches."
+  [registry]
+  (let [dispatched (promise)]
+    (executor/execute-effect :mcp/get-prompt
+                             {:server :everything :prompt "simple-prompt" :arguments {}}
+                             {:dispatch! #(deliver dispatched %) :mcp/registry registry})
+    (deref dispatched 2000 ::timeout)))
+
+(deftest the-effect-renders-the-prompt-and-dispatches-its-messages
+  (with-redefs [client/get-prompt
+                (fn [_ prompt arguments]
+                  (is (= "simple-prompt" prompt))
+                  (is (= {} arguments))
+                  {:messages [{:role "user" :content {:type "text" :text "rendered"}}]})]
+    (let [event (get-prompt! {:clients {:everything {}}})]
+      (is (= :mcp/prompt-resolved (:event/type event)))
+      (is (= [{:role :user :content "rendered"}] (:messages event))))))
+
+(deftest a-prompt-failure-is-reported-where-the-command-was-typed
+  (testing "a slash command's failure belongs with usage errors, not in a log line"
+    (log/with-min-level :error
+      (with-redefs [client/get-prompt (fn [& _] (throw (ex-info "no such prompt" {})))]
+        (let [event (get-prompt! {:clients {:everything {}}})]
+          (is (= :command/rejected (:event/type event)))
+          (is (= "everything.simple-prompt" (:command event)))
+          (is (str/includes? (:message event) "no such prompt")))))))
+
+(deftest a-prompt-on-a-disconnected-server-is-rejected
+  (log/with-min-level :error
+    (let [event (get-prompt! {:clients {}})]
+      (is (= :command/rejected (:event/type event)))
+      (is (= :mcp/not-connected (:reason event))))))
+
+(deftest a-prompt-that-renders-nothing-is-rejected-rather-than-sent
+  (log/with-min-level :error
+    (with-redefs [client/get-prompt (fn [& _] {:messages []})]
+      (is (= :command/rejected (:event/type (get-prompt! {:clients {:everything {}}})))))))
+
+(def ^:private prompt-resolved-event
+  {:event/type :mcp/prompt-resolved :server :everything :prompt "simple-prompt"
+   :messages   [{:role :user :content "rendered prompt text"}]})
+
+(deftest resolved-prompt-messages-join-the-conversation-and-invoke-the-model
+  (let [fx ((handler :mcp/prompt-resolved) {:db db-with-identity :event prompt-resolved-event})]
+    (is (= [{:role :user :content "rendered prompt text"}] (:conversation (:db fx)))
+        "the rendered text is a visible turn, not hidden context")
+    (is (contains? fx :llm/invoke))
+    (is (= prompt-resolved-event (:event/store fx)))))
+
+(deftest replay-rebuilds-a-prompt-turn-without-the-server
+  (let [db (replay/replay db-with-identity
+                          [{:event/type :mcp/prompt-invoke :server :everything
+                            :prompt "simple-prompt" :arguments {}}
+                           prompt-resolved-event])]
+    (is (= [{:role :user :content "rendered prompt text"}] (:conversation db)))))

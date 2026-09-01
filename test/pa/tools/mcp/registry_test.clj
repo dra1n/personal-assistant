@@ -5,15 +5,17 @@
             [pa.tools.mcp.client :as client]
             [pa.tools.mcp.policy :as policy]
             [pa.tools.mcp.registry :as registry]
+            [pa.commands.registry :as commands]
             [pa.tools.registry :as tools]
             [taoensso.timbre :as log]))
 
 (use-fixtures :each
   (fn [f]
     ;; The registry registers MCP tools globally; snapshot so tests don't leak.
-    (let [snap (tools/snapshot)]
+    (let [snap  (tools/snapshot)
+          csnap (commands/snapshot)]
       (log/with-min-level :error
-        (try (f) (finally (tools/restore! snap)))))))
+        (try (f) (finally (tools/restore! snap) (commands/restore! csnap)))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Fake clients. The transport itself is covered in pa.tools.mcp.client-test
@@ -239,3 +241,17 @@
     (is (= #{:mcp-good/ok} (registry/registered-tools (:mcp/registry sys))))
     (with-redefs [client/close! (fn [conn] (reset! (:closed? conn) true) nil)]
       (ig/halt! sys))))
+
+(deftest connecting-registers-the-servers-prompts-as-commands
+  (let [sys (start {:pw {}} {:connect {:pw (fake-conn :pw)}
+                             :prompts {:pw [{:name "summarize"}
+                                            {:name "two" :arguments [{:name "a" :required true}
+                                                                     {:name "b" :required true}]}]}})
+        reg (:mcp/registry sys)]
+    (is (= #{"pw.summarize"} (registry/registered-commands reg))
+        "the unsupported argument shape is skipped, not registered broken")
+    (is (some? (commands/get-command "pw.summarize")))
+    (with-redefs [client/close! (fn [conn] (reset! (:closed? conn) true) nil)]
+      (ig/halt! sys))
+    (is (nil? (commands/get-command "pw.summarize"))
+        "and halting withdraws them, so no command outlives its server")))

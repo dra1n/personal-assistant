@@ -83,6 +83,16 @@
   (swap! registry assoc command command-spec)
   command)
 
+(defn unreg-command
+  "Remove command-name from the registry. Returns command-name.
+
+  Built-in commands self-register at load time and stay. Commands that stand in
+  for something external — an MCP server's prompts — need the inverse, so no
+  command outlives the connection that would serve it."
+  [command-name]
+  (swap! registry dissoc command-name)
+  command-name)
+
 (defn get-command
   "Return the command spec for command (a name string), or nil."
   [command]

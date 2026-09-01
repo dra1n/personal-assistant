@@ -1660,16 +1660,16 @@ config-loading machinery):
 
 ### Prompts
 
-- [ ] `pa.tools.mcp/list-prompts` / `get-prompt` — thin wrappers; `get-prompt`
+- [x] `pa.tools.mcp/list-prompts` / `get-prompt` — thin wrappers; `get-prompt`
   returns the server-rendered message list for the given arguments.
-- [ ] Each connected server's prompts are registered as dynamic slash commands
+- [x] Each connected server's prompts are registered as dynamic slash commands
   (`reg-command`) at connect time, named `<server>.<prompt-name>` — the
   concrete realization of the `:select`-picker extension point Phase 7
   documented but left unbuilt. A prompt with zero or one declared argument
   maps to `:none` / `:free-text` respectively (the single argument's value
   passed straight through); prompts with 2+ named arguments are a documented,
   deferred limitation (playwright-mcp ships none, so nothing blocks on it).
-- [ ] `->event` for an MCP-prompt command dispatches a new
+- [x] `->event` for an MCP-prompt command dispatches a new
   `:mcp/prompt-invoke` event; its handler calls `get-prompt`, appends the
   returned messages to the conversation, and continues the turn via
   `:llm/invoke` — the same path a normal `:user/message` turn takes.
@@ -1705,7 +1705,7 @@ config-loading machinery):
   test (mirrors the Phase 7 `/` selector tests): typing `@` opens the overlay
   populated from fixture resources, selecting one inserts its content into
   the input buffer.
-- [ ] Prompt registration + dispatch test: fixture `prompts/list` → commands
+- [x] Prompt registration + dispatch test: fixture `prompts/list` → commands
   registered; invoking one dispatches `:mcp/prompt-invoke` → handler calls
   `get-prompt` and feeds the returned messages into `:llm/invoke`.
 - [x] Startup resilience test: one configured server that fails to connect

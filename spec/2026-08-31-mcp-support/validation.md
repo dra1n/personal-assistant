@@ -41,10 +41,10 @@ against a real server.
 - [x] `@` selector (mirroring the Phase 7 `/` selector tests): typing `@` opens the overlay
       populated from fixture resources; selecting one inserts its content into the input
       buffer
-- [ ] Prompt registration: fixture `prompts/list` → commands registered as
+- [x] Prompt registration: fixture `prompts/list` → commands registered as
       `<server>.<prompt-name>`; zero-arg → `:none`, one-arg → `:free-text`; a 2+-arg prompt
       is skipped with a warning, not a crash
-- [ ] Prompt dispatch: invoking a prompt command dispatches `:mcp/prompt-invoke` → handler
+- [x] Prompt dispatch: invoking a prompt command dispatches `:mcp/prompt-invoke` → handler
       calls `get-prompt` and feeds the returned messages into `:llm/invoke`
 - [x] Startup resilience: one configured server with a bad command does not prevent other
       enabled servers from connecting or the system from starting
@@ -84,7 +84,7 @@ against a real server.
       multi-hop loop chains an MCP tool call like a native one
 - [ ] `pa.ui.selector` is unmodified, or changed only in ways the Phase 7 `/` selector tests
       still fully cover
-- [ ] `:mcp/prompt-invoke` is registered in the event registry/spec and validates like every
+- [x] `:mcp/prompt-invoke` is registered in the event registry/spec and validates like every
       other event
 
 ### Manual verification (gates merge)

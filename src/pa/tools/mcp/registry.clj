@@ -58,11 +58,13 @@
   could not be connected."
   [name server]
   (when-let [conn (client/connect name server)]
-    [name {:client    conn
-           :tools     (mcp/register-tools!
-                       name conn (cached-listing conn :tools client/list-tools))
-           :resources (cached-listing conn :resources client/list-resources)
-           :prompts   (cached-listing conn :prompts client/list-prompts)}]))
+    (let [prompts (cached-listing conn :prompts client/list-prompts)]
+      [name {:client    conn
+             :tools     (mcp/register-tools!
+                         name conn (cached-listing conn :tools client/list-tools))
+             :resources (cached-listing conn :resources client/list-resources)
+             :prompts   prompts
+             :commands  (mcp/register-prompts! name prompts)}])))
 
 (defn- await-connect
   "Collect one server's connect result within its budget. A connect that
@@ -119,6 +121,11 @@
   [registry]
   (into #{} cat (vals (:tools registry))))
 
+(defn registered-commands
+  "Every slash command registered for an MCP prompt, across all servers."
+  [registry]
+  (into #{} cat (vals (:commands registry))))
+
 (defn all-resources [registry] (tagged registry :resources))
 (defn all-prompts   [registry] (tagged registry :prompts))
 
@@ -134,12 +141,14 @@
     {:clients   (update-vals entries :client)
      :tools     (update-vals entries :tools)
      :resources (update-vals entries :resources)
-     :prompts   (update-vals entries :prompts)}))
+     :prompts   (update-vals entries :prompts)
+     :commands  (update-vals entries :commands)}))
 
-(defmethod ig/halt-key! :mcp/registry [_ {:keys [clients tools]}]
-  ;; Withdraw the tools first: once the connections are closed, a registration
-  ;; left standing would proxy to a dead server.
+(defmethod ig/halt-key! :mcp/registry [_ {:keys [clients tools commands]}]
+  ;; Withdraw the tools and prompt commands first: once the connections are
+  ;; closed, a registration left standing would point at a dead server.
   (run! mcp/unregister-tools! (vals tools))
+  (run! mcp/unregister-prompts! (vals commands))
   (doseq [[name conn] clients]
     (try
       (client/close! conn)

@@ -129,14 +129,14 @@ load-bearing:
 - [x] Tests: UI — selecting a mention inserts the reference and issues no command
 
 ### Group 7 — Prompts as slash commands
-- [ ] `pa.tools.mcp/list-prompts` and `get-prompt` — thin wrappers; `get-prompt` returns the server-rendered message list for the given arguments
-- [ ] Register each connected server's prompts as dynamic slash commands via `reg-command`, named `<server>.<prompt-name>` — the first concrete user of the `:select`-picker extension point Phase 7 documented but left unbuilt
-- [ ] Argument mapping keyed on **required** arguments, not declared ones: zero required → `:none`; exactly one required → `:free-text` (that value passed through, optional arguments omitted); 2+ required are skipped with a warning and documented as a deferred limitation. Declared-count would skip a prompt usable with a single value — see the observed shapes below
-- [ ] `->event` for an MCP-prompt command dispatches `:mcp/prompt-invoke`; its handler calls `get-prompt`, appends the returned messages to the conversation, and continues the turn via `:llm/invoke` — the same path a `:user/message` turn takes
-- [ ] Flatten each returned message's `:content` map (`{:type "text" :text "…"}`) into the plain string our conversation messages carry; a non-text content part is dropped with a warning rather than passed through as a map
-- [ ] Register `:mcp/prompt-invoke` in the event registry/spec alongside existing events
-- [ ] Tests: fixture `prompts/list` → commands registered under the right names with the right argument kinds; a 2+-argument prompt is skipped, not crashed on
-- [ ] Tests: invoking a prompt command dispatches `:mcp/prompt-invoke` → handler calls `get-prompt` and feeds the returned messages into `:llm/invoke`
+- [x] `pa.tools.mcp/list-prompts` and `get-prompt` — thin wrappers; `get-prompt` returns the server-rendered message list for the given arguments
+- [x] Register each connected server's prompts as dynamic slash commands via `reg-command`, named `<server>.<prompt-name>` — the first concrete user of the `:select`-picker extension point Phase 7 documented but left unbuilt
+- [x] Argument mapping keyed on **required** arguments, not declared ones: zero required → `:none`; exactly one required → `:free-text` (that value passed through, optional arguments omitted); 2+ required are skipped with a warning and documented as a deferred limitation. Declared-count would skip a prompt usable with a single value — see the observed shapes below
+- [x] `->event` for an MCP-prompt command dispatches `:mcp/prompt-invoke`; its handler calls `get-prompt`, appends the returned messages to the conversation, and continues the turn via `:llm/invoke` — the same path a `:user/message` turn takes
+- [x] Flatten each returned message's `:content` map (`{:type "text" :text "…"}`) into the plain string our conversation messages carry; a non-text content part is dropped with a warning rather than passed through as a map
+- [x] Register `:mcp/prompt-invoke` in the event registry/spec alongside existing events
+- [x] Tests: fixture `prompts/list` → commands registered under the right names with the right argument kinds; a 2+-argument prompt is skipped, not crashed on
+- [x] Tests: invoking a prompt command dispatches `:mcp/prompt-invoke` → handler calls `get-prompt` and feeds the returned messages into `:llm/invoke`
 
 ### Group 8 — playwright-mcp end-to-end
 - [ ] Confirm the shipped `:playwright` template entry is present, commented out, and `:enabled? false`, so no subprocess spawns and no package downloads until a user opts in
