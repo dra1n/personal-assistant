@@ -12,13 +12,13 @@ Each group folds in its own tests — a group is done only when it is tested.
 - [x] Tests: fixture `:servers` config map → assert normalization, `:enabled?` filtering, malformed-entry-dropped, and empty-config-yields-no-servers
 
 ### Group 2 — JSON-RPC / stdio transport
-- [ ] `pa.tools.mcp.client` — spawn a subprocess via `ProcessBuilder` from `:command` + `:args` + `:env`, with stderr piped to Timbre
-- [ ] Newline-delimited JSON-RPC 2.0 read/write over stdin/stdout, with a dedicated reader thread demuxing responses to in-flight requests by numeric id via promises (same async-hop shape as `:llm/invoke` / `:extraction/classify` in `pa.runtime.executor`)
-- [ ] Implement the `initialize` handshake (`protocolVersion`, `clientInfo`, `capabilities`), capture the server's declared `tools` / `resources` / `prompts` capabilities, then send `notifications/initialized`
-- [ ] Per-server connect timeout: a timed-out or erroring handshake logs a warning and leaves that server disconnected, without delaying other servers or app startup
-- [ ] Clean shutdown: close stdin (EOF), wait briefly for exit, then `.destroyForcibly`
-- [ ] Tests: JSON-RPC framing round-trip against a fake stdio pair (`PipedInputStream` / `PipedOutputStream`), never a real subprocess — request written, correlated response resolved
-- [ ] Tests: fixture `initialize` response → capabilities parsed correctly; a handshake that never responds marks the server disconnected without throwing or blocking
+- [x] `pa.tools.mcp.client` — spawn a subprocess via `ProcessBuilder` from `:command` + `:args` + `:env`, with stderr piped to Timbre
+- [x] Newline-delimited JSON-RPC 2.0 read/write over stdin/stdout, with a dedicated reader thread demuxing responses to in-flight requests by numeric id via promises (same async-hop shape as `:llm/invoke` / `:extraction/classify` in `pa.runtime.executor`)
+- [x] Implement the `initialize` handshake (`protocolVersion`, `clientInfo`, `capabilities`), capture the server's declared `tools` / `resources` / `prompts` capabilities, then send `notifications/initialized`
+- [x] Per-server connect timeout: a timed-out or erroring handshake logs a warning and leaves that server disconnected, without delaying other servers or app startup
+- [x] Clean shutdown: close stdin (EOF), wait briefly for exit, then `.destroyForcibly`
+- [x] Tests: JSON-RPC framing round-trip against a fake stdio pair (`PipedInputStream` / `PipedOutputStream`), never a real subprocess — request written, correlated response resolved
+- [x] Tests: fixture `initialize` response → capabilities parsed correctly; a handshake that never responds marks the server disconnected without throwing or blocking
 
 ### Group 3 — Protocol wrappers
 - [ ] Thin JSON-RPC request/response wrappers over the transport: `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`

@@ -20,12 +20,12 @@ against a real server.
 - [x] `pa.tools.mcp.policy`: fixture `:servers` config → normalization asserted; `:enabled?
       false` servers excluded; a malformed entry dropped with a warning rather than a throw;
       a missing `:mcp` key yields zero servers
-- [ ] `pa.tools.mcp.client`: JSON-RPC framing round-trip against a `PipedInputStream` /
+- [x] `pa.tools.mcp.client`: JSON-RPC framing round-trip against a `PipedInputStream` /
       `PipedOutputStream` fake stdio pair — request written, correlated response resolved by
       numeric id
-- [ ] Handshake: fixture `initialize` response → `tools` / `resources` / `prompts`
+- [x] Handshake: fixture `initialize` response → `tools` / `resources` / `prompts`
       capabilities parsed correctly
-- [ ] Handshake timeout: a server that never responds is marked disconnected without
+- [x] Handshake timeout: a server that never responds is marked disconnected without
       throwing and without blocking other servers or the test
 - [ ] Protocol wrappers: `tools/list`, `tools/call`, `resources/list`, `resources/read`,
       `prompts/list`, `prompts/get` — request shape asserted, fixture response decoded to

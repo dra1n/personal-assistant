@@ -1599,23 +1599,23 @@ config-loading machinery):
 
 ### JSON-RPC / stdio transport
 
-- [ ] `pa.tools.mcp.client` — spawn a server subprocess via `ProcessBuilder`
+- [x] `pa.tools.mcp.client` — spawn a server subprocess via `ProcessBuilder`
   (`:command` + `:args` + `:env`, stderr piped to logs), write/read
   newline-delimited JSON-RPC 2.0 messages over stdin/stdout. A dedicated
   reader thread demuxes responses to in-flight requests by numeric id via
   promises (the same async-hop shape already used for `:llm/invoke` and
   `:extraction/classify` in `pa.runtime.executor`).
-- [ ] Implement the MCP `initialize` handshake (`protocolVersion`,
+- [x] Implement the MCP `initialize` handshake (`protocolVersion`,
   `clientInfo`, `capabilities`) → capture the server's declared capabilities
   (`tools`, `resources`, `prompts`), then send `notifications/initialized`.
 - [ ] Implement `tools/list`, `tools/call`, `resources/list`,
   `resources/read`, `prompts/list`, `prompts/get` as thin JSON-RPC
   request/response wrappers over the transport.
-- [ ] Per-server connect timeout (config, default e.g. 15000ms). All enabled
+- [~] Per-server connect timeout (config, default e.g. 15000ms). All enabled
   servers connect concurrently at startup; a timed-out or erroring handshake
   logs a warning and leaves that server disconnected without delaying the
   others or the app.
-- [ ] Clean shutdown: close stdin (EOF signal), wait briefly for the process
+- [x] Clean shutdown: close stdin (EOF signal), wait briefly for the process
   to exit, then `.destroyForcibly` if it hasn't. Invoked per connected server
   from `ig/halt-key!`.
 
@@ -1689,10 +1689,10 @@ config-loading machinery):
 
 - [x] `pa.tools.mcp.policy` — fixture `:servers` config map → assert
   servers/`enabled?`/malformed-entry-dropped behavior.
-- [ ] `pa.tools.mcp.client` — JSON-RPC framing round-trip (request →
+- [x] `pa.tools.mcp.client` — JSON-RPC framing round-trip (request →
   correlated response) against a fake stdio pair (`PipedInputStream`/
   `PipedOutputStream` standing in for a server), not a real subprocess.
-- [ ] Handshake test: fixture `initialize` response → capabilities parsed
+- [x] Handshake test: fixture `initialize` response → capabilities parsed
   correctly; a timed-out handshake marks the server disconnected without
   throwing or blocking other servers.
 - [ ] Tool registration test: fixture `tools/list` response → each tool is
