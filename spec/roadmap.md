@@ -1611,7 +1611,7 @@ config-loading machinery):
 - [x] Implement `tools/list`, `tools/call`, `resources/list`,
   `resources/read`, `prompts/list`, `prompts/get` as thin JSON-RPC
   request/response wrappers over the transport.
-- [~] Per-server connect timeout (config, default e.g. 15000ms). All enabled
+- [x] Per-server connect timeout (config, default e.g. 15000ms). All enabled
   servers connect concurrently at startup; a timed-out or erroring handshake
   logs a warning and leaves that server disconnected without delaying the
   others or the app.
@@ -1621,7 +1621,7 @@ config-loading machinery):
 
 ### Integrant component
 
-- [ ] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`,
+- [~] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`,
   connects to every enabled server concurrently, and for each successful connection
   registers its tools and prompts (below) and caches its resource/prompt
   listings; `halt-key!` disconnects every connected client. Wired into
@@ -1708,7 +1708,7 @@ config-loading machinery):
 - [ ] Prompt registration + dispatch test: fixture `prompts/list` → commands
   registered; invoking one dispatches `:mcp/prompt-invoke` → handler calls
   `get-prompt` and feeds the returned messages into `:llm/invoke`.
-- [ ] Startup resilience test: one configured server that fails to connect
+- [x] Startup resilience test: one configured server that fails to connect
   (bad command) does not prevent other enabled servers from connecting or the
   system from starting.
 

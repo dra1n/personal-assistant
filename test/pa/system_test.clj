@@ -21,8 +21,14 @@
 
 (defn- start-test-system []
   (let [cfg (-> (config/system-config)
-                (dissoc :pa.observability/portal)  ; skip Portal in CI
-                (dissoc :pa.ui/terminal))]          ; skip TTY output in CI
+                (dissoc :pa.observability/portal)     ; skip Portal in CI
+                (dissoc :pa.ui/terminal)              ; skip TTY output in CI
+                ;; Blank the server list rather than dropping :mcp/registry,
+                ;; which the dispatcher refs: the real component still starts
+                ;; and halts, it just has nothing to spawn. Without this the
+                ;; suite would launch whatever MCP servers the developer has
+                ;; enabled in their own config.edn.
+                (assoc-in [:tool.mcp/policy :servers] nil))]
     (ig/init cfg)))
 
 (deftest system-starts

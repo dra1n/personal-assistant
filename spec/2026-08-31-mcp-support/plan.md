@@ -26,11 +26,11 @@ Each group folds in its own tests — a group is done only when it is tested.
 - [x] Tests: each wrapper against a fake client — request shape asserted, fixture response decoded
 
 ### Group 4 — `:mcp/registry` Integrant component
-- [ ] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`, connects to every enabled server concurrently, registers each connection's tools and prompts, and caches its resource/prompt listings
-- [ ] `halt-key!` disconnects every connected client
-- [ ] Wire `:mcp/registry` into `pa.runtime/dispatcher`'s ctx map alongside `:tool.fs/policy`, so tool, resource, and prompt fns can reach live clients
-- [ ] Tests: startup resilience — one configured server with a bad command does not prevent other enabled servers from connecting or the system from starting
-- [ ] Tests: `halt-key!` disconnects every client, including after a partially failed startup
+- [~] `:mcp/registry` — `init-key` takes `{:policy #ig/ref :tool.mcp/policy}`, connects to every enabled server concurrently, registers each connection's tools and prompts, and caches its resource/prompt listings
+- [x] `halt-key!` disconnects every connected client
+- [x] Wire `:mcp/registry` into `pa.runtime/dispatcher`'s ctx map alongside `:tool.fs/policy`, so tool, resource, and prompt fns can reach live clients
+- [x] Tests: startup resilience — one configured server with a bad command does not prevent other enabled servers from connecting or the system from starting
+- [x] Tests: `halt-key!` disconnects every client, including after a partially failed startup
 
 ### Group 5 — Tools
 - [ ] `pa.tools.mcp` — for each connected server, translate every `tools/list` entry (`name`, `description`, `inputSchema`) into a `reg-tool` under `:mcp.<server>/<tool-name>`

@@ -18,6 +18,7 @@
             [pa.scheduler.core]
             [pa.tools.fs.policy]
             [pa.tools.mcp.policy]
+            [pa.tools.mcp.registry]
             [pa.tools.fs]
             [pa.tools.network.search]
             [pa.tools.network.fetch]

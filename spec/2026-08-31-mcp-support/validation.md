@@ -46,7 +46,7 @@ against a real server.
       is skipped with a warning, not a crash
 - [ ] Prompt dispatch: invoking a prompt command dispatches `:mcp/prompt-invoke` → handler
       calls `get-prompt` and feeds the returned messages into `:llm/invoke`
-- [ ] Startup resilience: one configured server with a bad command does not prevent other
+- [x] Startup resilience: one configured server with a bad command does not prevent other
       enabled servers from connecting or the system from starting
 - [ ] The existing suite passes unchanged — no regressions in the tool registry, the Phase 7
       `/` command selector, the multi-hop tool-call loop, or system start/stop smoke tests

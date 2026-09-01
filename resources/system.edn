@@ -20,6 +20,7 @@
  :tool.fs/policy          {:fs #ig/ref :storage/fs}
  :tool.mcp/policy         {:servers            #setting [:mcp :servers]
                            :connect-timeout-ms #setting [:mcp :connect-timeout-ms]}
+ :mcp/registry            {:policy #ig/ref :tool.mcp/policy}
  :ui/deltas               {}
 
  :pa.runtime/dispatcher   {:config   {:env :production}
@@ -31,6 +32,7 @@
                            :indexer  #ig/ref :memory/indexer
                            :llm      #ig/ref :llm/provider
                            :policy   #ig/ref :tool.fs/policy
+                           :mcp      #ig/ref :mcp/registry
                            :deltas   #ig/ref :ui/deltas}
 
  :pa/scheduler            {:fs         #ig/ref :storage/fs
