@@ -1,7 +1,7 @@
 (ns pa.storage.fs-test
-  (:require [clojure.edn :as edn]
-            [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.java.io :as io]
+            [pa.config]
             [pa.storage.fs :as fs]))
 
 (def ^:dynamic *tmp-root* nil)
@@ -59,12 +59,15 @@
       (is (pos? (.length f)) "memory/memory.md should not be empty"))))
 
 (deftest bootstrap-creates-config-template
-  (testing "config.edn is created at the root and reads as an EDN map"
+  (testing "config.edn is created at the root and the real loader can read it"
     (fs/bootstrap! *tmp-root*)
     (let [f (io/file *tmp-root* "config.edn")]
       (is (.exists f) "config.edn should exist")
-      (is (map? (edn/read-string (slurp f)))
-          "template must stay valid EDN — pa.config reads it at startup"))))
+      ;; Asserted through pa.config's own loader rather than edn/read-string:
+      ;; the template may carry aero tags, and what matters is that the thing
+      ;; reading it at startup succeeds.
+      (is (map? (#'pa.config/load-settings (str f) {}))
+          "template must stay readable by pa.config at startup"))))
 
 (deftest bootstrap-creates-event-log
   (testing "empty events.edn is created"

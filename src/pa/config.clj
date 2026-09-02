@@ -8,10 +8,11 @@
                   .env file in the project root (KEY=VALUE lines, dev-time).
                   The JVM cannot mutate its environment, so .env is consulted
                   at config-read time only — it never becomes a real env var.
-    #setting P  — get-in path P into the user's <PA_HOME>/config.edn (plain
-                  EDN, bootstrapped from a template by :storage/fs)."
+    #setting P  — get-in path P into the user's <PA_HOME>/config.edn, which is
+                  itself read through aero (bootstrapped from a template by
+                  :storage/fs), so a user's settings file may use #env and #or
+                  too — secrets need not be written into it in the clear."
   (:require [aero.core :as aero]
-            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [integrant.core :as ig]
@@ -58,20 +59,34 @@
 ;; <PA_HOME>/config.edn user settings
 ;; ---------------------------------------------------------------------------
 
-(defn- load-settings [path]
+(defn- load-settings
+  "The user's settings map, read through aero so config.edn gets the same
+  readers system.edn does. An absent, empty or comment-only file is no
+  settings rather than an error; anything unparseable is fatal and says so.
+
+  The file is passed to aero as a File, not its contents, so a relative
+  #include inside it resolves against the file's own directory."
+  [path dotenv]
   (let [f (io/file path)]
     (if (.exists f)
       (try
-        (or (edn/read-string (slurp f)) {})
+        (or (aero/read-config f {:dotenv dotenv :settings ::self}) {})
         (catch Exception e
           (throw (ex-info (str "Malformed user settings file: " path)
                           {:path path} e))))
       {})))
 
+;; #setting reaches into the user's settings file, so inside that same file it
+;; would be circular. Throwing beats resolving to a silent nil, which is what
+;; a plain get-in on the sentinel would do.
 (defmethod aero/reader 'setting [{:keys [settings]} _ path]
-  (get-in settings path))
+  (if (= ::self settings)
+    (throw (ex-info "#setting is not available inside config.edn — it resolves into that same file"
+                    {:path path}))
+    (get-in settings path)))
 
 (defn system-config []
-  (aero/read-config (io/resource "system.edn")
-                    {:dotenv   (load-dotenv ".env")
-                     :settings (load-settings (str (fs/pa-home) "/config.edn"))}))
+  (let [dotenv (load-dotenv ".env")]
+    (aero/read-config (io/resource "system.edn")
+                      {:dotenv   dotenv
+                       :settings (load-settings (str (fs/pa-home) "/config.edn") dotenv)})))
