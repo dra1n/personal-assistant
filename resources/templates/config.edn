@@ -2,6 +2,11 @@
 ;;
 ;; Uncomment and edit what you want to change. Precedence, highest first:
 ;;   environment variable  >  project .env (dev)  >  this file  >  built-in default
+;;
+;; This file is read with aero, so any value here may be #env FOO (the real
+;; environment, then the project .env) or #or [#env FOO "default"] — handy for
+;; keeping API keys and tokens out of the file itself. #setting is the one tag
+;; that does not work here: it reads *from* this file.
 {;; :llm {:provider  :openai                                 ; :openai or :anthropic
  ;;       :openai    {:api-key  "sk-..."
  ;;                   :base-url "https://api.openai.com/v1"
@@ -39,5 +44,27 @@
  ;;                              :command   "npx"
  ;;                              :args      ["-y" "@modelcontextprotocol/server-everything"]
  ;;                              :env       {}
- ;;                              :enabled?  false}}}
+ ;;                              :enabled?  false}
+ ;;                 ;; GitHub's official server (github/github-mcp-server) is a
+ ;;                 ;; Go binary, not a Node package: install it once with
+ ;;                 ;; `brew install github-mcp-server` and nothing is fetched
+ ;;                 ;; at startup. An absolute path keeps it independent of
+ ;;                 ;; PATH (Intel Macs: /usr/local/bin). Note the unscoped npm
+ ;;                 ;; package of the same name is unaffiliated with GitHub.
+ ;;                 ;;
+ ;;                 ;; #env keeps the token out of this file (it reads the real
+ ;;                 ;; environment, then the project .env). Unset, it resolves
+ ;;                 ;; to nil, the entry fails validation, and the server is
+ ;;                 ;; dropped with a warning rather than starting unauthed.
+ ;;                 ;; Give the PAT the narrowest scopes you can live with.
+ ;;                 ;;
+ ;;                 ;; --toolsets narrows what gets advertised, which matters:
+ ;;                 ;; every tool schema ships on every LLM call. Omitted, the
+ ;;                 ;; server loads context, repos, issues, pull_requests and
+ ;;                 ;; users; "all" loads dozens. --read-only drops the writes.
+ ;;                 :github {:transport :stdio
+ ;;                          :command   "/opt/homebrew/bin/github-mcp-server"
+ ;;                          :args      ["stdio" "--toolsets" "repos,issues,pull_requests"]
+ ;;                          :env       {"GITHUB_PERSONAL_ACCESS_TOKEN" #env GITHUB_TOKEN}
+ ;;                          :enabled?  false}}}
  }
