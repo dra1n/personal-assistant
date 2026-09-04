@@ -1,6 +1,6 @@
 # Roadmap
 
-Phases are ordered by dependency — each builds on the last. Phases 0–10 are all broken into concrete micro-steps. Unprioritized future ideas that aren't part of this sequence live in [ideas-backlog.md](ideas-backlog.md) — add to it freely without renumbering anything here.
+Phases are ordered by dependency — each builds on the last. Phases 0–11 are all broken into concrete micro-steps. Unprioritized future ideas that aren't part of this sequence live in [ideas-backlog.md](ideas-backlog.md) — add to it freely without renumbering anything here.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
@@ -1112,10 +1112,18 @@ ig/init-key :scheduler  → fire overdue/missed jobs, start in-session ticker
 ig/halt-key! :scheduler → flush end-of-session jobs (extraction, consolidation)
 ```
 
-### Migration path to a background daemon (future, not Phase 6)
+### Migration path to a background daemon (superseded by Phase 10)
 
-When real-time reminders while the app is closed become necessary, the migration
-is straightforward — Integrant's component model already gives the right shape:
+This section sketched the daemon migration as a future possibility. It is no
+longer hypothetical: [Phase 10](#phase-10--coreui-split-daemon--wire-protocol)
+commits to it, driven by the core/UI split rather than by reminders alone. The
+sketch held up — `daemon-config` without `:pa.ui/terminal`, WAL mode, locking
+around `events.edn` — and Phase 10 carries those items forward, with the IPC
+step (item 4 below, hedged as "optional") promoted to the centerpiece: a
+transit-over-WebSocket protocol serving several UIs, not just live
+notifications to one.
+
+Kept for the record, as originally written:
 
 1. Add a `daemon-config` to `pa.config` — same `:scheduler`, `:storage/*`, and
    `:db/sqlite` components, just without `:pa.ui/terminal` and `:llm/provider`
@@ -1719,7 +1727,370 @@ config-loading machinery):
 
 ---
 
-## Phase 10 — Personality & Long-Term Evolution
+## Phase 10 — Core/UI Split (Daemon + Wire Protocol)
+
+Goal: Separate the core from the terminal UI so several UIs — the existing TUI
+now, a desktop and a mobile client later — attach over a wire protocol to one
+long-lived core process holding a single conversation. The protocol is not new
+machinery: the UI's contract with the core is already `dispatch!` in, three
+`core.async` streams out (`pa.ui.subscribe`), and this phase serializes exactly
+that contract rather than inventing a second execution path.
+
+The daemon is also strictly better than the session model for Phase 6's
+scheduler: today a reminder only fires if the TUI happens to be running. With a
+core process, the scheduler fires regardless, the notification sits in runtime
+state, and it's there for whoever connects next — a phone at 9am picking up a
+reminder that came due overnight. This supersedes the "Migration path to a
+background daemon" sketch in Phase 6.
+
+Out of scope for this phase: multiple users or multiple concurrent
+conversations — the core db stays a single global atom, and every client is a
+view onto the same session; remote/off-machine access (TLS and real tokens are
+a backlog item — this phase binds to loopback with a shared secret);
+non-Clojure clients (the wire format assumes transit, see below); and building
+the desktop or mobile client itself. Delivery is out of scope too, and worth
+stating because Phase 6's "fires regardless" invites the opposite reading: a
+reminder coming due with nobody attached is *recorded*, not pushed. There is no
+OS notification and nothing in the tree to build one on — it surfaces when
+someone next connects. The deliverable is the seam plus the TUI
+converted to a client of it — proving the seam with one real consumer.
+
+### Architecture principles
+
+- **One user, one conversation, one db.** `pa.state.db/db` stays a single
+  global atom with no session keying. Connections are subscribers, not
+  sessions. Concurrent `:user/message` from two clients is already serialized
+  by the dispatcher's single go-loop, so turn ordering is correct for free.
+- **Events in, state out; ops for everything else.** Pure event/state doesn't
+  cover the initial snapshot, history pagination, the command list, or
+  extraction on the way out — those are request/response and get an
+  explicit correlated op kind rather than being smuggled through events.
+- **All clients are Clojure or ClojureScript**, so the wire is transit: the
+  namespaced-keyword event maps that already flow through `dispatch!` cross the
+  socket unchanged, `Instant` survives, and there's no translation layer. A
+  native (Swift/Kotlin) client would require a string-keyed JSON envelope
+  instead; that's an explicit non-goal, and reversing it later is a migration.
+- **Core never requires a UI namespace.** The forcing function is the
+  dependency list, not discipline: `core/deps.edn` must not contain
+  `de.timokramer/charm.clj`. If core compiles and its tests pass without it,
+  the boundary is honest.
+- **Per-connection backpressure.** A slow or wedged client drops its own
+  frames; it must never stall the dispatcher go-loop that every other client
+  depends on. Same sliding/dropping buffer discipline the in-process UI
+  already uses, applied per connection.
+
+### Prerequisite: process-lifetime hygiene
+
+A session-scoped process tolerates unbounded in-memory growth because it exits
+in an hour. A core process that runs for weeks does not, and the same code
+becomes a leak. None of this is protocol work — it's the category of bug the
+daemon creates, and it's cheaper to sweep before the split than to debug
+through a socket afterwards.
+
+- [ ] Cap `:events/recent` (`pa.runtime.dispatcher/process-event!` conjes every
+  event forever, and those events carry full payloads — LLM responses and tool
+  results — because handlers pass the whole event to `:event/store`). Keep a
+  bounded tail (~500) for cheap REPL inspection. Note the tradeoff explicitly:
+  in-memory `replay` over `:events/recent` currently spans the whole session;
+  capped, a full replay goes to disk instead. That's already supported —
+  `pa.runtime.replay/replay` takes an event seq, so
+  `(replay initial-db (storage.events/load-events path))` does the same job
+  against `events.edn`, which is the durable copy `:events/recent` duplicates.
+- [ ] Cap `pa.state.db/trace-log` — the identical unbounded-`conj` shape,
+  written by the tracing and effect-tracing interceptors on every single event.
+- [ ] Restore `:conversation` at startup and bound it in memory. `initial-db`
+  starts it empty and dispatcher init replays only history, identity and
+  settings — correct while a process *is* a session, silently amnesiac once
+  clients come and go against a core that occasionally restarts.
+  `pa.runtime.replay/replay` over `pa.storage.events/load-events` already
+  reconstructs it; do that on start. The in-memory bound is a separate question
+  from the wire-size one below — this is the collection that grows with ordinary
+  use over a month-long process, and the durable copy on disk is exactly what
+  makes dropping the head safe.
+- [ ] Audit the scheduler for session-start assumptions: `ig/init-key` fires
+  overdue jobs on the premise that startup is rare. In a process that starts
+  once a month, "catch-up on init" and the 24h/7d heartbeat cadence need to be
+  re-read as long-running behavior, not startup behavior.
+- [ ] Audit the timbre file appender for rotation — a per-session log file
+  becomes a per-month log file.
+
+### Runtime state shape
+
+- [ ] Rename `:ui/notifications` → `:notifications/pending`
+  (`pa.state.db/initial-db`, `pa.state.transitions/{add,clear,dismiss}-*`,
+  `pa.state.queries/notifications`). These are reminders coming due
+  (`pa.scheduler.handlers`) — facts about the world that belong on every
+  attached UI, and dismissing one anywhere should dismiss it everywhere. The
+  `:ui/` prefix misfiles global domain state as per-viewport state. Command
+  usage errors (`pa.commands.handlers`, `:command/rejected`) share the bucket
+  and stay there: with a single user, a stray warning flashing on a second
+  screen costs nothing worth the extra key.
+- [ ] Rename `:ui/history` → `:history/entries` (`pa.state.db`,
+  `pa.state.transitions/{set,append}-history`, `pa.runtime.handlers` duplicate
+  check, `pa.ui.app` recall). This is the input recall buffer backed by
+  `:storage/history`, not conversation content — `:history/entries` matches the
+  vocabulary the entries (`:history/text`) and effect (`:history/append`)
+  already use. Global is right here too: one user, one typing history.
+- [ ] Get `:app/quit-ready?` out of the broadcast db. It is the one key here
+  that is genuinely per-connection rather than global, and `pa.ui.app`'s
+  `:runtime/db-updated` branch quits the charm program the moment a snapshot
+  carries it — so with two clients attached, one quitting tears the other down
+  with it. The renames above move keys that are correctly global; this one stops
+  being shared state at all and becomes the reply to a `:session/extract` op,
+  with core-side idempotency kept as a private guard the clients never see.
+- [ ] Add a monotonic `:db/rev` counter, incremented in the `:db` effect
+  (`pa.runtime.executor`). This is what lets a client say "I'm at rev N" on
+  reconnect and what makes introducing structural diffs later a non-event
+  rather than a protocol break.
+- [ ] Implement `project-for-client` — the db minus what no UI reads
+  (`:events/recent`, `:tool/results`; `trace-log` is a separate atom and was
+  never in a snapshot to begin with). Snapshots are cheap in-process
+  thanks to structural sharing; over a socket every unread key is re-serialized
+  on every transition. Projection is where that cost is paid once, server-side.
+- [ ] Decide the growth policy for `:conversation` on the wire: a long session
+  eventually makes every snapshot large regardless of projection. Either window
+  it (client requests a range via an op) or accept full sends until measured
+  otherwise — but decide it deliberately rather than discovering it.
+
+### Fan-out
+
+The in-process UI reaches core state through two pieces of global JVM state:
+`tap>`/`add-tap` (`pa.runtime.interceptors/db-tap-interceptor` →
+`pa.ui.subscribe/make-tap-sink`) and `log/merge-config!` installing a panel
+appender (`pa.ui.core`). Both are fine for exactly one consumer and wrong for
+N: each connection would re-register and fight the others.
+
+- [ ] Replace the `tap>` state broadcast with an `async/mult` owned by a core
+  component; each connection taps it with its own `sliding-buffer 1`. Keep the
+  `tap>` emission alongside it — Portal (`pa.observability`) is a legitimate
+  second consumer and shouldn't lose the feed.
+- [ ] Give the log stream one appender installed once at core startup, feeding
+  a mult; connections tap it with their own dropping buffers instead of each
+  calling `merge-config!`.
+- [ ] `:ui/deltas` (`resources/system.edn`) becomes a mult on the same pattern —
+  it's already a shared channel between dispatcher and UI, so it only needs
+  fan-out, not restructuring.
+- [ ] Resolve `logging/set-console!`: `pa.core/-main` and `pa.ui.core` both
+  silence stdout because the TUI owns the terminal. A core process with no
+  attached UI has no such constraint and should log to stdout normally; that
+  decision moves into the client.
+
+### Wire protocol
+
+Four message kinds over one connection:
+
+```clojure
+;; client → core
+{:msg/kind :event :event/type :user/message :content "hi"}
+{:msg/kind :op    :op/id 42 :op/type :session/hello :db/rev nil}
+
+;; core → client
+{:msg/kind :state  :db/rev 118 :db/value {...}}   ; projected snapshot
+{:msg/kind :stream :stream/id :llm/delta :delta "…"}
+{:msg/kind :reply  :op/id 42 :op/status :ok :value {...}}
+```
+
+- [ ] `pa.protocol` — envelope construction, validation (clojure.spec, matching
+  `pa.runtime.events`' existing `make-event`/`validate!` shape), and the
+  allowlist of client-originable event types. A client must not be able to
+  inject arbitrary internal events. Four originate in the UI today, and only
+  three cross the wire: `:user/message`, `:command/*`, and
+  `:notifications/clear`. `:app/quit-requested` does not — it means "end this
+  process", which is no longer a thing a client gets to say (see Detach vs.
+  shutdown). This namespace lives in core and depends on no transport.
+- [ ] Ops: `:session/hello` (returns identity, settings, command list, active
+  LLM model name, and the current snapshot + rev), `:commands/list`,
+  `:history/page`, `:mcp/resources`, and `:session/extract` (below).
+- [ ] Serve what the TUI reads straight off core components today.
+  `pa.ui.core`'s init pulls `(mcp/all-resources mcp)` for @-mention completion
+  and `(:model llm)` for the header, so `:pa.ui/terminal`'s `:mcp` and `:llm`
+  refs both have to go. The model name rides along on `:session/hello`; the
+  resource list gets its own op *and* a push, because MCP servers reconnect and
+  restart mid-session and a one-shot hello payload would quietly go stale.
+- [ ] Make extraction a `:session/extract` op. There are two triggers today and
+  neither survives the split intact: ctrl+c dispatches `:app/quit-requested`,
+  whose handler runs `:extraction/run` with `:quit? true` and flips
+  `:app/quit-ready?` for the UI to observe; and `ig/halt-key!` on the dispatcher
+  falls back to a `:done` promise with a silent 120s block. The flag broadcasts
+  to every client and the promise doesn't cross a socket. As an op with an
+  `:op/id`, whoever asked gets a completion — or an observable timeout it can
+  actually render — and nobody else is affected. Keep the double-run guard
+  core-side so concurrent asks stay idempotent, and see Detach vs. shutdown for
+  who calls it and when.
+- [ ] Move slash-command parsing server-side. `pa.ui.app` currently calls
+  `command-event` and constructs `:command/rejected` itself
+  (`pa.commands.parse` + `pa.commands.registry`), so every new UI would
+  reimplement it. Clients send raw text; the core parses and answers with an
+  event. Autocomplete is served by the `:commands/list` op instead of a shared
+  registry.
+- [ ] Reconnect and resync: a client presents its last `:db/rev` on
+  `:session/hello`; the core replies with a full projected snapshot (diffing is
+  a later optimization, and `:db/rev` is what keeps that option open).
+  Streams (`:llm/delta`, logs) are explicitly lossy across a reconnect — the
+  authoritative text is accumulated by the `:llm/invoke` effect and reaches the
+  client in the next state snapshot regardless.
+- [ ] Optimistic-echo rule: a client's own `:user/message` comes back in the
+  broadcast snapshot, so clients either don't render optimistically or dedupe
+  on `:event/id`. Document it in the protocol namespace — it's the kind of
+  thing each new client would otherwise rediscover as a duplicate-message bug.
+
+### Transport & daemon lifecycle
+
+- [ ] WebSocket server as an Integrant component, bound to loopback, one
+  transit-encoded message per frame. WebSocket rather than a Unix socket
+  because it serves both a local desktop client and (later, over the network) a
+  phone, without running two transports. Needs a server dependency —
+  `hato` is client-only today; http-kit is the light option.
+- [ ] Shared secret in `<PA_HOME>/config.edn` via the existing `#setting` aero
+  plumbing (same pattern as `:llm` and `:mcp`), checked at connect. Loopback +
+  shared secret is the local story; TLS and real tokens are the price of
+  leaving the machine and stay out of this phase.
+- [ ] `pa.daemon` entry point + `daemon-config`: the full Integrant graph minus
+  `:pa.ui/terminal` and `:ui/deltas`' UI half, plus the socket server. Single-
+  instance lock under `<PA_HOME>` so two cores can't race on `events.edn` and
+  the SQLite db — the same `daemon.edn` clients discover it through (see
+  Process launch & lifecycle), not a second pidfile alongside it.
+- [ ] Verify SQLite WAL (enabled in Phase 6) and the `events.edn` write lock
+  (`pa.storage.events` locks in-process only) actually hold when a REPL and the
+  daemon are both live — the two-process case Phase 6 anticipated but never
+  exercised.
+
+### Process launch & lifecycle
+
+The core's availability cannot depend on a client starting it. The TUI runs on
+the same machine and can spawn a core; a phone or a web client cannot, and by
+the time either exists the core has to be running already. So autostart is a
+convenience that lives in the local app and that the core never assumes, and the
+OS-managed path is the real answer rather than a nice-to-have.
+
+- [ ] `ada daemon` — run the core in the foreground, logging to stdout. This is
+  the only true entry point: everything below either spawns exactly this command
+  or connects to something that did, and nothing in `pa.daemon` may depend on
+  who invoked it.
+- [ ] `ada` with no subcommand keeps meaning "attach the TUI", autostarting a
+  core if none is running, so today's single-command UX survives the split.
+  Sibling subcommands for what autostart can't cover: `ada status`, `ada stop`,
+  `ada logs`.
+- [ ] Discovery via `<PA_HOME>/daemon.edn`, written at startup and removed on
+  clean halt: `{:pid :port :started-at :version}`. The client checks pid
+  liveness before trusting it (a `kill -9` leaves the file behind) and aborts on
+  a version mismatch with an actionable message rather than a transit decode
+  error. One file rather than a pidfile plus a port file, so the two can't skew.
+- [ ] Discovery is local-only by construction — a remote client can't read the
+  host's filesystem. Non-co-located clients get an explicit host/port/secret in
+  their own config, and `daemon.edn` is the fallback the local client uses when
+  nothing is configured. Writing both paths into one connect function now is
+  what stops a second one appearing later.
+- [ ] Autostart race: two clients launching at once must not both spawn a core.
+  The single-instance lock above has to be an atomic `CREATE_NEW`/`FileLock`,
+  and the loser waits for the winner's `daemon.edn` instead of failing. Spawn
+  detached, redirect to `<PA_HOME>/logs/daemon.log`, poll for a successful
+  `:session/hello` on a bounded budget, and on timeout print the tail of that
+  log — "connection refused" after a silently crashed core is a miserable first
+  run.
+- [ ] No idle shutdown, ever. A core that exits when the last client detaches is
+  invisible to the phone connecting at 9am for a reminder that came due
+  overnight — the exact case this phase exists to serve. The core runs until it
+  is told to stop.
+- [ ] `ada install-agent`: a launchd LaunchAgent (`RunAtLoad` + `KeepAlive`)
+  invoking `ada daemon`, logging to `<PA_HOME>/logs/daemon.log`. Optional while
+  the TUI is the only client and autostart covers it; mandatory the moment a
+  client exists that cannot spawn its own core. Note the interaction — `ada
+  stop` against a `KeepAlive` job is restarted immediately, so it has to detect
+  a managed core and say so rather than appearing to do nothing.
+- [ ] Package the core as an uberjar, or at least a precomputed classpath.
+  `bin/ada` is `cd <checkout> && exec clojure -M:run`; a `KeepAlive` job that
+  re-resolves deps from a git checkout on every restart fails exactly when the
+  checkout is mid-edit — which is when you least want the core down. It also
+  forces the question of what a LaunchAgent points at: the installed artifact
+  should not be the working tree.
+- [ ] A web client also needs its assets served from somewhere, and the
+  transport is already http-kit — serving a bundle from the same port is nearly
+  free and sidesteps origin questions. Out of scope to build, but the transport
+  component must not assume a raw socket; WebSocket over a Unix socket is the
+  choice that keeps this open.
+
+### Detach vs. shutdown
+
+Its own subsection because it is the one place the daemon changes user-visible
+semantics rather than plumbing. Quitting a client currently ends the process,
+and that exit is what triggers session extraction — by either of the two paths
+described under Wire protocol.
+
+- [ ] `/quit` and `Ctrl-C` in a client mean *detach*: the connection closes and
+  the core keeps running. Shutdown is `ada stop` (or `launchctl`) only.
+- [ ] That leaves extraction with no trigger — it hung off process exit, and a
+  daemon has no session end. Run it on last-client-detach behind a debounce (a
+  reconnect within a few minutes cancels the pending run), keep the double-run
+  guard (now core-private, per Runtime state shape), and force a run on
+  `ada stop`. The
+  debounced path has to be correct with no client ever attached, since the
+  scheduler can advance the conversation with nobody connected.
+- [ ] Decide what "session" means for extraction once it is no longer "the
+  lifetime of a process". The debounce window is a proxy; if it proves wrong,
+  the fallback is an explicit `/extract` command plus an age threshold on the
+  unextracted tail.
+
+### Module split
+
+- [ ] Restructure into `core/`, `ui-tui/`, and `app-tui/` with `tools.deps`
+  `:local/root` — the low-ceremony option that keeps Calva, clj-kondo, and LSP
+  working unchanged. Polylith is the plausible migration target once there are
+  three real clients and its change-detection starts paying for itself; not
+  before.
+- [ ] Split `resources/system.edn` into a core fragment plus a per-app overlay
+  that adds the UI components, via aero `#include` or a merge in
+  `pa.config/system-config`. Keep `runner.clj`'s test auto-discovery working
+  across modules.
+- [ ] Convert the TUI to a protocol client: `pa.ui.subscribe`'s three
+  `charm/cmd` watchers park on socket-fed channels instead of in-process ones,
+  and `dispatch!` becomes a send. The charm `update-model` message types
+  (`:runtime/db-updated`, `:llm/delta`, `:log/appended`) stay exactly as they
+  are — that's the payoff for the seam already being in the right place.
+- [ ] Keep an in-process mode for development: the same client code against
+  direct channels, no socket. The REPL workflow shouldn't require a running
+  daemon.
+- [ ] Decide where `dev/` lands. `dev/user.clj`'s `set-prep!` builds the whole
+  `config/system-config`, so after the split it either belongs to `app-tui` and
+  keeps handing the REPL the fused graph, or splits so `core` carries its own
+  daemon-only prep. That is the in-process question above seen from the other
+  side — answer both at once, or the REPL and the app drift apart.
+
+### Tests
+
+- [ ] Protocol round-trip: every client-originable event and every op survives
+  transit encode/decode with keywords, namespaced keys, and `Instant` intact.
+- [ ] Rejection: an event type outside the client allowlist is refused, not
+  dispatched.
+- [ ] Two-client fan-out: two fake connections both receive the state snapshot
+  for a `:user/message` dispatched by one of them, and both see a reminder
+  notification raised by the scheduler with no client involved.
+- [ ] Dismiss-everywhere: `:notification/dismiss` from one connection removes it
+  from the other's next snapshot.
+- [ ] Backpressure: a connection that never drains drops its own frames and
+  does not block the dispatcher — assert other connections keep receiving.
+- [ ] Reconnect: a client that drops and re-`hello`s gets a snapshot consistent
+  with the current `:db/rev`; interleaved deltas missed while disconnected do
+  not corrupt the rendered conversation.
+- [ ] Extraction op: two clients issuing `:session/extract` concurrently run it
+  once and both get a reply; the guard holds and neither observes the other's
+  run as state.
+- [ ] No cross-client teardown: one client detaching, or asking for extraction,
+  leaves every other client's session untouched — the `:app/quit-ready?`
+  regression, asserted directly.
+- [ ] Boundary: `core` compiles and its full test suite passes with
+  `de.timokramer/charm.clj` absent from its `deps.edn`.
+- [ ] Stale `daemon.edn`: a file naming a dead pid is recovered from, not
+  fatal — the client starts a fresh core and overwrites it.
+- [ ] Autostart race: two clients starting concurrently end up attached to one
+  core, and the loser waits rather than erroring.
+- [ ] Detach is not shutdown: a client disconnect leaves the dispatcher and
+  scheduler running, a reconnect inside the debounce window cancels the pending
+  extraction, and a scheduler-raised notification survives having no clients.
+
+---
+
+## Phase 11 — Personality & Long-Term Evolution
 
 Goal: Evolve the assistant into a durable long-term system.
 
