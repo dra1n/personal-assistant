@@ -122,3 +122,26 @@ them. `everything`'s `completable-prompt` and `resource-prompt` both hit this;
 - [ ] MCP has a completions capability (the reference server declares it) that
       can narrow later argument values based on earlier ones — worth using if
       an interactive path is built, rather than asking blind
+
+## Persist pending notifications across a restart
+
+A `:reminder/due` notification that has fired but not been dismissed lives only
+in `:notifications/pending` in the runtime db, so it dies with the process.
+Phase 10 accepted that deliberately — notifications are not session content and
+were not worth a storage decision at the time. The daemon changes the cost:
+a core running for a month restarts rarely but unpredictably (a crash, an
+upgrade, a `launchctl` restart), and a reminder that fired at 3am and was
+dropped at 4am is invisible to the client that connects at 9am — the exact case
+Phase 11 exists to serve.
+
+If picked up, the shape follows the scheduler's own precedent rather than
+inventing one: durable EDN under `<PA_HOME>/` beside `tasks/`, written on the
+`:notifications/pending` transitions and loaded at init like
+`:tasks/loaded` does, so the notification is global state with a durable home
+and not a replayed event.
+
+- [ ] Persist `:notifications/pending` to `<PA_HOME>/notifications/` on add and dismiss
+- [ ] Restore it at startup via an init-time event, mirroring `:tasks/loaded`
+- [ ] Decide an expiry — a reminder from three weeks ago probably should not resurface
+- [ ] Test: a notification survives a restart; a dismissed one does not come back
+

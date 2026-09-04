@@ -1,6 +1,6 @@
 # Roadmap
 
-Phases are ordered by dependency — each builds on the last. Phases 0–11 are all broken into concrete micro-steps. Unprioritized future ideas that aren't part of this sequence live in [ideas-backlog.md](ideas-backlog.md) — add to it freely without renumbering anything here.
+Phases are ordered by dependency — each builds on the last. Phases 0–12 are all broken into concrete micro-steps. Unprioritized future ideas that aren't part of this sequence live in [ideas-backlog.md](ideas-backlog.md) — add to it freely without renumbering anything here.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
@@ -1112,13 +1112,13 @@ ig/init-key :scheduler  → fire overdue/missed jobs, start in-session ticker
 ig/halt-key! :scheduler → flush end-of-session jobs (extraction, consolidation)
 ```
 
-### Migration path to a background daemon (superseded by Phase 10)
+### Migration path to a background daemon (superseded by Phase 11)
 
 This section sketched the daemon migration as a future possibility. It is no
-longer hypothetical: [Phase 10](#phase-10--coreui-split-daemon--wire-protocol)
+longer hypothetical: [Phase 11](#phase-11--coreui-split-daemon--wire-protocol)
 commits to it, driven by the core/UI split rather than by reminders alone. The
 sketch held up — `daemon-config` without `:pa.ui/terminal`, WAL mode, locking
-around `events.edn` — and Phase 10 carries those items forward, with the IPC
+around `events.edn` — and Phase 11 carries those items forward, with the IPC
 step (item 4 below, hedged as "optional") promoted to the centerpiece: a
 transit-over-WebSocket protocol serving several UIs, not just live
 notifications to one.
@@ -1727,7 +1727,233 @@ config-loading machinery):
 
 ---
 
-## Phase 10 — Core/UI Split (Daemon + Wire Protocol)
+## Phase 10 — Session Management
+
+Goal: Make a *session* a first-class, named, persistent object rather than an
+implicit consequence of how long a process happened to run. Today there is one
+`<PA_HOME>/events/events.edn` — a single append-only log that has been growing
+since Phase 2 and is already ~5MB. Every conversation the assistant has ever
+had lives in it, undifferentiated, and "the session" means nothing more precise
+than "whatever this process appended". That is tolerable while a process *is* a
+session and gets thrown away in an hour. It stops being tolerable the moment
+you want to find the conversation from three weeks ago, resume it, or answer
+the question Phase 11 has to answer anyway: when a daemon runs for a month,
+what exactly is being extracted, and from where?
+
+This phase comes before the core/UI split deliberately. The split leaves
+extraction with no trigger — it hangs off process exit today — and the roadmap
+entry for it can only offer a debounce window as a proxy for a session
+boundary. Sessions make that boundary real: extraction runs against a session
+that has actually ended, not against a timer standing in for one. Doing it
+first means the split inherits an answer instead of a placeholder.
+
+**Model**
+
+- A session is a directory under `<PA_HOME>/events/` holding its own
+  `events.edn` plus a `session.edn` metadata sidecar.
+- A session is created lazily — on the *first user message*, not on connect. A
+  client that attaches and sits idle creates nothing, so there are no empty
+  directories to garbage-collect.
+- A live session accumulates into a provisional directory whose name is not yet
+  meaningful. It is *saved* — renamed to its final content-derived name — on
+  `/save` or on quit.
+- Naming is generated from the conversation's content, because search across
+  sessions is the whole point of splitting them up. A directory called
+  `2026-09-04T14-32-sqlite-wal-and-write-locks` is findable with `ls` and
+  `grep`; a UUID is not.
+- Exactly one session is active at a time. `/load` swaps which one, and the
+  conversation in runtime state is replaced by that session's replay.
+
+Out of scope: concurrent sessions (one is active, period — the multi-client
+question of what `/load` means with two clients attached belongs to Phase 11,
+which is where multiple clients first exist); branching or forking a session;
+cross-session search beyond what filenames and `session.edn` give you for free
+(semantic search over sessions is a Phase 12 memory concern, not a storage
+one); and any migration of memory records already extracted under the
+single-log regime.
+
+### Storage layout & the `:storage/events` seam
+
+The seam is already in the right place and this is the cheap part.
+`pa.storage.events` computes one path at `ig/init-key` and hands
+`:append-event!` into the dispatcher ctx (`pa.runtime.dispatcher`);
+`pa.runtime.replay/replay` already takes a path. Sessions make that path
+mutable at runtime rather than fixed at init.
+
+- [ ] Define the on-disk layout: `<PA_HOME>/events/<session-dir>/events.edn`
+  plus `<PA_HOME>/events/<session-dir>/session.edn`. Provisional sessions live
+  under the same parent with a reserved prefix (e.g. `.live-<timestamp>`) so a
+  listing can tell saved from unsaved without opening anything.
+- [ ] `session.edn` metadata: `{:session/id :session/title :session/slug
+  :session/created-at :session/ended-at :session/message-count
+  :session/tags :session/summary}`. The sidecar exists so listing and searching
+  sessions never has to parse a multi-megabyte `events.edn` — `/load`'s picker
+  reads N small files, not N large ones.
+- [ ] Rework `:storage/events` so the active path is held in an atom rather than
+  closed over at init: `{:path-fn :append-event! :switch! :current}`. Every
+  existing caller goes through `:append-event!` already, so the dispatcher ctx
+  does not change shape.
+- [ ] Lazy creation: the first `:user/message` in a process with no active
+  session creates the provisional directory and writes an initial
+  `session.edn`. Connecting, or dispatching a system/scheduler event, does not.
+- [ ] Scheduler-originated events are **not** session events and are not
+  written to a session log. A session log exists to be replayed into
+  `:conversation`, and no scheduler event contributes to it: `:reminder/due`
+  adds a notification, `:task/{schedule,advanced,completed}` and
+  `:tasks/loaded` move `:tasks/scheduled`, and
+  `:scheduler/{periodic-reflection,consolidate-wisdom}` fire effects that write
+  memory files. Replaying them would also duplicate a source of truth that
+  already exists — task state is durable in `<PA_HOME>/tasks/`
+  (`pa.scheduler.tasks/write-task!`, `delete-task!`) and restored by
+  `:tasks/loaded` at init, so a session log replaying them could disagree with
+  the directory. "First user message opens a session" therefore leaves nothing
+  homeless: with no session active, scheduler events run against runtime state
+  and touch no log at all.
+  The one thing this drops is a fired-but-undismissed `:reminder/due`
+  notification, which today lives only in the db and dies with the process.
+  That is accepted, not overlooked: it stays in memory and is lost on restart.
+  If it ever should survive one it belongs next to tasks as durable global
+  state — the same reasoning that renames it `:notifications/pending` in Phase
+  11, because it is a fact about the world rather than part of any conversation
+  — and never inside whichever session happened to be open when it fired. See
+  [ideas-backlog.md](ideas-backlog.md).
+- [ ] Correct the Phase 11 premise that "the scheduler can advance the
+  conversation with nobody connected" while doing this: nothing scheduled
+  writes to `:conversation` today. If a proactive assistant turn is ever added,
+  that is the change that reopens this decision, and it should say so.
+- [ ] The existing `<PA_HOME>/events/events.edn` is deleted by hand, once,
+  outside the app. No migration, no import, and — the part that matters for the
+  code — **no existence check anywhere**: nothing may probe for it, skip it,
+  warn about it, or clean it up. A one-line compatibility check is exactly the
+  kind of thing that outlives the file by years, and there is nothing to
+  preserve: its memories were already extracted into `<PA_HOME>/memory/` and
+  the SQLite index, and nothing reads it back except a whole-file replay. The
+  session code path knows only about session directories.
+- [ ] Make the directory name itself the discriminator, so recovery is a
+  listing rather than a bookkeeping problem: a provisional session is
+  `.live-<start-timestamp>` and a saved one is
+  `<start-timestamp>-<content-slug>`. The leading dot keeps unsaved work out of
+  ordinary listings and globs, and the two shapes cannot be confused by
+  anything that scans the events directory.
+- [ ] Crash recovery on startup: scan `<PA_HOME>/events/` for `.live-*`
+  directories. Each one is a session that was never closed, and its content is
+  all there — promote it by running the normal naming pass over its
+  `events.edn` and renaming it, exactly as a clean quit would have. Recovery is
+  therefore the same code path as saving, not a second one.
+- [ ] A promoted session must not be silently resumed as the active one: it is
+  saved and closed, and the client starts fresh or picks it with `/load`.
+  Resuming a crashed session automatically means a crash loop reopens the same
+  directory every boot.
+- [ ] Handle several `.live-*` directories at once — a crash, then another
+  crash — by promoting each in turn, oldest first. Startup must never assume
+  there is at most one.
+- [ ] Guard the promotion against a live session in another process: with Phase
+  11 a daemon and a REPL can both be running, and one process must not rename
+  the directory the other is appending to. The single-instance lock Phase 11
+  introduces is the eventual answer; until then, skip a `.live-*` directory
+  whose `events.edn` has been modified within the last few minutes.
+
+### Naming
+
+- [ ] Generate the session name from its content with a single LLM call
+  producing a short kebab-case slug plus a one-line title, prefixed with the
+  session's start timestamp for sortability:
+  `2026-09-04T14-32-sqlite-wal-and-write-locks`.
+- [ ] Fold naming into the extraction pass rather than adding a second LLM call.
+  Extraction (`pa.memory.extraction`) already reads the whole conversation at
+  exactly the moment a session ends and already produces a title and summary
+  for its ephemeral/journal record — naming is one more field in that response,
+  not a separate round trip.
+- [ ] Deterministic fallback when the LLM is unavailable or the conversation is
+  too short to name: timestamp plus the first few words of the opening user
+  message. A session must always end up saved; naming failure degrades the
+  name, never the durability.
+- [ ] Collision handling on rename — same slug, same minute — and slug
+  sanitation (length cap, filesystem-safe characters, no leading dot, which
+  would collide with the provisional prefix).
+
+### Commands
+
+- [ ] `/save [name]` — end the current session's provisional state and rename it
+  now, with an optional explicit name overriding generation. The session stays
+  active and keeps appending afterwards; `/save` is a checkpoint, not a close.
+- [ ] `/load` — open the Phase 7 selector overlay over saved sessions, reusing
+  `pa.ui.selector.state` through a new `pa.ui.selector.sources/session-source`
+  rather than forking the overlay, exactly as MCP resources did in Phase 9.
+- [ ] `/load <name>` — non-interactive form, matching how the other commands
+  behave with an argument.
+- [ ] Loading a session: save the current one first, replay the target's
+  `events.edn` through `pa.runtime.replay/replay` into `:conversation`, and
+  switch `:storage/events` to append there. New events extend the loaded
+  session — resuming, not copying.
+- [ ] `/sessions` — list saved sessions with title, date, and message count,
+  straight from the `session.edn` sidecars.
+- [ ] `/new` — end the current session and start a fresh one without leaving the
+  client, since after `/load` there is otherwise no way back to a blank slate.
+
+### Session lifecycle & extraction
+
+- [ ] Save on quit: the existing quit path (`:app/quit-requested` →
+  `:extraction/run` with `:quit? true`) becomes the natural place to finalize —
+  extraction and naming are the same pass, and the rename happens on its
+  completion.
+- [ ] Keep the double-run guard: `/save` followed by quit must not extract
+  twice, and a session already named is renamed only if its name was
+  provisional.
+- [ ] Make extraction session-scoped rather than process-scoped: it reads the
+  active session's events, not `:events/recent` or a global log. This is the
+  item Phase 11 was going to approximate with a debounce, resolved here instead.
+- [ ] Add session provenance to extracted memories: `pa.memory.records` has no
+  source field today, so a memory cannot be traced back to the conversation it
+  came from. Add `:memory/session-id` and write it through the extraction path
+  into the SQLite index (`pa.db.schema`, `pa.db.memory`), so "why does it
+  believe this?" has an answer.
+
+### Runtime state
+
+- [ ] Add `:session/current` to `pa.state.db/initial-db` — id, title, path, and
+  whether it is still provisional — with transitions in
+  `pa.state.transitions` and a query in `pa.state.queries`. The UI needs it for
+  the header, and Phase 11 needs it in the projected snapshot.
+- [ ] Show the active session in the TUI header (`pa.ui.view.layout`), beside
+  the model name. An unsaved session should look unsaved.
+
+### Tests
+
+- [ ] Layout round-trip: append into a provisional session, save it, and
+  `load-events` from the renamed directory returns the same events.
+- [ ] Lazy creation: connecting and dispatching non-user events creates no
+  directory; the first `:user/message` creates exactly one.
+- [ ] `session.edn` round-trip, including `Instant` fields surviving as they do
+  in `events.edn`.
+- [ ] Naming: a fixture conversation produces a sanitized, timestamp-prefixed
+  slug; an LLM failure falls back deterministically and still saves; a slug
+  collision resolves without overwriting.
+- [ ] `/load` replays the target session into `:conversation` and subsequent
+  events append to that session's log, not the previous one.
+- [ ] `/load` saves the outgoing session first — no events are stranded in a
+  provisional directory by switching away.
+- [ ] Extraction is session-scoped: two sessions in one process extract
+  separately, and neither sees the other's events.
+- [ ] Memory provenance: an extracted memory carries `:memory/session-id` and
+  the SQLite row round-trips it.
+- [ ] Scheduler events touch no session log: with a session active, firing a
+  reminder and advancing a task leave its `events.edn` byte-identical; with no
+  session active, both still work and create no directory.
+- [ ] Crash recovery: a `.live-*` directory left behind is promoted to a named
+  session on startup, using the same naming path a clean quit uses; two of them
+  are promoted oldest-first; and a promoted session is not resumed as active.
+- [ ] Recovery skips a `.live-*` directory whose `events.edn` was modified
+  moments ago, so a second process does not rename a session another process is
+  still writing.
+- [ ] Naming shapes are unambiguous: a provisional directory never matches the
+  saved pattern and a saved one never matches the provisional pattern.
+- [ ] Quit path: quitting saves and names the session exactly once, and a
+  `/save` immediately before quit does not produce a second extraction.
+
+---
+
+## Phase 11 — Core/UI Split (Daemon + Wire Protocol)
 
 Goal: Separate the core from the terminal UI so several UIs — the existing TUI
 now, a desktop and a mobile client later — attach over a wire protocol to one
@@ -1801,12 +2027,15 @@ through a socket afterwards.
 - [ ] Restore `:conversation` at startup and bound it in memory. `initial-db`
   starts it empty and dispatcher init replays only history, identity and
   settings — correct while a process *is* a session, silently amnesiac once
-  clients come and go against a core that occasionally restarts.
-  `pa.runtime.replay/replay` over `pa.storage.events/load-events` already
-  reconstructs it; do that on start. The in-memory bound is a separate question
-  from the wire-size one below — this is the collection that grows with ordinary
-  use over a month-long process, and the durable copy on disk is exactly what
-  makes dropping the head safe.
+  clients come and go against a core that occasionally restarts. Phase 10
+  narrows what "restore" means: replay the *active* session's log rather than
+  one global one, and decide what a core restarting with no active session
+  shows a client — the last saved session, or an empty conversation waiting on
+  a first message. `pa.runtime.replay/replay` over
+  `pa.storage.events/load-events` already reconstructs either; do that on start.
+  The in-memory bound is a separate question from the wire-size one below — this
+  is the collection that grows with ordinary use over a month-long process, and
+  the durable copy on disk is exactly what makes dropping the head safe.
 - [ ] Audit the scheduler for session-start assumptions: `ig/init-key` fires
   overdue jobs on the premise that startup is rare. In a process that starts
   once a month, "catch-up on init" and the 24h/7d heartbeat cadence need to be
@@ -1850,7 +2079,13 @@ through a socket afterwards.
 - [ ] Decide the growth policy for `:conversation` on the wire: a long session
   eventually makes every snapshot large regardless of projection. Either window
   it (client requests a range via an op) or accept full sends until measured
-  otherwise — but decide it deliberately rather than discovering it.
+  otherwise — but decide it deliberately rather than discovering it. Phase 10
+  helps here without settling it: a session is a bounded unit that ends and is
+  replaced, so the runaway case is a single very long session rather than a
+  month of accumulated conversation.
+- [ ] Add `:session/current` to the projected snapshot, and push a state update
+  on `/load` — switching sessions replaces the conversation wholesale, and every
+  attached client has to follow rather than keep rendering the old one.
 
 ### Fan-out
 
@@ -1953,7 +2188,9 @@ Four message kinds over one connection:
 - [ ] Verify SQLite WAL (enabled in Phase 6) and the `events.edn` write lock
   (`pa.storage.events` locks in-process only) actually hold when a REPL and the
   daemon are both live — the two-process case Phase 6 anticipated but never
-  exercised.
+  exercised. Phase 10's per-session logs shrink but do not remove the exposure:
+  two processes usually write to different session directories, and collide
+  exactly when both have the same session active.
 
 ### Process launch & lifecycle
 
@@ -2019,17 +2256,24 @@ described under Wire protocol.
 
 - [ ] `/quit` and `Ctrl-C` in a client mean *detach*: the connection closes and
   the core keeps running. Shutdown is `ada stop` (or `launchctl`) only.
-- [ ] That leaves extraction with no trigger — it hung off process exit, and a
-  daemon has no session end. Run it on last-client-detach behind a debounce (a
-  reconnect within a few minutes cancels the pending run), keep the double-run
-  guard (now core-private, per Runtime state shape), and force a run on
-  `ada stop`. The
-  debounced path has to be correct with no client ever attached, since the
-  scheduler can advance the conversation with nobody connected.
-- [ ] Decide what "session" means for extraction once it is no longer "the
-  lifetime of a process". The debounce window is a proxy; if it proves wrong,
-  the fallback is an explicit `/extract` command plus an age threshold on the
-  unextracted tail.
+- [ ] That leaves extraction with no *automatic* trigger — it hung off process
+  exit, and a daemon has no process end. It does have a session end, which is
+  what Phase 10 buys: extraction is already session-scoped and already runs on
+  `/save` and on session close. What remains is deciding whether last-client-
+  detach should close the active session at all, or leave it open for the next
+  client to resume. If it should, run the close behind a debounce (a reconnect
+  within a few minutes cancels the pending run), keep the double-run guard (now
+  core-private, per Runtime state shape), and force a close on `ada stop`. The
+  debounced path has to be correct with no client ever attached — not because
+  the scheduler advances the conversation, which Phase 10 established it does
+  not, but because a core that boots, promotes a crashed session, and is never
+  connected to must still end up in a consistent state.
+- [ ] Decide what `/load` and `/save` mean with two clients attached. Phase 10
+  builds them single-client, where "swap the active session" is unambiguous;
+  with N clients it is one client silently replacing everyone's conversation.
+  Either that is accepted and broadcast loudly, or session switching becomes an
+  op that requires the others to follow — but it stops being a local action the
+  moment there is a second viewer.
 
 ### Module split
 
@@ -2090,7 +2334,7 @@ described under Wire protocol.
 
 ---
 
-## Phase 11 — Personality & Long-Term Evolution
+## Phase 12 — Personality & Long-Term Evolution
 
 Goal: Evolve the assistant into a durable long-term system.
 
