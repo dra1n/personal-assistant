@@ -4,7 +4,6 @@
   arrives as :mcp/mentions-resolved and carries the turn onward."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
-            [pa.llm.prompt :as prompt]
             [pa.runtime.coeffects :as coeffects]
             [pa.runtime.executor :as executor]
             [pa.runtime.handlers]                 ; registers the handlers
@@ -119,7 +118,7 @@
     (testing "the attachment rides alongside the turn; its text is untouched"
       (let [turn (last (:conversation (:db fx)))]
         (is (= "read @everything:demo://notes" (:content turn)))
-        (is (= "notes body" (:content (first (:attachments turn))))))) 
+        (is (= "notes body" (:content (first (:attachments turn)))))))
     (testing "and the turn continues to the model"
       (is (contains? fx :llm/invoke))
       (let [user-msg (last (get-in fx [:llm/invoke :messages]))]

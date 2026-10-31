@@ -3,7 +3,8 @@
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [next.jdbc :as jdbc]
-            [next.jdbc.result-set :as rs])
+            [next.jdbc.result-set :as rs]
+            [pa.spec :as spec])
   (:import [java.time Instant]))
 
 ;; ---------------------------------------------------------------------------
@@ -61,7 +62,7 @@
 (s/def :query/text  string?)
 (s/def :query/types (s/coll-of keyword? :kind set?))
 (s/def :query/limit pos-int?)
-(s/def ::query (s/keys :req [:query/text :query/limit] :opt [:query/types]))
+(s/def ::query (s/keys :req [:query/text] :opt [:query/limit :query/types]))
 
 ;; ---------------------------------------------------------------------------
 ;; Queries
@@ -139,8 +140,9 @@
 
 (defn retrieve
   "Combined recency + keyword retrieval with relevance decay scoring.
-  Query: {:query/text <string> :query/limit <int> :query/types <keyword-set, optional>}"
-  [ds {:query/keys [text types limit] :or {limit 10}}]
+  Query: {:query/text <string> :query/limit <int, default 10> :query/types <keyword-set, optional>}"
+  [ds {:query/keys [text types limit] :or {limit 10} :as query}]
+  {:pre [(spec/validate! ::query query)]}
   (let [headroom (* limit 3)
         kw-recs  (if (seq text) (by-keyword ds text headroom) [])
         kw-ids   (set (map :memory/id kw-recs))

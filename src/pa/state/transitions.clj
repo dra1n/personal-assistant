@@ -40,15 +40,20 @@
   [db]
   (assoc db :conversation []))
 
+;; Not called yet; drop the ignore once they are.
+#_{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn set-ui [db ui-map]
   (assoc db :ui ui-map))
 
+#_{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn update-ui [db f & args]
   (apply update db :ui f args))
 
+#_{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn set-task [db id value]
   (assoc-in db [:tasks id] value))
 
+#_{:clj-kondo/ignore [:clojure-lsp/unused-public-var]}
 (defn remove-task [db id]
   (update db :tasks dissoc id))
 

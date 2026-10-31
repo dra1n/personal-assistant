@@ -1,5 +1,6 @@
 (ns pa.scheduler.tasks-test
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [pa.scheduler.tasks :as tasks]))
 
@@ -99,7 +100,7 @@
       (tasks/write-task! *tmp-root* task)
       (tasks/complete-task! *tmp-root* task)
       (let [done-file (io/file *tmp-root* "tasks" "completed" (str (:task/id task) ".edn"))
-            archived  (clojure.edn/read-string (slurp done-file))]
+            archived  (edn/read-string (slurp done-file))]
         (is (>= (:task/completed-at archived) before))))))
 
 ;; ---------------------------------------------------------------------------

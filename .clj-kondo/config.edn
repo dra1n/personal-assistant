@@ -1,0 +1,11 @@
+{:lint-as {pa.tools.mcp.client-test/with-server  clojure.core/let
+           ;; Lets clojure-lsp see defspec vars as tests, not unused public vars.
+           clojure.test.check.clojure-test/defspec clojure.test/deftest}
+
+ ;; The test's `conn` is a bare stub ({:name ...}) and client/read-resource is
+ ;; with-redef'd, but kondo infers the real connection's required keys through
+ ;; to the call sites.
+ ;; kondo can't see clojure-lsp's linters, so it would flag their ignores as redundant.
+ :linters {:redundant-ignore {:exclude [:clojure-lsp/unused-public-var]}}
+
+ :config-in-ns {pa.tools.mcp-test {:linters {:type-mismatch {:level :off}}}}}

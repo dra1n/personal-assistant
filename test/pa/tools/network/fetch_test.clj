@@ -104,12 +104,12 @@
 (deftest fetch-page-throws-on-ssrf-blocked
   (testing "blocked SSRF check throws ex-info with :type :tool/ssrf-blocked"
     (let [blocking-check (constantly "Blocked: private IP")
-          ctx            {:http (fake-http fixture-html) :ssrf-check blocking-check :dispatch! (fn [_])}]
-      (let [e (try (fetch/fetch-page {:url "http://192.168.1.1/"} ctx)
-                   nil
-                   (catch clojure.lang.ExceptionInfo ex ex))]
-        (is (some? e))
-        (is (= :tool/ssrf-blocked (:type (ex-data e))))))))
+          ctx            {:http (fake-http fixture-html) :ssrf-check blocking-check :dispatch! (fn [_])}
+          e              (try (fetch/fetch-page {:url "http://192.168.1.1/"} ctx)
+                              nil
+                              (catch clojure.lang.ExceptionInfo ex ex))]
+      (is (some? e))
+      (is (= :tool/ssrf-blocked (:type (ex-data e)))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Registry integration

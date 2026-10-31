@@ -258,6 +258,18 @@
       (index-with-age! (make-record {:memory/title (str "item-" i) :memory/summary "content"}) i))
     (is (= 3 (count (db-memory/retrieve *ds* {:query/text "" :query/limit 3}))))))
 
+(deftest retrieve-defaults-limit-to-10
+  (dotimes [i 12]
+    (index-with-age! (make-record {:memory/title (str "item-" i) :memory/summary "content"}) i))
+  (is (= 10 (count (db-memory/retrieve *ds* {:query/text ""})))))
+
+(deftest retrieve-rejects-a-malformed-query
+  (testing "a bad query fails loudly instead of quietly returning nothing"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (db-memory/retrieve *ds* {:query/text "x" :query/limit 0})))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (db-memory/retrieve *ds* {:query/limit 5})))))
+
 (deftest retrieve-filters-by-type
   (testing ":query/types filters the result set"
     (index-with-age! (make-record {:memory/type :episodic :memory/title "ep"   :memory/summary "x"}) 1)

@@ -1,7 +1,8 @@
 .claude/
 .cpcache/
 .lsp/
-.clj-kondo/
+.clj-kondo/*
+!.clj-kondo/config.edn
 .calva/
 .portal/
 .playwright-mcp/
